@@ -8,7 +8,6 @@ import { Banner } from '@/components/home/Banner';
 import { BestSellers } from '@/components/home/BestSellers';
 import { Features } from '@/components/home/Features';
 import { LovedByThousands } from '@/components/home/LovedByThousands';
-import { Journal } from '@/components/home/Journal';
 import { Instagram } from '@/components/home/Instagram';
 import { Newsletter } from '@/components/home/Newsletter';
 import { Footer } from '@/components/layout/Footer';
@@ -26,7 +25,6 @@ export default function Home() {
       <BestSellers />
       <Features />
       <LovedByThousands />
-      <Journal />
       <Instagram />
       <Newsletter />
       <Footer />
