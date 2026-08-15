@@ -7,7 +7,7 @@ export const Journal = () => {
     <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto border-b border-neutral-200">
       <div className="flex justify-between items-end mb-12">
         <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-          <h2 className="text-3xl md:text-4xl font-semibold mb-3 tracking-tight">From the Journal</h2>
+          <h2 className="text-3xl md:text-4xl font-semibold mb-3 tracking-tight">Journal</h2>
           <p className="text-neutral-500 text-sm">Insights, ideas, and inspiration</p>
         </motion.div>
         <a href="#" className="text-sm font-medium underline underline-offset-4 hover:text-neutral-500 transition-colors">See All</a>
