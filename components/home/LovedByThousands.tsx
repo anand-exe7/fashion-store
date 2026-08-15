@@ -16,14 +16,15 @@ export const LovedByThousands = () => {
   const marqueeImages = [...images, ...images];
 
   return (
-    <section className="py-24 bg-neutral-100 text-center overflow-hidden">
+    <section className="py-24 bg-white text-center overflow-hidden">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
       >
-        <h2 className="text-3xl md:text-4xl font-semibold mb-4 tracking-tight">Loved by Thousands</h2>
-        <p className="text-neutral-500 mb-12 text-sm md:text-base">Join our community of happy customers</p>
+        <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2 block">Our Community</span>
+        <h2 className="text-4xl md:text-6xl font-bold mb-6 tracking-tighter uppercase leading-[0.85]">Loved by Thousands</h2>
+        <p className="text-neutral-500 mb-16 text-sm font-semibold tracking-widest uppercase">Join our community of happy customers</p>
       </motion.div>
       
       <div className="w-full overflow-hidden flex relative">

@@ -40,7 +40,7 @@ export const Navbar = () => {
               <path d="M12 2L2 22h20L12 2z" fill="currentColor"/>
             </svg>
           </div>
-          <span className="font-bold tracking-widest text-lg ml-1 hidden sm:block">APEX</span>
+          <span className="font-bold tracking-widest text-lg ml-1 hidden sm:block">SHALISTONE</span>
         </a>
         
         <div className="hidden lg:flex items-center gap-8 text-[11px] font-semibold tracking-[0.2em] uppercase">
@@ -58,7 +58,7 @@ export const Navbar = () => {
 
         <div className="flex items-center gap-5">
           <button className="transition-colors hover:scale-110 transform duration-300 hover:text-black text-neutral-500"><Search className="w-4 h-4" strokeWidth={2} /></button>
-          <a href="/login" className="transition-colors hover:scale-110 transform duration-300 hidden sm:block hover:text-black text-neutral-500"><User className="w-4 h-4" strokeWidth={2} /></a>
+          <a href="/profile" className="transition-colors hover:scale-110 transform duration-300 hidden sm:block hover:text-black text-neutral-500"><User className="w-4 h-4" strokeWidth={2} /></a>
           <a href="/cart" className="relative group transition-colors hover:scale-110 transform duration-300 block hover:text-black text-neutral-500">
             <ShoppingCart className="w-4 h-4" strokeWidth={2} />
             <span className="absolute -top-2 -right-2 text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full transition-colors bg-black text-white group-hover:bg-neutral-800">3</span>

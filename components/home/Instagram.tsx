@@ -13,9 +13,12 @@ export const Instagram = () => {
 
   return (
     <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto text-center">
-      <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+      <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="flex flex-col items-center">
         <h2 className="text-3xl font-semibold mb-3 tracking-tight">Follow us on Instagram</h2>
-        <p className="text-neutral-500 mb-12 text-sm font-medium">@ecom_fashion_official</p>
+        <p className="text-neutral-500 mb-6 text-sm font-medium">@shalistone_official</p>
+        <a href="https://instagram.com" target="_blank" rel="noreferrer" className="mb-12 inline-flex items-center justify-center bg-black text-white px-8 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all shadow-md hover:shadow-lg active:scale-95">
+          Open Instagram
+        </a>
       </motion.div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {images.map((img, i) => (
