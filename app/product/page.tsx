@@ -154,7 +154,7 @@ export default function ProductPage() {
                 <div className="mb-10 w-full max-w-sm">
                   <div className="flex justify-between mb-3">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Size</span>
-                    <a href="#" className="text-[10px] text-neutral-800 uppercase tracking-widest underline underline-offset-4 opacity-70 hover:opacity-100 transition-opacity">Size Guide</a>
+                    <a href="#" onClick={(e) => e.preventDefault()} className="text-[10px] text-neutral-800 uppercase tracking-widest underline underline-offset-4 opacity-70 hover:opacity-100 transition-opacity">Size Guide</a>
                   </div>
                   <div className="grid grid-cols-5 gap-2">
                     {['XS', 'S', 'M', 'L', 'XL'].map(size => (
@@ -170,7 +170,7 @@ export default function ProductPage() {
                 </div>
                 
                 {/* Actions */}
-                <div className="flex flex-col gap-4 mb-16 w-full max-w-sm">
+                <div className="flex flex-col gap-4 mb-8 w-full max-w-sm">
                   <div className="flex gap-4 h-14">
                     <div className="flex items-center justify-between border border-black/10 rounded-full px-4 w-32 bg-white/50 backdrop-blur-sm shadow-sm">
                       <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="p-2 hover:text-black transition-colors"><Minus className="w-3 h-3" /></button>
@@ -186,12 +186,23 @@ export default function ProductPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Delivery Information (Always Visible) */}
+                <div className="w-full max-w-sm bg-black/5 rounded-xl p-5 mb-10 border border-black/5">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-neutral-900 mb-3">Delivery & Returns</h4>
+                  <ul className="text-xs text-neutral-600 space-y-2 mb-3">
+                    <li className="flex items-start"><span className="mr-2 text-black">•</span> Express Delivery: 1-2 business days (₹500)</li>
+                    <li className="flex items-start"><span className="mr-2 text-black">•</span> Standard Delivery: 3-5 business days (Free over ₹20,000)</li>
+                    <li className="flex items-start"><span className="mr-2 text-black">•</span> International Delivery: 7-10 business days</li>
+                  </ul>
+                  <p className="text-xs text-neutral-500 pt-3 border-t border-black/10">
+                    Returns are accepted within 30 days of delivery. Items must be unworn and in original condition.
+                  </p>
+                </div>
                 
-                {/* Accordions */}
                 <div className="border-t border-black/10 divide-y divide-black/10 w-full max-w-sm">
                   {[
                     { id: 'details', title: 'Product Details', content: 'Designed in Paris. 100% Gabardine. Oversized structural fit. Dry clean only. Do not tumble dry. Unlined interior for fluidity.' },
-                    { id: 'shipping', title: 'Shipping & Returns', content: 'Free standard shipping on all orders over $200. Express shipping available at checkout. 30-day return policy worldwide.' },
                     { id: 'sustainability', title: 'Sustainability', content: 'Crafted using recycled water and eco-friendly dyes. We are committed to a zero-carbon footprint by 2030.' }
                   ].map(item => (
                     <div key={item.id} className="py-5">
@@ -207,7 +218,7 @@ export default function ProductPage() {
                         animate={{ height: activeAccordion === item.id ? 'auto' : 0, opacity: activeAccordion === item.id ? 1 : 0 }}
                         className="overflow-hidden"
                       >
-                        <p className="pt-4 text-xs text-neutral-500 leading-relaxed">{item.content}</p>
+                        <p className="pt-4 text-xs text-neutral-500 leading-relaxed whitespace-pre-wrap">{item.content}</p>
                       </motion.div>
                     </div>
                   ))}
@@ -224,7 +235,7 @@ export default function ProductPage() {
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 relative z-10">
           <div className="flex justify-between items-end mb-12">
             <h2 className="text-3xl md:text-5xl font-bold tracking-tighter">COMPLETE<br/>THE LOOK</h2>
-            <a href="#" className="text-[10px] uppercase tracking-widest underline underline-offset-4 hidden sm:block hover:text-neutral-500 transition-colors">View Collection &rarr;</a>
+            <a href="#" onClick={(e) => e.preventDefault()} className="text-[10px] uppercase tracking-widest underline underline-offset-4 hidden sm:block hover:text-neutral-500 transition-colors">View Collection &rarr;</a>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
@@ -241,6 +252,7 @@ export default function ProductPage() {
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ delay: i * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 className="group cursor-pointer flex flex-col"
+                onClick={() => window.location.href = '/product'}
               >
                 <div className="aspect-[3/4] bg-white/50 rounded-xl mb-5 overflow-hidden relative border border-black/5 shadow-sm group-hover:shadow-lg transition-shadow duration-500">
                   <img src={prod.img} alt={prod.name} className="w-full h-full object-cover group-hover:scale-105 opacity-90 group-hover:opacity-100 transition-all duration-1000 ease-out" />
