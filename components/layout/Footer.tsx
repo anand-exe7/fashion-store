@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 export const Footer = () => {
   return (
     <footer className="bg-neutral-950 text-white pt-24 pb-12 px-6 md:px-12">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 mb-20 border-b border-neutral-800 pb-20">
+      <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 mb-16 border-b border-neutral-800 pb-16">
         <div>
            <h4 className="font-semibold mb-8 text-lg">Shop</h4>
            <ul className="space-y-4 text-sm text-neutral-400 font-medium">
@@ -52,12 +52,12 @@ export const Footer = () => {
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 1, ease: "easeOut" }}
-          className="text-[14vw] font-bold leading-none tracking-tighter mb-12 opacity-90 flex items-center justify-center select-none"
+          className="text-[12vw] sm:text-[10vw] md:text-[9vw] lg:text-[8vw] font-bold leading-none tracking-tighter mb-12 opacity-90 flex items-center justify-center select-none w-full"
         >
-          ECOM <span className="text-[10vw] ml-4 text-neutral-600 hover:rotate-90 transition-transform duration-700">*</span>
+          SHALISTONE <span className="text-[8vw] sm:text-[7vw] md:text-[6vw] lg:text-[5vw] ml-2 md:ml-4 text-neutral-600 hover:rotate-90 transition-transform duration-700">*</span>
         </motion.div>
         <div className="flex flex-col md:flex-row justify-between w-full text-xs text-neutral-500 pt-8 font-medium">
-          <p>© 2024 ECOM Fashion. All rights reserved.</p>
+          <p>© 2024 Shalistone. All rights reserved.</p>
           <div className="flex gap-6 mt-4 md:mt-0">
             <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-white transition-colors">Terms of Service</a>

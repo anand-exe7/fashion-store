@@ -1,44 +1,82 @@
 'use client';
-import { ProductCard } from '../ui/ProductCard';
 import { motion } from 'framer-motion';
+import { ArrowRight } from 'lucide-react';
 
 export const SeasonalDrop = () => {
-  const products = [
-    { title: "Puffer Jacket", category: "Men's Outerwear", price: "150.00", discount: "-15%", image: "https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=800&auto=format&fit=crop" },
-    { title: "Knit Sweater", category: "Women's Apparel", price: "95.00", isNew: true, image: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=800&auto=format&fit=crop" },
-    { title: "Kids Puffer", category: "Kids' Outerwear", price: "75.00", image: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?q=80&w=800&auto=format&fit=crop" },
-    { title: "Kids Sweater", category: "Kids' Apparel", price: "55.00", image: "https://images.unsplash.com/photo-1519689680058-324335c77eba?q=80&w=800&auto=format&fit=crop" }
-  ];
-
   return (
-    <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Large Left Tile */}
+    <section className="py-32 px-6 md:px-12 max-w-7xl mx-auto border-t border-black/10">
+      <div className="flex flex-col md:flex-row items-center justify-between mb-16 gap-6">
+        <div>
+          <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2 block">Autumn / Winter</span>
+          <h2 className="text-5xl md:text-7xl font-bold tracking-tighter uppercase leading-[0.85]">
+            Seasonal<br/>Drop
+          </h2>
+        </div>
+        <a href="/products" className="group flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-neutral-500 hover:text-black transition-colors border border-black/10 hover:border-black/30 px-6 py-3 rounded-full">
+          Shop The Edit
+          <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+        </a>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+        {/* Large Feature Image */}
         <motion.div 
-          initial={{ opacity: 0, x: -50 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="lg:col-span-1 relative bg-neutral-800 rounded-3xl overflow-hidden h-full flex p-8 items-start group shadow-2xl"
+          className="lg:col-span-8 relative aspect-[4/3] md:aspect-[16/10] bg-neutral-100 rounded-2xl overflow-hidden group shadow-md"
         >
-           <img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1000&auto=format&fit=crop" alt="Seasonal" className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 opacity-90" />
-           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/10 to-transparent z-0" />
-           
-           <div className="relative z-10 w-full flex justify-between items-start">
-             <h2 className="text-white text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight drop-shadow-xl font-sans">
-               Seasonal<br/>Drop
-             </h2>
-             <button className="bg-white text-black px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest hover:bg-neutral-200 hover:scale-105 transition-all shadow-xl active:scale-95">
-               Shop
-             </button>
-           </div>
+          <img 
+            src="https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1200&auto=format&fit=crop" 
+            alt="Seasonal Drop" 
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-105" 
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="absolute bottom-8 left-8 right-8 flex justify-between items-end opacity-0 group-hover:opacity-100 transition-opacity duration-500 translate-y-4 group-hover:translate-y-0 text-white">
+            <div>
+              <h3 className="text-2xl font-serif italic mb-1">The Trench Coat</h3>
+              <p className="text-[10px] uppercase tracking-[0.2em] font-bold">Outerwear Collection</p>
+            </div>
+            <p className="text-lg font-bold">₹34,000</p>
+          </div>
         </motion.div>
-        
-        {/* Right Grid */}
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-8">
-          {products.map((p, i) => (
-            <ProductCard key={i} {...p} delay={i * 0.15} />
-          ))}
+
+        {/* Small Side Images */}
+        <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-8">
+          <motion.div 
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="flex-1 relative aspect-square bg-neutral-100 rounded-2xl overflow-hidden group shadow-md cursor-pointer"
+            onClick={() => window.location.href = '/products'}
+          >
+            <img 
+              src="https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=800&auto=format&fit=crop" 
+              alt="Seasonal Look 2" 
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-105" 
+            />
+            <div className="absolute top-4 left-4">
+              <span className="px-3 py-1 bg-white/90 backdrop-blur-md text-[9px] font-bold uppercase tracking-widest text-black rounded shadow-sm">Just In</span>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="flex-1 relative aspect-[4/5] sm:aspect-square lg:aspect-[4/5] bg-neutral-100 rounded-2xl overflow-hidden group shadow-md cursor-pointer"
+            onClick={() => window.location.href = '/products'}
+          >
+            <img 
+              src="https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=800&auto=format&fit=crop" 
+              alt="Seasonal Look 3" 
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-105" 
+            />
+            <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors duration-500" />
+          </motion.div>
         </div>
       </div>
     </section>
