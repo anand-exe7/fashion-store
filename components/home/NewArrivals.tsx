@@ -21,9 +21,12 @@ export const NewArrivals = () => {
 
   return (
     <section className="py-32 px-6 md:px-12 max-w-7xl mx-auto">
-      <div className="flex justify-between items-end mb-16">
-        <h2 className="text-4xl md:text-5xl font-semibold tracking-tight">New Arrivals is here</h2>
-        <a href="#" className="text-sm font-bold uppercase tracking-widest underline underline-offset-8 hover:text-neutral-500 transition-colors">See All</a>
+      <div className="flex flex-col mb-20">
+        <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2">Curated Selection</span>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 md:gap-0">
+          <h2 className="text-6xl md:text-8xl font-bold tracking-tighter uppercase leading-[0.85]">New<br/>Arrivals</h2>
+          <a href="/products" className="text-[10px] font-bold uppercase tracking-widest underline underline-offset-8 hover:text-neutral-500 transition-colors">Discover All</a>
+        </div>
       </div>
       <motion.div 
         variants={containerVariants}

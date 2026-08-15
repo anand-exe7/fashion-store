@@ -23,11 +23,12 @@ export const BestSellers = () => {
   return (
     <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto">
       <div className="flex flex-col items-center mb-16">
+        <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2">Our Signatures</span>
         <motion.h2 
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-4xl md:text-5xl font-semibold mb-10 tracking-tight"
+          className="text-5xl md:text-7xl font-bold mb-12 tracking-tighter uppercase leading-[0.85] text-center"
         >
           Best Sellers
         </motion.h2>
