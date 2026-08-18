@@ -1,12 +1,34 @@
 'use client';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useAnimationFrame } from 'framer-motion';
+import { useRef, useState } from 'react';
+
+const SPEED = 40; // px per second
 
 export const Marquee = () => {
+  const x = useMotionValue(0);
+  const [paused, setPaused] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const halfWidthRef = useRef(0);
+
+  useAnimationFrame((_, delta) => {
+    if (paused || !trackRef.current) return;
+    if (!halfWidthRef.current) {
+      halfWidthRef.current = trackRef.current.scrollWidth / 2;
+    }
+    let next = x.get() - (SPEED * delta) / 1000;
+    if (next <= -halfWidthRef.current) next += halfWidthRef.current;
+    x.set(next);
+  });
+
   return (
-    <section className="py-8 border-y border-neutral-200 overflow-hidden flex whitespace-nowrap bg-neutral-50 relative">
-      <motion.div 
-        animate={{ x: ["0%", "-50%"] }}
-        transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
+    <section
+      className="py-8 border-y border-neutral-200 overflow-hidden flex whitespace-nowrap bg-neutral-50 relative"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      <motion.div
+        ref={trackRef}
+        style={{ x }}
         className="flex gap-12 items-center font-bold text-3xl md:text-4xl tracking-wider text-black w-max"
       >
         {/* Duplicate the items to make the scrolling seamless */}

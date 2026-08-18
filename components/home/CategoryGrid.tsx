@@ -1,6 +1,7 @@
 'use client';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import { RevealText } from '../ui/RevealText';
 
 export const CategoryGrid = () => {
   const categories = [
@@ -34,9 +35,7 @@ export const CategoryGrid = () => {
     <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto">
       <div className="flex flex-col mb-16">
         <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2">Curated Wardrobe</span>
-        <h2 className="text-5xl md:text-7xl font-bold tracking-tighter uppercase leading-[0.85]">
-          Shop By<br/>Category
-        </h2>
+        <RevealText as="h2" text={"Shop By\nCategory"} className="text-5xl md:text-7xl font-bold tracking-tighter uppercase leading-[0.85]" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
