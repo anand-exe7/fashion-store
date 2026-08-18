@@ -1,5 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
+import { RevealText } from '../ui/RevealText';
 
 export const Newsletter = () => {
   return (
@@ -13,7 +14,7 @@ export const Newsletter = () => {
       >
         <div className="w-full md:w-1/3 p-8 md:p-12 flex flex-col justify-center bg-white z-10">
           <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-400 mb-4 block">Visit Us</span>
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tighter leading-[0.9] uppercase">Our<br/>Location</h2>
+          <RevealText as="h2" text={"Our\nLocation"} className="text-4xl md:text-5xl font-bold mb-6 tracking-tighter leading-[0.9] uppercase" />
           <p className="text-neutral-500 mb-8 text-xs md:text-sm tracking-widest uppercase font-medium leading-relaxed">
             Experience Shalistone in person. Visit our flagship studio to explore the collections, meet our stylists, and discover exclusive pieces.
           </p>

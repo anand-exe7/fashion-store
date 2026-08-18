@@ -1,6 +1,8 @@
 'use client';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import { RevealText } from '../ui/RevealText';
+import { Magnetic } from '../ui/Magnetic';
 
 export const SeasonalDrop = () => {
   return (
@@ -8,14 +10,14 @@ export const SeasonalDrop = () => {
       <div className="flex flex-col md:flex-row items-center justify-between mb-16 gap-6">
         <div>
           <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2 block">Autumn / Winter</span>
-          <h2 className="text-5xl md:text-7xl font-bold tracking-tighter uppercase leading-[0.85]">
-            Seasonal<br/>Drop
-          </h2>
+          <RevealText as="h2" text={"Seasonal\nDrop"} className="text-5xl md:text-7xl font-bold tracking-tighter uppercase leading-[0.85]" />
         </div>
-        <a href="/products" className="group flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-neutral-500 hover:text-black transition-colors border border-black/10 hover:border-black/30 px-6 py-3 rounded-full">
-          Shop The Edit
-          <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-        </a>
+        <Magnetic strength={0.3}>
+          <a href="/products" className="group flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-neutral-500 hover:text-black transition-colors border border-black/10 hover:border-black/30 px-6 py-3 rounded-full">
+            Shop The Edit
+            <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+          </a>
+        </Magnetic>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">

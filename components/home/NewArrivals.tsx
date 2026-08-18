@@ -1,5 +1,6 @@
 'use client';
 import { ProductCard } from '../ui/ProductCard';
+import { RevealText } from '../ui/RevealText';
 import { motion } from 'framer-motion';
 
 const containerVariants = {
@@ -24,7 +25,7 @@ export const NewArrivals = () => {
       <div className="flex flex-col mb-20">
         <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2">Curated Selection</span>
         <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 md:gap-0">
-          <h2 className="text-6xl md:text-8xl font-bold tracking-tighter uppercase leading-[0.85]">New<br/>Arrivals</h2>
+          <RevealText as="h2" text={"New\nArrivals"} className="text-6xl md:text-8xl font-bold tracking-tighter uppercase leading-[0.85]" />
           <a href="/products" className="text-[10px] font-bold uppercase tracking-widest underline underline-offset-8 hover:text-neutral-500 transition-colors">Discover All</a>
         </div>
       </div>
