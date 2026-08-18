@@ -1,197 +1,302 @@
 'use client';
+import { useState, useRef, useEffect } from 'react';
 import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
+import { Magnetic } from '../ui/Magnetic';
+
+const HEADLINE_FONT = "'Arial Black', 'Arial Bold', 'Helvetica Neue', Gadget, sans-serif";
+
+// Your transparent cutout lives in /public. Swap this file to change the figure.
+const FIGURE_PRIMARY = '/hero-figure-2.png';
+const FIGURE_FALLBACK =
+  'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=1200&auto=format&fit=crop';
+
+// Next section's background — the gradual blur fades into this for a seamless seam.
+const NEXT_BG = '#F5F2EB';
 
 export const Hero = () => {
   const { scrollY } = useScroll();
-  
-  // Mouse position tracking
+  const [figureSrc, setFigureSrc] = useState(FIGURE_PRIMARY);
+  const figureRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    const img = figureRef.current;
+    if (img && img.complete && img.naturalWidth === 0) setFigureSrc(FIGURE_FALLBACK);
+  }, []);
+
+  // Mouse parallax — only recomputes while the pointer moves, so it's idle-cheap.
+  // It's applied only to plain (unfiltered, unmasked) layers so the compositor
+  // can move them on the GPU without repainting.
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
-  
-  // Smooth spring physics for mouse
-  const springConfig = { damping: 25, stiffness: 150 };
-  const smoothMouseX = useSpring(mouseX, springConfig);
-  const smoothMouseY = useSpring(mouseY, springConfig);
+  const spring = { damping: 32, stiffness: 110 };
+  const sx = useSpring(mouseX, spring);
+  const sy = useSpring(mouseY, spring);
 
-  // Mouse Parallax Transforms
-  const mouseX1 = useTransform(smoothMouseX, [-1000, 1000], [-30, 30]);
-  const mouseY1 = useTransform(smoothMouseY, [-1000, 1000], [-30, 30]);
-  
-  const mouseX2 = useTransform(smoothMouseX, [-1000, 1000], [50, -50]);
-  const mouseY2 = useTransform(smoothMouseY, [-1000, 1000], [50, -50]);
-  
-  const mouseX3 = useTransform(smoothMouseX, [-1000, 1000], [-15, 15]);
-  const mouseY3 = useTransform(smoothMouseY, [-1000, 1000], [-15, 15]);
-  
-  const textMouseX = useTransform(smoothMouseX, [-1000, 1000], [-10, 10]);
-  const textMouseY = useTransform(smoothMouseY, [-1000, 1000], [-10, 10]);
+  const figX = useTransform(sx, [-1000, 1000], [-14, 14]);
+  const figY = useTransform(sy, [-1000, 1000], [-8, 8]);
+  const headX = useTransform(sx, [-1000, 1000], [8, -8]);
+  const wiseX = useTransform(sx, [-1000, 1000], [16, -16]);
 
-  // Scroll Parallax transforms
-  const y1 = useTransform(scrollY, [0, 1000], [0, 200]);
-  const y2 = useTransform(scrollY, [0, 1000], [0, -200]);
-  const y3 = useTransform(scrollY, [0, 1000], [0, 350]);
-  const y4 = useTransform(scrollY, [0, 1000], [0, -350]);
-  const y5 = useTransform(scrollY, [0, 1000], [0, 150]);
-  
-  const scale = useTransform(scrollY, [0, 800], [1, 1.2]);
-  const opacity = useTransform(scrollY, [0, 800], [1, 0]);
-  const bgY = useTransform(scrollY, [0, 1000], [0, 100]);
+  // Scroll parallax (translate + opacity only — compositor-friendly).
+  const figScrollY = useTransform(scrollY, [0, 800], [0, -55]);
+  const wiseScrollY = useTransform(scrollY, [0, 800], [0, 80]);
+  const headScrollY = useTransform(scrollY, [0, 800], [0, -90]);
+  const fade = useTransform(scrollY, [0, 550], [1, 0]);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const targetX = typeof window !== 'undefined' ? e.clientX - window.innerWidth / 2 : 0;
-    const targetY = typeof window !== 'undefined' ? e.clientY - window.innerHeight / 2 : 0;
-    mouseX.set(targetX);
-    mouseY.set(targetY);
+  const onMove = (e: React.MouseEvent) => {
+    if (typeof window === 'undefined') return;
+    mouseX.set(e.clientX - window.innerWidth / 2);
+    mouseY.set(e.clientY - window.innerHeight / 2);
   };
 
   return (
-    <section 
-      onMouseMove={handleMouseMove}
-      className="relative h-[100svh] w-full bg-[#F5F2EB] overflow-hidden flex items-center justify-center"
+    <section
+      onMouseMove={onMove}
+      className="relative h-[100svh] min-h-[600px] w-full overflow-hidden"
     >
-      {/* Noise Overlay */}
-      <div 
-        className="absolute inset-0 z-50 pointer-events-none opacity-[0.03] mix-blend-multiply"
-        style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }}
+      {/* Atmospheric gradient base */}
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          background:
+            'radial-gradient(130% 95% at 66% 6%, #e0eff1 0%, #e9ede9 40%, #efe8d9 74%, #ece2d0 100%)',
+        }}
+      />
+      {/* Soft studio spotlight behind the figure for depth */}
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          background:
+            'radial-gradient(46% 60% at 50% 46%, rgba(255,255,255,0.72), transparent 72%)',
+        }}
       />
 
-      {/* Full Screen Background Image with Parallax */}
+      {/* Technical grid with edge fade (static — no per-frame repaint) */}
+      <div
+        className="absolute -inset-8 z-0"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(30,42,46,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(30,42,46,0.045) 1px, transparent 1px)',
+          backgroundSize: '54px 54px',
+          maskImage: 'radial-gradient(120% 110% at 50% 42%, #000 35%, transparent 82%)',
+          WebkitMaskImage: 'radial-gradient(120% 110% at 50% 42%, #000 35%, transparent 82%)',
+        }}
+      />
+
+      {/* Fine static noise */}
+      <div
+        className="absolute inset-0 z-[6] pointer-events-none opacity-[0.035]"
+        style={{
+          backgroundImage:
+            'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")',
+        }}
+      />
+
+      {/* Giant SHALISTONE wordmark — sits BEHIND the figure for depth */}
       <motion.div
-        style={{ y: bgY }}
-        className="absolute inset-0 z-0"
+        style={{ y: wiseScrollY, x: wiseX, opacity: fade }}
+        className="absolute inset-x-0 bottom-[19%] md:bottom-[16%] z-10 flex justify-center pointer-events-none select-none"
       >
-        <motion.div
-          animate={{ scale: [1.05, 1.15, 1.05] }}
-          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
-          className="w-full h-full"
+        <span
+          className="font-black leading-none whitespace-nowrap"
+          style={{
+            fontFamily: HEADLINE_FONT,
+            fontSize: 'clamp(3.4rem, 13.5vw, 11.5rem)',
+            letterSpacing: '-0.045em',
+            color: '#d7c7a6',
+            textShadow: '0 2px 1px rgba(255,255,255,0.45), 0 12px 30px rgba(120,105,75,0.16)',
+          }}
         >
-          <img 
-            src="https://images.unsplash.com/photo-1586075010923-2dd4570fb338?q=80&w=2000&auto=format&fit=crop" 
-            alt="Beige Atmospheric Background" 
-            className="w-full h-full object-cover opacity-60 mix-blend-multiply"
+          SHALISTONE
+        </span>
+      </motion.div>
+
+      {/* Center figure — your transparent cutout (painted above the wordmark).
+          Parallax lives on the wrapper so the filtered <img> layer is only
+          translated by the compositor, never re-rasterised. */}
+      <motion.div
+        style={{ y: figScrollY }}
+        className="absolute left-1/2 bottom-0 z-20 h-[72vh] w-[92vw] max-w-[430px] -translate-x-1/2 pointer-events-none md:h-[93vh] md:w-[min(96vw,660px)] md:max-w-none"
+      >
+        <motion.div style={{ x: figX, y: figY }} className="relative h-full w-full will-change-transform">
+          {/* soft ground shadow anchors the figure */}
+          <div className="absolute inset-x-[24%] bottom-[2%] h-[7%] rounded-[50%] bg-black/25 blur-2xl" />
+          <img
+            ref={figureRef}
+            src={figureSrc}
+            alt="Shalistone editorial figure"
+            className="relative h-full w-full object-contain object-bottom"
+            onError={() => figureSrc !== FIGURE_FALLBACK && setFigureSrc(FIGURE_FALLBACK)}
+            style={{ filter: 'drop-shadow(0 20px 26px rgba(45,45,55,0.18))' }}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#F5F2EB]/60 via-transparent to-white" />
         </motion.div>
       </motion.div>
 
-      {/* Center Image */}
-      <motion.div 
-        style={{ scale, opacity, x: mouseX3, y: mouseY3 }}
-        className="absolute w-[80vw] md:w-[45vw] h-[60vh] md:h-[80vh] z-10 rounded-[3rem] md:rounded-full overflow-hidden shadow-2xl border border-black/5 opacity-90 md:opacity-100"
-      >
-        <img 
-          src="https://images.unsplash.com/photo-1550614000-4b95d4662d5f?q=80&w=2000&auto=format&fit=crop" 
-          alt="Main Fashion" 
-          className="w-full h-full object-cover object-top"
-        />
-        <div className="absolute inset-0 bg-black/5" />
-      </motion.div>
+      {/* ---------- Foreground editorial content ---------- */}
 
-      {/* 1. Floating Image Left (Parallax Wrapper) */}
-      <motion.div style={{ y: y1, x: mouseX1 }} className="absolute left-[-10%] md:left-[5%] top-[10%] md:top-[15%] w-[40vw] md:w-[25vw] max-w-[280px] aspect-[3/4] z-20">
-        <motion.div 
-          animate={{ y: [0, -30, 0], rotate: [0, 2, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="w-full h-full rounded-xl md:rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.15)] opacity-80 md:opacity-100"
-        >
-          <img src="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=800&auto=format&fit=crop" alt="Fashion 1" className="w-full h-full object-cover rounded-xl md:rounded-2xl" />
-        </motion.div>
-      </motion.div>
-
-      {/* 2. Floating Image Right (Parallax Wrapper) */}
-      <motion.div style={{ y: y2, x: mouseX2 }} className="absolute right-[-10%] md:right-[5%] bottom-[15%] w-[35vw] md:w-[22vw] max-w-[250px] aspect-[4/5] z-20">
-        <motion.div 
-          animate={{ y: [0, 40, 0], rotate: [0, -2, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-          className="w-full h-full rounded-xl md:rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.15)] opacity-80 md:opacity-100"
-        >
-          <img src="https://images.unsplash.com/photo-1495385794356-15371f348c31?q=80&w=800&auto=format&fit=crop" alt="Fashion 2" className="w-full h-full object-cover rounded-xl md:rounded-2xl" />
-        </motion.div>
-      </motion.div>
-
-      {/* 3. Extra Image Top Right (Parallax Wrapper) */}
-      <motion.div style={{ y: y3, x: mouseX1 }} className="absolute right-[10%] top-[5%] w-[20vw] max-w-[150px] aspect-square z-10 hidden md:block">
-        <motion.div 
-          animate={{ y: [0, -20, 0], rotate: [0, -5, 0] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-          className="w-full h-full rounded-full overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.1)] opacity-90"
-        >
-          <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800&auto=format&fit=crop" alt="Fashion 3" className="w-full h-full object-cover rounded-full" />
-        </motion.div>
-      </motion.div>
-
-      {/* 4. Extra Image Bottom Left (Parallax Wrapper) */}
-      <motion.div style={{ y: y4, x: mouseX2 }} className="absolute left-[12%] bottom-[10%] w-[22vw] max-w-[200px] aspect-[16/9] z-10 hidden md:block">
-        <motion.div 
-          animate={{ y: [0, 25, 0], rotate: [0, 3, 0] }}
-          transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-          className="w-full h-full rounded-xl overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.15)] opacity-90"
-        >
-          <img src="https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=800&auto=format&fit=crop" alt="Fashion 4" className="w-full h-full object-cover rounded-xl" />
-        </motion.div>
-      </motion.div>
-
-      {/* Foreground Content */}
-      <motion.div 
-        style={{ x: textMouseX, y: textMouseY }}
-        className="relative z-30 text-center text-neutral-900 flex flex-col items-center justify-center w-full h-full px-4 pointer-events-none"
-      >
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.5, ease: "easeOut" }}
-          className="flex flex-col items-center"
-        >
-          <h1 className="text-[16vw] sm:text-[12vw] md:text-[10rem] font-bold tracking-tighter uppercase leading-[0.85]">
-            <span className="block">Elevate</span>
-            <span 
-              className="block text-transparent bg-clip-text bg-cover bg-center" 
-              style={{ 
-                WebkitBackgroundClip: 'text',
-                backgroundImage: 'url(https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2000&auto=format&fit=crop)' 
-              }}
-            >
-              Your Style
-            </span>
-          </h1>
-        </motion.div>
-        
-        <motion.p 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.8 }}
-          className="mt-6 md:mt-8 text-[10px] md:text-sm tracking-[0.3em] md:tracking-[0.5em] uppercase font-semibold text-neutral-800 max-w-xs md:max-w-lg"
-        >
-          The new era of modern aesthetics.
-        </motion.p>
-      </motion.div>
-
-      {/* Call to action button */}
+      {/* Glass badge (top) — now visible on mobile too */}
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1, delay: 1 }}
-        className="absolute bottom-10 md:bottom-12 z-40"
+        style={{ opacity: fade }}
+        className="absolute left-1/2 top-[11vh] z-30 -translate-x-1/2 pointer-events-none"
       >
-        <button className="pointer-events-auto bg-black/90 backdrop-blur-md text-white px-8 md:px-12 py-4 md:py-5 rounded-full font-bold uppercase tracking-[0.1em] md:tracking-[0.2em] text-[10px] md:text-xs flex items-center gap-3 transition-transform hover:scale-110 hover:bg-black shadow-[0_10px_30px_rgba(0,0,0,0.2)] group border border-black/10">
-          Discover Now
-          <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white flex items-center justify-center group-hover:rotate-45 transition-transform duration-300 shadow-inner">
-            <svg width="10" height="10" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-black md:w-[12px] md:h-[12px]">
-              <path d="M8.14645 3.14645C8.34171 2.95118 8.65829 2.95118 8.85355 3.14645L12.8536 7.14645C13.0488 7.34171 13.0488 7.65829 12.8536 7.85355L8.85355 11.8536C8.65829 12.0488 8.34171 12.0488 8.14645 11.8536C7.95118 11.6583 7.95118 11.3417 8.14645 11.1464L11.2929 8H2.5C2.22386 8 2 7.77614 2 7.5C2 7.22386 2.22386 7 2.5 7H11.2929L8.14645 3.85355C7.95118 3.65829 7.95118 3.34171 8.14645 3.14645Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path>
-            </svg>
+        <div
+          style={{ animation: 'heroFade 0.9s ease-out 0.35s both' }}
+          className="flex items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-700">
+            FW26 · New Collection
+          </span>
+        </div>
+      </motion.div>
+
+      {/* Headline (left on desktop, centered on mobile) */}
+      <motion.div
+        style={{ x: headX, y: headScrollY, opacity: fade }}
+        className="absolute left-0 right-0 top-[17vh] z-30 px-[6vw] text-center md:left-[5vw] md:right-auto md:top-[20vh] md:max-w-[40vw] md:px-0 md:text-left pointer-events-none"
+      >
+        <h1
+          className="uppercase text-[#141414]"
+          style={{
+            fontFamily: HEADLINE_FONT,
+            fontWeight: 900,
+            fontSize: 'clamp(2.1rem, 9vw, 4.15rem)',
+            lineHeight: 0.9,
+            letterSpacing: '-0.03em',
+            textShadow: '0 1px 0 rgba(255,255,255,0.5)',
+          }}
+        >
+          {['Digital', 'Fashion is', 'A New', 'Chapter'].map((line, i) => (
+            <span key={line} className="block overflow-hidden">
+              <span
+                className="block"
+                style={{ animation: `heroSlideUp 0.8s cubic-bezier(0.22,1,0.36,1) ${0.12 + i * 0.07}s both` }}
+              >
+                {line}
+              </span>
+            </span>
+          ))}
+        </h1>
+
+        <div
+          className="mx-auto mt-5 max-w-[300px] md:mx-0 md:mt-6"
+          style={{ animation: 'heroFade 0.9s ease-out 0.6s both' }}
+        >
+          <p className="text-[11px] md:text-[12px] leading-relaxed font-semibold uppercase tracking-[0.04em] text-neutral-700">
+            Timeless pieces, crafted for the modern wardrobe — designed to move and made to last.
+          </p>
+        </div>
+      </motion.div>
+
+      {/* Right merge copy — desktop only */}
+      <motion.div
+        style={{ opacity: fade }}
+        className="absolute right-[5vw] top-[21vh] z-30 hidden md:block max-w-[210px] text-left pointer-events-none"
+      >
+        <div style={{ animation: 'heroFade 0.9s ease-out 0.55s both' }}>
+          <p className="text-[11px] leading-[1.7] font-bold uppercase tracking-[0.12em] text-neutral-700">
+            Where craftsmanship meets a new generation of effortless self-expression.
+          </p>
+          <div className="mt-3 h-px w-14 bg-neutral-400/60" />
+        </div>
+      </motion.div>
+
+      {/* Glassmorphism mini product card — desktop only */}
+      <motion.div
+        style={{ opacity: fade }}
+        className="absolute right-[5vw] top-[48vh] z-40 hidden lg:block"
+      >
+        <div
+          style={{ animation: 'heroFade 0.9s ease-out 0.8s both' }}
+          className="w-60 rounded-3xl border border-white/60 bg-white/30 p-3 backdrop-blur-xl shadow-[0_18px_50px_rgba(40,45,60,0.12)]"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-neutral-200">
+              <img
+                src="https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=200&auto=format&fit=crop"
+                alt="Cream Crewneck"
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-500">Featured</p>
+              <p className="truncate text-[13px] font-semibold text-neutral-900">Cream Crewneck</p>
+              <p className="text-[13px] font-bold text-neutral-900">$120.00</p>
+            </div>
           </div>
-        </button>
+          <a
+            href="/product"
+            className="mt-3 flex items-center justify-center gap-2 rounded-full bg-black py-2.5 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-neutral-800"
+          >
+            Shop the look
+            <svg width="10" height="10" viewBox="0 0 15 15" fill="none">
+              <path d="M8.146 3.146a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L11.293 8H2.5a.5.5 0 0 1 0-1h8.793L8.146 3.854a.5.5 0 0 1 0-.708Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
+            </svg>
+          </a>
+        </div>
       </motion.div>
-      
-      {/* Animated scroll indicator */}
-      <motion.div 
-        animate={{ y: [0, 10, 0] }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute bottom-12 right-12 z-40 hidden lg:flex flex-col items-center gap-2"
+
+      {/* Glass CTA — centered pill on mobile, left-aligned on desktop */}
+      <motion.div
+        style={{ opacity: fade }}
+        className="absolute bottom-[5.5%] left-1/2 z-40 -translate-x-1/2 md:bottom-[10%] md:left-[5vw] md:translate-x-0"
       >
-        <span className="text-[9px] uppercase tracking-widest text-neutral-800/50 writing-vertical-rl rotate-180" style={{ writingMode: 'vertical-rl' }}>SCROLL</span>
-        <div className="w-[1px] h-12 bg-gradient-to-b from-neutral-800/50 to-transparent" />
+        <div style={{ animation: 'heroFade 0.9s ease-out 0.8s both' }}>
+          <Magnetic strength={0.22}>
+            <a
+              href="/products"
+              className="group inline-flex items-center gap-3 rounded-full border border-white/50 bg-white/45 px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-neutral-800 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-colors hover:bg-white/70 md:px-6 md:py-3"
+            >
+              Explore Collection
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-black text-white transition-transform duration-300 group-hover:rotate-45">
+                <svg width="10" height="10" viewBox="0 0 15 15" fill="none">
+                  <path d="M8.146 3.146a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L11.293 8H2.5a.5.5 0 0 1 0-1h8.793L8.146 3.854a.5.5 0 0 1 0-.708Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
+                </svg>
+              </span>
+            </a>
+          </Magnetic>
+        </div>
       </motion.div>
+
+      {/* Scroll indicator — desktop only */}
+      <motion.div
+        animate={{ y: [0, 8, 0] }}
+        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute bottom-10 right-[5vw] z-40 hidden lg:flex flex-col items-center gap-2"
+      >
+        <span className="text-[9px] uppercase tracking-[0.4em] text-neutral-500" style={{ writingMode: 'vertical-rl' }}>
+          Scroll
+        </span>
+        <div className="h-10 w-px bg-gradient-to-b from-neutral-500/60 to-transparent" />
+      </motion.div>
+
+      {/* ---------- Gradual blur seam into the next section ---------- */}
+      {/* Progressive blur (desktop only — keeps mobile GPUs smooth) */}
+      <div
+        className="absolute inset-x-0 bottom-0 z-[38] hidden h-40 pointer-events-none md:block"
+        style={{
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+          maskImage: 'linear-gradient(to top, #000 0%, #000 34%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to top, #000 0%, #000 34%, transparent 100%)',
+        }}
+      />
+      {/* Colour wash that fades into the next component's background (all sizes) */}
+      <div
+        className="absolute inset-x-0 bottom-0 z-[39] h-48 pointer-events-none"
+        style={{ background: `linear-gradient(to bottom, transparent 35%, ${NEXT_BG} 100%)` }}
+      />
+
+      <style>{`
+        @keyframes heroSlideUp {
+          from { transform: translateY(105%); }
+          to { transform: translateY(0); }
+        }
+        @keyframes heroFade {
+          from { opacity: 0; transform: translateY(14px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </section>
   );
 };

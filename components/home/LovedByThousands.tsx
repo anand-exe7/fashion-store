@@ -1,19 +1,38 @@
 'use client';
 import { ArrowRight } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useAnimationFrame } from 'framer-motion';
+import { useRef, useState } from 'react';
+import { RevealText } from '../ui/RevealText';
+
+const SPEED = 50; // px per second
 
 export const LovedByThousands = () => {
   const images = [
     "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=600&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=600&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1485231183945-fdc92215a3c1?q=80&w=600&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1550614000-4b95d4662d5f?q=80&w=600&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=600&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1515347619253-12a84360a775?q=80&w=600&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=600&auto=format&fit=crop"
   ];
 
   // Duplicate images to create a seamless infinite scroll effect
   const marqueeImages = [...images, ...images];
+
+  const x = useMotionValue(0);
+  const [paused, setPaused] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const halfWidthRef = useRef(0);
+
+  useAnimationFrame((_, delta) => {
+    if (paused || !trackRef.current) return;
+    if (!halfWidthRef.current) {
+      halfWidthRef.current = trackRef.current.scrollWidth / 2;
+    }
+    let next = x.get() - (SPEED * delta) / 1000;
+    if (next <= -halfWidthRef.current) next += halfWidthRef.current;
+    x.set(next);
+  });
 
   return (
     <section className="py-24 bg-white text-center overflow-hidden">
@@ -23,14 +42,18 @@ export const LovedByThousands = () => {
         viewport={{ once: true }}
       >
         <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2 block">Our Community</span>
-        <h2 className="text-4xl md:text-6xl font-bold mb-6 tracking-tighter uppercase leading-[0.85]">Loved by Thousands</h2>
+        <RevealText as="h2" text="Loved by Thousands" className="text-4xl md:text-6xl font-bold mb-6 tracking-tighter uppercase leading-[0.85]" />
         <p className="text-neutral-500 mb-16 text-sm font-semibold tracking-widest uppercase">Join our community of happy customers</p>
       </motion.div>
-      
-      <div className="w-full overflow-hidden flex relative">
-        <motion.div 
-          animate={{ x: ["0%", "-50%"] }}
-          transition={{ ease: "linear", duration: 30, repeat: Infinity }}
+
+      <div
+        className="w-full overflow-hidden flex relative"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        <motion.div
+          ref={trackRef}
+          style={{ x }}
           className="flex gap-4 px-4 w-max"
         >
           {marqueeImages.map((img, i) => (

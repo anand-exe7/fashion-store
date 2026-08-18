@@ -1,12 +1,13 @@
 'use client';
 import { motion } from 'framer-motion';
+import { Magnetic } from '../ui/Magnetic';
 
 export const Instagram = () => {
   const images = [
     "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=400&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=400&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1485231183945-fdc92215a3c1?q=80&w=400&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1550614000-4b95d4662d5f?q=80&w=400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=400&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1515347619253-12a84360a775?q=80&w=400&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=400&auto=format&fit=crop"
   ];
@@ -16,9 +17,11 @@ export const Instagram = () => {
       <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="flex flex-col items-center">
         <h2 className="text-3xl font-semibold mb-3 tracking-tight">Follow us on Instagram</h2>
         <p className="text-neutral-500 mb-6 text-sm font-medium">@shalistone_official</p>
-        <a href="https://instagram.com" target="_blank" rel="noreferrer" className="mb-12 inline-flex items-center justify-center bg-black text-white px-8 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all shadow-md hover:shadow-lg active:scale-95">
-          Open Instagram
-        </a>
+        <Magnetic strength={0.3} className="mb-12">
+          <a href="https://instagram.com" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center bg-black text-white px-8 py-3 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all shadow-md hover:shadow-lg active:scale-95">
+            Open Instagram
+          </a>
+        </Magnetic>
       </motion.div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {images.map((img, i) => (
