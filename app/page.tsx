@@ -1,4 +1,5 @@
 import { Navbar } from '@/components/layout/Navbar';
+import { ScrollProgress } from '@/components/ui/ScrollProgress';
 import { Hero } from '@/components/home/Hero';
 import { NewArrivals } from '@/components/home/NewArrivals';
 import { Marquee } from '@/components/home/Marquee';
@@ -20,6 +21,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-[#F5F2EB] text-neutral-900 font-sans selection:bg-black selection:text-white overflow-x-hidden">
+      <ScrollProgress />
       <Navbar />
       <Hero />
       <NewArrivals />

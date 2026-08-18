@@ -1,5 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
+import { RevealText } from '../ui/RevealText';
 
 export const ShoppableLook = () => {
   return (
@@ -40,12 +41,8 @@ export const ShoppableLook = () => {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="w-full md:w-[30%] flex flex-col items-center text-center px-4"
         >
-          <h2 className="text-3xl md:text-5xl font-light tracking-[0.2em] uppercase text-neutral-800 mb-2">
-            The New
-          </h2>
-          <h3 className="text-5xl md:text-7xl font-serif italic text-neutral-900 mb-6 drop-shadow-sm">
-            classics
-          </h3>
+          <RevealText as="h2" text="The New" className="text-3xl md:text-5xl font-light tracking-[0.2em] uppercase text-neutral-800 mb-2" />
+          <RevealText as="h3" text="classics" className="text-5xl md:text-7xl font-serif italic text-neutral-900 mb-6 drop-shadow-sm" />
           <p className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-neutral-500 mb-10 leading-relaxed max-w-[280px]">
             Elevating everyday essentials with timeless craftsmanship and modern sensibility.
           </p>

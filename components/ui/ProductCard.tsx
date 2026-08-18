@@ -1,24 +1,53 @@
 'use client';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useSpring } from 'framer-motion';
+import { useRef } from 'react';
 
 const itemVariants: any = {
   hidden: { opacity: 0, y: 50 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 50, damping: 15 } }
 };
 
-export const ProductCard = ({ title, category, price, isNew, discount, image }: any) => (
-  <motion.div 
+export const ProductCard = ({ title, category, price, isNew, discount, image }: any) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const rotateXRaw = useMotionValue(0);
+  const rotateYRaw = useMotionValue(0);
+  const springConfig = { stiffness: 300, damping: 30 };
+  const rotateX = useSpring(rotateXRaw, springConfig);
+  const rotateY = useSpring(rotateYRaw, springConfig);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const px = (e.clientX - rect.left) / rect.width - 0.5;
+    const py = (e.clientY - rect.top) / rect.height - 0.5;
+    rotateYRaw.set(px * 10);
+    rotateXRaw.set(-py * 10);
+  };
+
+  const handleMouseLeave = () => {
+    rotateXRaw.set(0);
+    rotateYRaw.set(0);
+  };
+
+  return (
+  <motion.div
     variants={itemVariants}
     className="group flex flex-col"
   >
     <a href="/products" className="block h-full cursor-pointer">
-      <div className="relative aspect-[3/4] bg-neutral-100 mb-5 overflow-hidden rounded-2xl">
-         <motion.img 
+      <motion.div
+        ref={cardRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        style={{ rotateX, rotateY, transformPerspective: 800 }}
+        className="relative aspect-[3/4] bg-neutral-100 mb-5 overflow-hidden rounded-2xl"
+      >
+         <motion.img
            whileHover={{ scale: 1.05 }}
            transition={{ duration: 0.7, ease: "easeOut" }}
-           src={image} 
-           alt={title} 
-           className="w-full h-full object-cover" 
+           src={image}
+           alt={title}
+           className="w-full h-full object-cover"
          />
          {/* Overlay gradient */}
          <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -49,8 +78,8 @@ export const ProductCard = ({ title, category, price, isNew, discount, image }: 
              Quick Add
            </button>
          </div>
-      </div>
-      
+      </motion.div>
+
       <div className="flex justify-between items-start px-1">
         <div>
           <h3 className="text-sm font-semibold text-neutral-900 group-hover:text-black transition-colors">{title}</h3>
@@ -64,4 +93,5 @@ export const ProductCard = ({ title, category, price, isNew, discount, image }: 
       <p className="text-sm mt-2 font-bold px-1">${price}</p>
     </a>
   </motion.div>
-);
+  );
+};

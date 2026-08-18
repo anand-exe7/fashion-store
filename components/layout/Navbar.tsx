@@ -1,73 +1,186 @@
 'use client';
-import { Search, User, ShoppingCart, Menu } from 'lucide-react';
-import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { Search, ShoppingBag, Menu, X } from 'lucide-react';
+import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-motion';
+import { useState, useRef, useEffect } from 'react';
+
+const LINKS = [
+  { label: 'Home', href: '/' },
+  { label: 'Gifting', href: '/products' },
+  { label: 'Accessories', href: '/products' },
+  { label: 'Contact', href: '/profile' },
+];
 
 export const Navbar = () => {
   const { scrollY } = useScroll();
   const [hidden, setHidden] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
-  useMotionValueEvent(scrollY, "change", (latest) => {
+  useMotionValueEvent(scrollY, 'change', (latest) => {
     const previous = scrollY.getPrevious() ?? 0;
-    if (latest > previous && latest > 150) {
-      setHidden(true);
-    } else {
-      setHidden(false);
-    }
+    // Don't auto-hide while a panel is open.
+    setHidden(!searchOpen && !menuOpen && latest > previous && latest > 150);
     setIsScrolled(latest > 50);
   });
 
+  // Focus the field when search opens; close panels on Escape.
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus();
+  }, [searchOpen]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSearchOpen(false);
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const toggleSearch = () => {
+    setMenuOpen(false);
+    setSearchOpen((v) => !v);
+  };
+  const toggleMenu = () => {
+    setSearchOpen(false);
+    setMenuOpen((v) => !v);
+  };
+
   return (
-    <motion.div 
-      variants={{
-        visible: { y: 0, opacity: 1 },
-        hidden: { y: "-100%", opacity: 0 }
-      }}
-      animate={hidden ? "hidden" : "visible"}
-      transition={{ duration: 0.35, ease: "easeInOut" }}
-      className="fixed top-0 left-0 right-0 z-50 flex justify-center mt-6 px-4 pointer-events-none"
+    <motion.header
+      variants={{ visible: { y: 0, opacity: 1 }, hidden: { y: '-120%', opacity: 0 } }}
+      animate={hidden ? 'hidden' : 'visible'}
+      transition={{ duration: 0.35, ease: 'easeInOut' }}
+      className="fixed inset-x-0 top-0 z-50 px-4 pt-4 md:px-8 md:pt-6"
     >
-      <nav className={`pointer-events-auto flex items-center justify-between px-6 py-3 transition-all duration-500 rounded-full ${
-        isScrolled 
-          ? 'bg-white/90 backdrop-blur-xl text-black shadow-[0_8px_32px_rgba(0,0,0,0.05)] border border-black/5 w-[95%] md:w-[85%] lg:w-[70%]' 
-          : 'bg-white/40 backdrop-blur-md text-neutral-900 shadow-sm border border-black/5 w-full md:w-[90%] lg:w-[80%]'
-      }`}>
-        <a href="/" className="flex items-center gap-2 cursor-pointer group">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm group-hover:scale-110 transition-transform duration-500 bg-black text-white">
-            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 22h20L12 2z" fill="currentColor"/>
-            </svg>
-          </div>
-          <span className="font-bold tracking-widest text-lg ml-1 hidden sm:block">SHALISTONE</span>
+      <nav
+        className={`relative flex items-center justify-between rounded-full transition-all duration-500 ${
+          isScrolled || searchOpen || menuOpen
+            ? 'border border-white/50 bg-white/60 px-4 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl md:px-6'
+            : 'px-2 py-1'
+        }`}
+      >
+        {/* Wordmark */}
+        <a href="/" className="group flex items-center gap-2 pl-2">
+          <span
+            className="text-lg font-black tracking-[0.18em] text-neutral-900 transition-opacity group-hover:opacity-70"
+            style={{ fontFamily: "'Arial Black', 'Helvetica Neue', sans-serif" }}
+          >
+            SHALISTONE
+          </span>
         </a>
-        
-        <div className="hidden lg:flex items-center gap-8 text-[11px] font-semibold tracking-[0.2em] uppercase">
-          {['Collections', 'New Arrivals', 'Runway', 'Journal'].map(item => (
-            <a key={item} href="/product" className="relative group px-2 py-1">
-              <span className="relative z-10 transition-colors duration-300 group-hover:text-black text-neutral-500">{item}</span>
-              <span className="absolute bottom-0 left-0 w-0 h-[1px] transition-all duration-300 group-hover:w-full bg-black"></span>
+
+        {/* Center links */}
+        <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-9 lg:flex">
+          {LINKS.map((item) => (
+            <a
+              key={item.label}
+              href={item.href}
+              className="group relative text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-700"
+            >
+              <span className="transition-colors group-hover:text-black">{item.label}</span>
+              <span className="absolute -bottom-1 left-0 h-px w-0 bg-black transition-all duration-300 group-hover:w-full" />
             </a>
           ))}
-          <a href="/product" className="text-red-500 relative group px-2 py-1">
-              <span className="relative z-10 transition-colors duration-300 group-hover:text-red-600">Sale</span>
-              <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-red-500 transition-all duration-300 group-hover:w-full"></span>
-          </a>
         </div>
 
-        <div className="flex items-center gap-5">
-          <button className="transition-colors hover:scale-110 transform duration-300 hover:text-black text-neutral-500"><Search className="w-4 h-4" strokeWidth={2} /></button>
-          <a href="/profile" className="transition-colors hover:scale-110 transform duration-300 hidden sm:block hover:text-black text-neutral-500"><User className="w-4 h-4" strokeWidth={2} /></a>
-          <a href="/cart" className="relative group transition-colors hover:scale-110 transform duration-300 block hover:text-black text-neutral-500">
-            <ShoppingCart className="w-4 h-4" strokeWidth={2} />
-            <span className="absolute -top-2 -right-2 text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full transition-colors bg-black text-white group-hover:bg-neutral-800">3</span>
+        {/* Glass action pill */}
+        <div className="flex items-center gap-1.5 rounded-full border border-white/60 bg-white/40 p-1.5 shadow-[0_6px_24px_rgba(0,0,0,0.06)] backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={toggleSearch}
+            aria-label="Search"
+            aria-expanded={searchOpen}
+            className={`flex items-center gap-2 rounded-full px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors ${
+              searchOpen ? 'bg-black text-white' : 'text-neutral-700 hover:bg-white/70 hover:text-black'
+            }`}
+          >
+            <Search className="h-3.5 w-3.5" strokeWidth={2.2} />
+            <span className="hidden sm:inline">Search</span>
+          </button>
+          <span className="hidden h-4 w-px bg-neutral-400/50 sm:block" />
+          <a
+            href="/cart"
+            className="flex items-center gap-2 rounded-full bg-black px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-white transition-transform hover:scale-[1.03]"
+          >
+            <ShoppingBag className="h-3.5 w-3.5" strokeWidth={2.2} />
+            <span>Cart (2)</span>
           </a>
-          <button className="lg:hidden transition-colors hover:scale-110 transform duration-300 ml-2 hover:text-black text-neutral-500">
-            <Menu className="w-5 h-5" strokeWidth={2} />
+          <button
+            type="button"
+            onClick={toggleMenu}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            className="grid h-8 w-8 place-items-center rounded-full text-neutral-700 hover:text-black lg:hidden"
+          >
+            {menuOpen ? <X className="h-4 w-4" strokeWidth={2.2} /> : <Menu className="h-4 w-4" strokeWidth={2.2} />}
           </button>
         </div>
       </nav>
-    </motion.div>
+
+      {/* Expandable glass search panel */}
+      <AnimatePresence>
+        {searchOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="mx-auto mt-3 max-w-3xl rounded-2xl border border-white/50 bg-white/60 p-2 shadow-[0_16px_50px_rgba(0,0,0,0.12)] backdrop-blur-xl"
+          >
+            <form
+              action="/products"
+              className="flex items-center gap-3 px-3"
+              onSubmit={() => setSearchOpen(false)}
+            >
+              <Search className="h-4 w-4 shrink-0 text-neutral-500" strokeWidth={2.2} />
+              <input
+                ref={searchRef}
+                name="q"
+                type="text"
+                placeholder="Search for pieces, collections…"
+                className="w-full bg-transparent py-3 text-sm text-neutral-800 placeholder:text-neutral-400 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setSearchOpen(false)}
+                aria-label="Close search"
+                className="grid h-7 w-7 place-items-center rounded-full text-neutral-500 hover:bg-black/5 hover:text-black"
+              >
+                <X className="h-4 w-4" strokeWidth={2.2} />
+              </button>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Expandable glass mobile menu */}
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="mx-auto mt-3 overflow-hidden rounded-2xl border border-white/50 bg-white/70 p-2 shadow-[0_16px_50px_rgba(0,0,0,0.12)] backdrop-blur-xl lg:hidden"
+          >
+            {LINKS.map((item) => (
+              <a
+                key={item.label}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className="block rounded-xl px-4 py-3 text-[13px] font-semibold uppercase tracking-[0.15em] text-neutral-700 transition-colors hover:bg-black/5 hover:text-black"
+              >
+                {item.label}
+              </a>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.header>
   );
 };
