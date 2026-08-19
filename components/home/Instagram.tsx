@@ -6,9 +6,9 @@ export const Instagram = () => {
   const images = [
     "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=400&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=400&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1485231183945-fdc92215a3c1?q=80&w=400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=400&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=400&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1515347619253-12a84360a775?q=80&w=400&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=400&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=400&auto=format&fit=crop"
   ];
 
