@@ -116,7 +116,7 @@ export const Hero = () => {
           translated by the compositor, never re-rasterised. */}
       <motion.div
         style={{ y: figScrollY }}
-        className="absolute left-1/2 bottom-0 z-20 h-[72vh] w-[92vw] max-w-[430px] -translate-x-1/2 pointer-events-none md:h-[93vh] md:w-[min(96vw,660px)] md:max-w-none"
+        className="absolute left-1/2 bottom-0 z-20 h-[56vh] w-[130vw] max-w-none -translate-x-1/2 pointer-events-none md:h-[93vh] md:w-[min(96vw,660px)]"
       >
         <motion.div style={{ x: figX, y: figY }} className="relative h-full w-full will-change-transform">
           {/* soft ground shadow anchors the figure */}
@@ -134,33 +134,17 @@ export const Hero = () => {
 
       {/* ---------- Foreground editorial content ---------- */}
 
-      {/* Glass badge (top) — now visible on mobile too */}
-      <motion.div
-        style={{ opacity: fade }}
-        className="absolute left-1/2 top-[11vh] z-30 -translate-x-1/2 pointer-events-none"
-      >
-        <div
-          style={{ animation: 'heroFade 0.9s ease-out 0.35s both' }}
-          className="flex items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-700">
-            FW26 · New Collection
-          </span>
-        </div>
-      </motion.div>
-
       {/* Headline (left on desktop, centered on mobile) */}
       <motion.div
         style={{ x: headX, y: headScrollY, opacity: fade }}
-        className="absolute left-0 right-0 top-[17vh] z-30 px-[6vw] text-center md:left-[5vw] md:right-auto md:top-[20vh] md:max-w-[40vw] md:px-0 md:text-left pointer-events-none"
+        className="absolute left-0 right-0 top-[13vh] z-30 px-[6vw] text-center md:left-[5vw] md:right-auto md:top-[20vh] md:max-w-[40vw] md:px-0 md:text-left pointer-events-none"
       >
         <h1
           className="uppercase text-[#141414]"
           style={{
             fontFamily: HEADLINE_FONT,
             fontWeight: 900,
-            fontSize: 'clamp(2.1rem, 9vw, 4.15rem)',
+            fontSize: 'clamp(1.85rem, 6.6vw, 4.15rem)',
             lineHeight: 0.9,
             letterSpacing: '-0.03em',
             textShadow: '0 1px 0 rgba(255,255,255,0.5)',

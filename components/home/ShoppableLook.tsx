@@ -2,69 +2,94 @@
 import { motion } from 'framer-motion';
 import { RevealText } from '../ui/RevealText';
 
+const LOOKS = {
+  left: {
+    src: 'https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=900&auto=format&fit=crop',
+    label: 'Editorial 01',
+    caption: 'The Tailored Line',
+  },
+  right: {
+    src: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=900&auto=format&fit=crop',
+    label: 'Editorial 02',
+    caption: 'Utility Reworked',
+  },
+};
+
+const ImageCard = ({
+  src,
+  label,
+  caption,
+  className = '',
+  delay = 0,
+}: {
+  src: string;
+  label: string;
+  caption: string;
+  className?: string;
+  delay?: number;
+}) => (
+  <motion.figure
+    initial={{ opacity: 0, y: 40 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true }}
+    transition={{ duration: 0.8, delay }}
+    className={`group relative aspect-[4/5] overflow-hidden rounded-2xl shadow-[0_20px_50px_rgba(60,50,40,0.14)] ring-1 ring-black/5 ${className}`}
+  >
+    <img
+      src={src}
+      alt={caption}
+      className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.4s] ease-out group-hover:scale-105"
+    />
+    <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
+    <span className="absolute left-3 top-3 rounded-full bg-white/85 px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.2em] text-neutral-700 backdrop-blur-sm md:left-4 md:top-4 md:text-[9px]">
+      {label}
+    </span>
+    <figcaption className="absolute inset-x-3 bottom-3 flex items-end justify-between text-white md:inset-x-4 md:bottom-4">
+      <span className="font-serif text-base italic md:text-lg">{caption}</span>
+      <span className="text-[9px] font-bold uppercase tracking-widest opacity-80 transition-transform group-hover:translate-x-1 md:text-[10px]">
+        View →
+      </span>
+    </figcaption>
+    <a href="/products" aria-label={caption} className="absolute inset-0 z-10" />
+  </motion.figure>
+);
+
 export const ShoppableLook = () => {
   return (
-    <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto w-full relative overflow-hidden">
-      {/* Huge Faded Background Text */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden opacity-[0.03]">
-        <span className="text-[35vw] font-serif italic text-black tracking-tighter whitespace-nowrap">
+    <section className="relative w-full overflow-hidden px-6 py-24 md:px-12 md:py-32">
+      {/* Huge faded background word */}
+      <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center select-none overflow-hidden opacity-[0.04]">
+        <span className="whitespace-nowrap font-serif text-[46vw] italic tracking-tighter text-black md:text-[32vw]">
           Essence
         </span>
       </div>
 
-      <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12 md:gap-24 w-full">
-        {/* Left Side: Minimalist Block */}
-        <motion.div 
-          initial={{ opacity: 0, x: -30 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-          className="w-full md:w-[35%] aspect-[4/5] bg-neutral-100 flex flex-col relative shadow-xl rounded-sm group overflow-hidden"
-        >
-          <img 
-            src="https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=800&auto=format&fit=crop" 
-            alt="Editorial Look 1"
-            className="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-700 group-hover:opacity-100" 
-          />
-          <div className="absolute top-4 left-4 text-xs font-bold uppercase tracking-widest text-neutral-500 z-10 group-hover:text-white transition-colors">
-            Editorial Look 1
-          </div>
-          {/* Default blank state */}
-          <div className="absolute inset-0 bg-[#F5F2EB]/50 group-hover:opacity-0 transition-opacity duration-700" />
-        </motion.div>
-
-        {/* Center Text */}
-        <motion.div 
+      <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-2 items-center gap-4 sm:gap-6 md:grid-cols-3 md:gap-10 lg:gap-16">
+        {/* Center text — full width on mobile, middle column on desktop */}
+        <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="w-full md:w-[30%] flex flex-col items-center text-center px-4"
+          transition={{ duration: 0.8, delay: 0.15 }}
+          className="order-1 col-span-2 mb-2 flex flex-col items-center px-2 text-center md:order-2 md:col-span-1 md:mb-0"
         >
-          <RevealText as="h2" text="The New" className="text-3xl md:text-5xl font-light tracking-[0.2em] uppercase text-neutral-800 mb-2" />
-          <RevealText as="h3" text="classics" className="text-5xl md:text-7xl font-serif italic text-neutral-900 mb-6 drop-shadow-sm" />
-          <p className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-neutral-500 mb-10 leading-relaxed max-w-[280px]">
+          <span className="mb-4 text-[10px] font-bold uppercase tracking-[0.35em] text-neutral-500">The Edit</span>
+          <RevealText as="h2" text="The New" className="mb-1 text-3xl font-light uppercase tracking-[0.2em] text-neutral-800 md:text-5xl" />
+          <RevealText as="h3" text="classics" className="mb-6 font-serif text-5xl italic text-neutral-900 md:text-7xl" />
+          <p className="mb-8 max-w-[280px] text-[11px] font-bold uppercase leading-relaxed tracking-widest text-neutral-500 md:text-xs">
             Elevating everyday essentials with timeless craftsmanship and modern sensibility.
           </p>
-          <a href="/products" className="text-[10px] uppercase font-bold tracking-[0.2em] text-neutral-800 border-b border-neutral-400 pb-1 hover:text-black hover:border-black transition-colors">
+          <a
+            href="/products"
+            className="group inline-flex items-center gap-2 border-b border-neutral-400 pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-800 transition-colors hover:border-black hover:text-black"
+          >
             Explore Collection
+            <span className="transition-transform group-hover:translate-x-1">→</span>
           </a>
         </motion.div>
 
-        {/* Right Side Image */}
-        <motion.div 
-          initial={{ opacity: 0, x: 30 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="w-full md:w-[35%] aspect-square md:aspect-[4/5] relative shadow-2xl rounded-sm overflow-hidden"
-        >
-          <img 
-            src="https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=800&auto=format&fit=crop" 
-            alt="Essentials Display"
-            className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-[2s] ease-out" 
-          />
-        </motion.div>
+        <ImageCard {...LOOKS.left} className="order-2 md:order-1" />
+        <ImageCard {...LOOKS.right} className="order-3 md:order-3" delay={0.3} />
       </div>
     </section>
   );

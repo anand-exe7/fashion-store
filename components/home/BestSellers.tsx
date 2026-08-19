@@ -18,7 +18,7 @@ export const BestSellers = () => {
     { title: "Classic Knit Hoodie", category: "Women", price: "89.00", discount: "-10%", image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=800&auto=format&fit=crop" },
     { title: "Premium Zip Jacket", category: "Men", price: "110.00", image: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=800&auto=format&fit=crop" },
     { title: "Dark Wash Denim", category: "Men", price: "95.00", image: "https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=800&auto=format&fit=crop" },
-    { title: "Cozy Ribbed Top", category: "Women", price: "65.00", isNew: true, image: "https://images.unsplash.com/photo-1434389670869-c8c52fc9ecf3?q=80&w=800&auto=format&fit=crop" }
+    { title: "Cozy Ribbed Top", category: "Women", price: "65.00", isNew: true, image: "https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=800&auto=format&fit=crop" }
   ];
 
   return (
