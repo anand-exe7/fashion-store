@@ -55,7 +55,7 @@ export const Navbar = () => {
       variants={{ visible: { y: 0, opacity: 1 }, hidden: { y: '-120%', opacity: 0 } }}
       animate={hidden ? 'hidden' : 'visible'}
       transition={{ duration: 0.35, ease: 'easeInOut' }}
-      className="fixed inset-x-0 top-0 z-50 px-4 pt-4 md:px-8 md:pt-6"
+      className="fixed inset-x-0 top-0 z-50 px-3 pt-3 md:px-8 md:pt-6"
     >
       <nav
         className={`relative flex items-center justify-between rounded-full transition-all duration-500 ${
@@ -65,9 +65,9 @@ export const Navbar = () => {
         }`}
       >
         {/* Wordmark */}
-        <a href="/" className="group flex items-center gap-2 pl-2">
+        <a href="/" className="group flex items-center gap-2 pl-1 sm:pl-2">
           <span
-            className="text-lg font-black tracking-[0.18em] text-neutral-900 transition-opacity group-hover:opacity-70"
+            className="text-[15px] font-black tracking-[0.1em] text-neutral-900 transition-opacity group-hover:opacity-70 sm:text-lg sm:tracking-[0.18em]"
             style={{ fontFamily: "'Arial Black', 'Helvetica Neue', sans-serif" }}
           >
             SHALISTONE
@@ -89,26 +89,30 @@ export const Navbar = () => {
         </div>
 
         {/* Glass action pill */}
-        <div className="flex items-center gap-1.5 rounded-full border border-white/60 bg-white/40 p-1.5 shadow-[0_6px_24px_rgba(0,0,0,0.06)] backdrop-blur-xl">
+        <div className="flex items-center gap-1 rounded-full border border-white/60 bg-white/40 p-1 shadow-[0_6px_24px_rgba(0,0,0,0.06)] backdrop-blur-xl sm:gap-1.5 sm:p-1.5">
           <button
             type="button"
             onClick={toggleSearch}
             aria-label="Search"
             aria-expanded={searchOpen}
-            className={`flex items-center gap-2 rounded-full px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors ${
+            className={`flex items-center gap-2 rounded-full px-2.5 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors sm:px-3 ${
               searchOpen ? 'bg-black text-white' : 'text-neutral-700 hover:bg-white/70 hover:text-black'
             }`}
           >
-            <Search className="h-3.5 w-3.5" strokeWidth={2.2} />
+            <Search className="h-4 w-4 sm:h-3.5 sm:w-3.5" strokeWidth={2.2} />
             <span className="hidden sm:inline">Search</span>
           </button>
           <span className="hidden h-4 w-px bg-neutral-400/50 sm:block" />
           <a
             href="/cart"
-            className="flex items-center gap-2 rounded-full bg-black px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-white transition-transform hover:scale-[1.03]"
+            aria-label="Cart, 2 items"
+            className="relative flex items-center gap-2 rounded-full bg-black px-2.5 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-white transition-transform hover:scale-[1.03] sm:px-4"
           >
-            <ShoppingBag className="h-3.5 w-3.5" strokeWidth={2.2} />
-            <span>Cart (2)</span>
+            <ShoppingBag className="h-4 w-4 sm:h-3.5 sm:w-3.5" strokeWidth={2.2} />
+            <span className="hidden sm:inline">Cart (2)</span>
+            <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-white text-[9px] font-bold text-black shadow-sm sm:hidden">
+              2
+            </span>
           </a>
           <button
             type="button"
