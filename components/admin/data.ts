@@ -1,5 +1,4 @@
 import {
-  MessageCircle,
   CreditCard,
   BarChart3,
   ShoppingCart,
@@ -38,7 +37,6 @@ export interface NavItem {
 }
 
 export const NAV: NavItem[] = [
-  { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { key: 'billing', label: 'Billing', icon: CreditCard },
   { key: 'analytics', label: 'POS Analytics', icon: BarChart3 },
   { key: 'orders', label: 'Orders', icon: ShoppingCart },

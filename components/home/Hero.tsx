@@ -127,7 +127,6 @@ export const Hero = () => {
             alt="Shalistone editorial figure"
             className="relative h-full w-full object-contain object-bottom"
             onError={() => figureSrc !== FIGURE_FALLBACK && setFigureSrc(FIGURE_FALLBACK)}
-            style={{ filter: 'drop-shadow(0 20px 26px rgba(45,45,55,0.18))' }}
           />
         </motion.div>
       </motion.div>
@@ -192,7 +191,7 @@ export const Hero = () => {
       >
         <div
           style={{ animation: 'heroFade 0.9s ease-out 0.8s both' }}
-          className="w-60 rounded-3xl border border-white/60 bg-white/30 p-3 backdrop-blur-xl shadow-[0_18px_50px_rgba(40,45,60,0.12)]"
+          className="w-60 rounded-3xl border border-white/60 bg-white/85 p-3 shadow-[0_18px_50px_rgba(40,45,60,0.12)]"
         >
           <div className="flex items-center gap-3">
             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-neutral-200">
@@ -229,7 +228,7 @@ export const Hero = () => {
           <Magnetic strength={0.22}>
             <a
               href="/products"
-              className="group inline-flex items-center gap-3 rounded-full border border-white/50 bg-white/45 px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-neutral-800 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-colors hover:bg-white/70 md:px-6 md:py-3"
+              className="group inline-flex items-center gap-3 rounded-full border border-white/50 bg-white/80 px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-neutral-800 shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-colors hover:bg-white md:px-6 md:py-3"
             >
               Explore Collection
               <span className="grid h-6 w-6 place-items-center rounded-full bg-black text-white transition-transform duration-300 group-hover:rotate-45">
@@ -254,18 +253,8 @@ export const Hero = () => {
         <div className="h-10 w-px bg-gradient-to-b from-neutral-500/60 to-transparent" />
       </motion.div>
 
-      {/* ---------- Gradual blur seam into the next section ---------- */}
-      {/* Progressive blur (desktop only — keeps mobile GPUs smooth) */}
-      <div
-        className="absolute inset-x-0 bottom-0 z-[38] hidden h-40 pointer-events-none md:block"
-        style={{
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
-          maskImage: 'linear-gradient(to top, #000 0%, #000 34%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to top, #000 0%, #000 34%, transparent 100%)',
-        }}
-      />
-      {/* Colour wash that fades into the next component's background (all sizes) */}
+      {/* Colour wash that fades into the next component's background.
+          (A plain gradient — no backdrop-filter — so scrolling stays smooth.) */}
       <div
         className="absolute inset-x-0 bottom-0 z-[39] h-48 pointer-events-none"
         style={{ background: `linear-gradient(to bottom, transparent 35%, ${NEXT_BG} 100%)` }}

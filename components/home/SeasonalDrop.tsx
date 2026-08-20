@@ -40,7 +40,7 @@ export const SeasonalDrop = () => {
           />
           {/* Always-visible caption for context */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-          <span className="absolute left-5 top-5 rounded-full bg-white/90 px-3 py-1 text-[9px] font-bold uppercase tracking-widest text-black shadow-sm backdrop-blur-sm">
+          <span className="absolute left-5 top-5 rounded-full bg-white/90 px-3 py-1 text-[9px] font-bold uppercase tracking-widest text-black shadow-sm">
             Featured
           </span>
           <div className="absolute inset-x-5 bottom-5 flex items-end justify-between text-white md:inset-x-8 md:bottom-8">
@@ -68,7 +68,7 @@ export const SeasonalDrop = () => {
               className="absolute inset-0 h-full w-full object-cover transition-transform duration-[2s] group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-60" />
-            <span className="absolute left-4 top-4 rounded bg-white/90 px-3 py-1 text-[9px] font-bold uppercase tracking-widest text-black shadow-sm backdrop-blur-md">
+            <span className="absolute left-4 top-4 rounded bg-white/90 px-3 py-1 text-[9px] font-bold uppercase tracking-widest text-black shadow-sm">
               Just In
             </span>
             <span className="absolute bottom-4 left-4 font-serif text-lg italic text-white">Knitwear</span>
