@@ -116,7 +116,7 @@ export const Hero = () => {
           translated by the compositor, never re-rasterised. */}
       <motion.div
         style={{ y: figScrollY }}
-        className="absolute left-1/2 bottom-0 z-20 h-[56vh] w-[130vw] max-w-none -translate-x-1/2 pointer-events-none md:h-[93vh] md:w-[min(96vw,660px)]"
+        className="absolute left-1/2 bottom-0 z-20 h-[42vh] w-[130vw] max-w-none -translate-x-1/2 pointer-events-none sm:h-[56vh] md:h-[93vh] md:w-[min(96vw,660px)]"
       >
         <motion.div style={{ x: figX, y: figY }} className="relative h-full w-full will-change-transform">
           {/* soft ground shadow anchors the figure */}
@@ -136,7 +136,7 @@ export const Hero = () => {
       {/* Headline (left on desktop, centered on mobile) */}
       <motion.div
         style={{ x: headX, y: headScrollY, opacity: fade }}
-        className="absolute left-0 right-0 top-[13vh] z-30 px-[6vw] text-center md:left-[5vw] md:right-auto md:top-[20vh] md:max-w-[40vw] md:px-0 md:text-left pointer-events-none"
+        className="absolute left-0 right-0 top-[7vh] z-30 px-[6vw] text-center sm:top-[13vh] md:left-[5vw] md:right-auto md:top-[20vh] md:max-w-[40vw] md:px-0 md:text-left pointer-events-none"
       >
         <h1
           className="uppercase text-[#141414]"
@@ -162,7 +162,7 @@ export const Hero = () => {
         </h1>
 
         <div
-          className="mx-auto mt-5 max-w-[300px] md:mx-0 md:mt-6"
+          className="mx-auto mt-3 max-w-[260px] sm:mt-5 sm:max-w-[300px] md:mx-0 md:mt-6"
           style={{ animation: 'heroFade 0.9s ease-out 0.6s both' }}
         >
           <p className="text-[11px] md:text-[12px] leading-relaxed font-semibold uppercase tracking-[0.04em] text-neutral-700">
@@ -228,11 +228,11 @@ export const Hero = () => {
           <Magnetic strength={0.22}>
             <a
               href="/products"
-              className="group inline-flex items-center gap-3 rounded-full border border-white/50 bg-white/80 px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-neutral-800 shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-colors hover:bg-white md:px-6 md:py-3"
+              className="group inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-white/50 bg-white/80 px-5 py-3 text-[10px] font-bold uppercase tracking-[0.15em] text-neutral-800 shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-colors hover:bg-white sm:gap-3 sm:px-7 sm:py-3.5 sm:text-[11px] sm:tracking-[0.2em] md:px-6 md:py-3"
             >
               Explore Collection
-              <span className="grid h-6 w-6 place-items-center rounded-full bg-black text-white transition-transform duration-300 group-hover:rotate-45">
-                <svg width="10" height="10" viewBox="0 0 15 15" fill="none">
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-black text-white transition-transform duration-300 group-hover:rotate-45 sm:h-6 sm:w-6">
+                <svg width="9" height="9" viewBox="0 0 15 15" fill="none" className="sm:h-[10px] sm:w-[10px]">
                   <path d="M8.146 3.146a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L11.293 8H2.5a.5.5 0 0 1 0-1h8.793L8.146 3.854a.5.5 0 0 1 0-.708Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
                 </svg>
               </span>

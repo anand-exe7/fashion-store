@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 export const Footer = () => {
   return (
     <footer className="bg-neutral-950 text-white pt-24 pb-12 px-6 md:px-12">
-      <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 mb-16 border-b border-neutral-800 pb-16">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-16 border-b border-neutral-800 pb-16">
         <div>
            <h4 className="font-semibold mb-8 text-lg">Shop</h4>
            <ul className="space-y-4 text-sm text-neutral-400 font-medium">
@@ -32,9 +32,9 @@ export const Footer = () => {
         <div>
            <h4 className="font-semibold mb-8 text-lg">Stay Connected</h4>
            <p className="text-sm text-neutral-400 mb-6 font-medium leading-relaxed">Sign up for updates and exclusive offers.</p>
-           <div className="flex gap-2 mb-8 relative group">
-             <input type="email" placeholder="Email" className="px-5 py-3.5 bg-neutral-900 border border-neutral-800 rounded-lg flex-1 outline-none text-sm placeholder:text-neutral-500 focus:border-neutral-600 transition-colors group-hover:border-neutral-700" />
-             <button className="bg-white text-black px-6 py-3.5 rounded-lg font-semibold text-sm hover:bg-neutral-200 transition-colors active:scale-95">Join</button>
+           <div className="flex flex-wrap gap-2 mb-8 relative group">
+             <input type="email" placeholder="Email" className="min-w-0 flex-1 px-5 py-3.5 bg-neutral-900 border border-neutral-800 rounded-lg outline-none text-sm placeholder:text-neutral-500 focus:border-neutral-600 transition-colors group-hover:border-neutral-700" />
+             <button className="shrink-0 bg-white text-black px-6 py-3.5 rounded-lg font-semibold text-sm hover:bg-neutral-200 transition-colors active:scale-95">Join</button>
            </div>
            <div className="flex gap-4">
              {['In', 'Fb', 'Tw'].map(social => (
@@ -56,14 +56,15 @@ export const Footer = () => {
         >
           SHALISTONE <span className="text-[8vw] sm:text-[7vw] md:text-[6vw] lg:text-[5vw] ml-2 md:ml-4 text-neutral-600 hover:rotate-90 transition-transform duration-700">*</span>
         </motion.div>
-        <div className="flex flex-col md:flex-row justify-between w-full text-xs text-neutral-500 pt-8 font-medium">
-          <p>
-            © 2026 Shalistone. Powered by{' '}
+        <div className="grid w-full grid-cols-1 items-center gap-4 pt-8 text-xs text-neutral-500 font-medium md:grid-cols-3">
+          <p className="text-center md:text-left">© 2026 Shalistone. All Rights Reserved.</p>
+          <p className="text-center">
+            Powered by{' '}
             <a href="https://www.cenexasystems.com" target="_blank" rel="noreferrer" className="text-neutral-300 hover:text-white transition-colors">
               Cenexa Systems
-            </a>.
+            </a>
           </p>
-          <div className="flex gap-6 mt-4 md:mt-0">
+          <div className="flex justify-center gap-6 md:justify-end">
             <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
           </div>

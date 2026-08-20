@@ -57,23 +57,24 @@ export const Newsletter = () => {
         </div>
 
         {/* Right: framed map with a glass pin card */}
-        <div className="relative h-[320px] w-full md:h-auto md:w-[62%] md:min-h-[520px]">
+        <div className="relative h-[280px] w-full sm:h-[360px] md:h-auto md:w-[62%] md:min-h-[520px]">
           <iframe
             title="Shalistone studio location"
             src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3023.366224168019!2d-73.99849208459424!3d40.73200787932938!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c259972b9a7c35%3A0xc66df952112e4b47!2sWashington%20Square%20Park!5e0!3m2!1sen!2sus!4v1655132204780!5m2!1sen!2sus"
             width="100%"
             height="100%"
-            style={{ border: 0, filter: 'grayscale(100%) contrast(1.05)' }}
+            style={{ border: 0 }}
             allowFullScreen={false}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
             className="absolute inset-0 h-full w-full"
           />
-          {/* subtle warm tint so the map sits inside the theme */}
-          <div className="pointer-events-none absolute inset-0 bg-[#F5F2EB]/10 mix-blend-multiply" />
+          {/* soft edge vignette so the map blends into the card instead of feeling like a raw embed */}
+          <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/10 to-transparent" />
 
           {/* Glass pin card */}
-          <div className="pointer-events-none absolute bottom-5 left-5 right-5 flex items-center gap-3 rounded-2xl border border-white/60 bg-white/90 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.12)] md:left-6 md:right-auto md:max-w-xs">
+          <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex items-center gap-3 rounded-2xl border border-white/60 bg-white/90 p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.12)] sm:bottom-5 sm:left-5 sm:right-5 sm:p-4 md:left-6 md:right-auto md:max-w-xs">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black text-white">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z" />

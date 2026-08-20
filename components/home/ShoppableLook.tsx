@@ -57,9 +57,9 @@ const ImageCard = ({
 export const ShoppableLook = () => {
   return (
     <section className="relative w-full overflow-hidden px-6 py-24 md:px-12 md:py-32">
-      {/* Huge faded background word */}
-      <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center select-none overflow-hidden opacity-[0.04]">
-        <span className="whitespace-nowrap font-serif text-[46vw] italic tracking-tighter text-black md:text-[32vw]">
+      {/* Huge faded background word — sized so the whole word stays visible instead of bleeding off-screen */}
+      <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center select-none overflow-hidden opacity-[0.05]">
+        <span className="whitespace-nowrap font-serif text-[15vw] italic tracking-tighter text-black sm:text-[16vw] md:text-[20vw] lg:text-[24vw]">
           Essence
         </span>
       </div>
