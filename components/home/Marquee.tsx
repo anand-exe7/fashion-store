@@ -1,6 +1,6 @@
 'use client';
 import { motion, useMotionValue, useAnimationFrame } from 'framer-motion';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const SPEED = 40; // px per second
 
@@ -9,9 +9,19 @@ export const Marquee = () => {
   const [paused, setPaused] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const halfWidthRef = useRef(0);
+  const sectionRef = useRef<HTMLElement>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { rootMargin: '200px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   useAnimationFrame((_, delta) => {
-    if (paused || !trackRef.current) return;
+    if (paused || !inView || !trackRef.current) return;
     if (!halfWidthRef.current) {
       halfWidthRef.current = trackRef.current.scrollWidth / 2;
     }
@@ -22,6 +32,7 @@ export const Marquee = () => {
 
   return (
     <section
+      ref={sectionRef}
       className="py-8 border-y border-neutral-200 overflow-hidden flex whitespace-nowrap bg-neutral-50 relative"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}

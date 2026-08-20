@@ -73,7 +73,7 @@ export const Newsletter = () => {
           <div className="pointer-events-none absolute inset-0 bg-[#F5F2EB]/10 mix-blend-multiply" />
 
           {/* Glass pin card */}
-          <div className="pointer-events-none absolute bottom-5 left-5 right-5 flex items-center gap-3 rounded-2xl border border-white/60 bg-white/70 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl md:left-6 md:right-auto md:max-w-xs">
+          <div className="pointer-events-none absolute bottom-5 left-5 right-5 flex items-center gap-3 rounded-2xl border border-white/60 bg-white/90 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.12)] md:left-6 md:right-auto md:max-w-xs">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black text-white">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z" />

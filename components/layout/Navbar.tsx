@@ -60,7 +60,7 @@ export const Navbar = () => {
       <nav
         className={`relative flex items-center justify-between rounded-full transition-all duration-500 ${
           isScrolled || searchOpen || menuOpen
-            ? 'border border-white/50 bg-white/60 px-4 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl md:px-6'
+            ? 'border border-white/50 bg-[#F5F2EB]/95 px-4 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.06)] md:px-6'
             : 'px-2 py-1'
         }`}
       >
@@ -89,7 +89,7 @@ export const Navbar = () => {
         </div>
 
         {/* Glass action pill */}
-        <div className="flex items-center gap-1 rounded-full border border-white/60 bg-white/40 p-1 shadow-[0_6px_24px_rgba(0,0,0,0.06)] backdrop-blur-xl sm:gap-1.5 sm:p-1.5">
+        <div className="flex items-center gap-1 rounded-full border border-white/60 bg-white/90 p-1 shadow-[0_6px_24px_rgba(0,0,0,0.06)] sm:gap-1.5 sm:p-1.5">
           <button
             type="button"
             onClick={toggleSearch}
@@ -134,7 +134,7 @@ export const Navbar = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="mx-auto mt-3 max-w-3xl rounded-2xl border border-white/50 bg-white/60 p-2 shadow-[0_16px_50px_rgba(0,0,0,0.12)] backdrop-blur-xl"
+            className="mx-auto mt-3 max-w-3xl rounded-2xl border border-white/50 bg-white/95 p-2 shadow-[0_16px_50px_rgba(0,0,0,0.12)]"
           >
             <form
               action="/products"
@@ -170,7 +170,7 @@ export const Navbar = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="mx-auto mt-3 overflow-hidden rounded-2xl border border-white/50 bg-white/70 p-2 shadow-[0_16px_50px_rgba(0,0,0,0.12)] backdrop-blur-xl lg:hidden"
+            className="mx-auto mt-3 overflow-hidden rounded-2xl border border-white/50 bg-white/95 p-2 shadow-[0_16px_50px_rgba(0,0,0,0.12)] lg:hidden"
           >
             {LINKS.map((item) => (
               <a

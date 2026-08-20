@@ -1,6 +1,6 @@
 'use client';
 import { motion, useMotionValue, useAnimationFrame } from 'framer-motion';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RevealText } from '../ui/RevealText';
 
 const SPEED = 45; // px per second
@@ -21,9 +21,20 @@ export const LovedByThousands = () => {
   const [paused, setPaused] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const halfWidthRef = useRef(0);
+  const sectionRef = useRef<HTMLElement>(null);
+  const [inView, setInView] = useState(false);
+
+  // Only run the marquee's per-frame loop while the section is on screen.
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { rootMargin: '200px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   useAnimationFrame((_, delta) => {
-    if (paused || !trackRef.current) return;
+    if (paused || !inView || !trackRef.current) return;
     if (!halfWidthRef.current) halfWidthRef.current = trackRef.current.scrollWidth / 2;
     let next = x.get() - (SPEED * delta) / 1000;
     if (next <= -halfWidthRef.current) next += halfWidthRef.current;
@@ -31,13 +42,13 @@ export const LovedByThousands = () => {
   });
 
   return (
-    <section className="overflow-hidden bg-gradient-to-b from-[#efe7d9] to-[#f5f2eb] py-24 text-center">
+    <section ref={sectionRef} className="overflow-hidden bg-gradient-to-b from-[#efe7d9] to-[#f5f2eb] py-24 text-center">
       <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="px-6">
         <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.3em] text-neutral-500">Our Community</span>
         <RevealText as="h2" text="Loved by Thousands" className="mb-6 text-4xl font-bold uppercase leading-[0.85] tracking-tighter md:text-6xl" />
 
         {/* Aggregate rating */}
-        <div className="mb-16 inline-flex items-center gap-3 rounded-full border border-black/5 bg-white/70 px-5 py-2.5 shadow-sm backdrop-blur-sm">
+        <div className="mb-16 inline-flex items-center gap-3 rounded-full border border-black/5 bg-white px-5 py-2.5 shadow-sm">
           <span className="text-sm tracking-tight text-amber-500">★★★★★</span>
           <span className="text-xs font-bold tracking-wide text-neutral-800">4.9 / 5</span>
           <span className="hidden text-[11px] font-medium uppercase tracking-widest text-neutral-500 sm:inline">
