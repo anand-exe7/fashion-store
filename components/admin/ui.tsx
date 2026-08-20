@@ -147,5 +147,10 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export const inputCls =
-  'w-full rounded-xl border border-black/[0.09] bg-white px-3.5 py-2.5 text-sm text-neutral-800 outline-none transition-colors placeholder:text-neutral-400 focus:border-neutral-400';
+export const inputBase =
+  'rounded-xl border border-black/[0.09] bg-white px-3.5 py-2.5 text-sm text-neutral-800 outline-none transition-colors placeholder:text-neutral-400 focus:border-neutral-400';
+
+// NOTE: never combine this with an explicit w-* class — a Tailwind cascade-order
+// quirk lets w-full silently win over a later w-* utility. Use `inputBase` instead
+// when a fixed/flex width is needed.
+export const inputCls = `w-full ${inputBase}`;

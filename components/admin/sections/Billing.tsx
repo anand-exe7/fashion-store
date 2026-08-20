@@ -11,7 +11,7 @@ import {
   type Source,
   type OrderItem,
 } from '@/lib/store';
-import { Card, Modal, ModalHeader, Toast, Field, inputCls } from '../ui';
+import { Card, Modal, ModalHeader, Toast, Field, inputCls, inputBase } from '../ui';
 
 interface Line extends OrderItem {
   key: number;
@@ -202,26 +202,26 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
                     onChange={(e) => setLine(l.key, { name: e.target.value })}
                     placeholder="Item name / description…"
                   />
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <input
-                      className={`${inputCls} w-24`}
+                      className={`${inputBase} w-20 shrink-0 sm:w-24`}
                       value={l.price || ''}
                       onChange={(e) => setLine(l.key, { price: Number(e.target.value.replace(/\D/g, '')) || 0 })}
                       placeholder="Price ₹"
                       inputMode="numeric"
                     />
-                    <div className="flex items-center rounded-xl border border-black/[0.09]">
-                      <button onClick={() => setLine(l.key, { qty: Math.max(1, l.qty - 1) })} className="grid h-9 w-9 place-items-center text-neutral-500 hover:text-black">
+                    <div className="flex shrink-0 items-center rounded-xl border border-black/[0.09]">
+                      <button onClick={() => setLine(l.key, { qty: Math.max(1, l.qty - 1) })} className="grid h-8 w-8 place-items-center text-neutral-500 hover:text-black sm:h-9 sm:w-9">
                         <Minus className="h-3.5 w-3.5" />
                       </button>
-                      <span className="w-8 text-center text-sm font-bold">{l.qty}</span>
-                      <button onClick={() => setLine(l.key, { qty: l.qty + 1 })} className="grid h-9 w-9 place-items-center text-neutral-500 hover:text-black">
+                      <span className="w-7 text-center text-sm font-bold sm:w-8">{l.qty}</span>
+                      <button onClick={() => setLine(l.key, { qty: l.qty + 1 })} className="grid h-8 w-8 place-items-center text-neutral-500 hover:text-black sm:h-9 sm:w-9">
                         <Plus className="h-3.5 w-3.5" />
                       </button>
                     </div>
                     <button
                       onClick={() => setLines((p) => (p.length > 1 ? p.filter((x) => x.key !== l.key) : [newLine()]))}
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-red-500 hover:bg-red-50"
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-red-500 hover:bg-red-50 sm:h-9 sm:w-9"
                       aria-label="Remove item"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -283,12 +283,12 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
 
           <div className="mt-4">
             <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-neutral-500">Manual Discount</span>
-            <div className="flex gap-2">
-              <select className={`${inputCls} w-16`} value={discMode} onChange={(e) => setDiscMode(e.target.value as '₹' | '%')}>
+            <div className="flex flex-wrap gap-2">
+              <select className={`${inputBase} w-16 shrink-0`} value={discMode} onChange={(e) => setDiscMode(e.target.value as '₹' | '%')}>
                 <option value="₹">₹</option>
                 <option value="%">%</option>
               </select>
-              <input className={`${inputCls} flex-1`} value={discValue} onChange={(e) => setDiscValue(e.target.value.replace(/[^\d.]/g, ''))} placeholder="0" inputMode="numeric" />
+              <input className={`${inputCls} min-w-[100px] flex-1`} value={discValue} onChange={(e) => setDiscValue(e.target.value.replace(/[^\d.]/g, ''))} placeholder="0" inputMode="numeric" />
             </div>
           </div>
 
@@ -359,13 +359,13 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
               disabled={p.stock <= 0}
               className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <div>
-                <p className="text-sm font-semibold text-neutral-900">{p.name}</p>
-                <p className="text-xs text-neutral-400">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-neutral-900">{p.name}</p>
+                <p className="truncate text-xs text-neutral-400">
                   {p.category} · {p.stock > 0 ? `${p.stock} in stock` : 'Out of stock'}
                 </p>
               </div>
-              <span className="text-sm font-bold text-neutral-900">{inr(p.price)}</span>
+              <span className="shrink-0 text-sm font-bold text-neutral-900">{inr(p.price)}</span>
             </button>
           ))}
         </div>
