@@ -41,7 +41,7 @@ const ImageCard = ({
       className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.4s] ease-out group-hover:scale-105"
     />
     <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
-    <span className="absolute left-3 top-3 rounded-full bg-white/85 px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.2em] text-neutral-700 backdrop-blur-sm md:left-4 md:top-4 md:text-[9px]">
+    <span className="absolute left-3 top-3 rounded-full bg-white/85 px-2.5 py-1 text-[8px] font-bold uppercase tracking-[0.2em] text-neutral-700 md:left-4 md:top-4 md:text-[9px]">
       {label}
     </span>
     <figcaption className="absolute inset-x-3 bottom-3 flex items-end justify-between text-white md:inset-x-4 md:bottom-4">

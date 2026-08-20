@@ -2,8 +2,9 @@
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Minus, Plus, X, ArrowRight, Tag, CreditCard, Banknote } from 'lucide-react';
+import { Minus, Plus, X, ArrowRight, Tag, CreditCard, Banknote, CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
+import { addOrder, updateCoupon, evaluateCoupon, genInvoiceId, useAdminData } from '@/lib/store';
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState([
@@ -27,11 +28,17 @@ export default function CartPage() {
     }
   ]);
 
+  const { coupons } = useAdminData();
   const [couponCode, setCouponCode] = useState('');
   const [couponApplied, setCouponApplied] = useState(false);
+  const [appliedPct, setAppliedPct] = useState(0);
+  const [appliedCode, setAppliedCode] = useState('');
   const [splashActive, setSplashActive] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('');
+  const [custName, setCustName] = useState('');
+  const [custPhone, setCustPhone] = useState('');
+  const [paidInvoice, setPaidInvoice] = useState<string | null>(null);
 
   const updateQuantity = (id: number, delta: number) => {
     setCartItems(items => items.map(item => {
@@ -48,19 +55,49 @@ export default function CartPage() {
   };
 
   const rawTotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const discount = couponApplied ? rawTotal * 0.1 : 0;
+  const discount = couponApplied ? Math.round((rawTotal * appliedPct) / 100) : 0;
   const finalTotal = rawTotal - discount;
 
   const applyCoupon = () => {
-    if (couponCode.toLowerCase() === 'shalistone10') {
+    const res = evaluateCoupon(couponCode, rawTotal, coupons);
+    if (res.ok) {
       setSplashActive(true);
       setTimeout(() => {
         setCouponApplied(true);
+        setAppliedPct(res.coupon.discountPct);
+        setAppliedCode(res.coupon.code);
         setSplashActive(false);
-      }, 1500);
+      }, 1200);
     } else {
-      alert('Invalid Coupon Code. Try SHALISTONE10');
+      alert(res.reason + '. Try SHALISTONE10');
     }
+  };
+
+  // Demo Razorpay: on successful "payment" record an ONLINE order in the shared
+  // store so it shows up in the admin Analytics & Orders instantly.
+  const completePayment = () => {
+    if (cartItems.length === 0) return;
+    const id = genInvoiceId();
+    addOrder({
+      id,
+      customer: custName.trim() || 'Online Customer',
+      phone: custPhone.trim(),
+      source: 'online',
+      items: cartItems.map((i) => ({ name: i.name, price: i.price, qty: i.quantity })),
+      subtotal: rawTotal,
+      couponCode: couponApplied ? appliedCode : null,
+      discount,
+      delivery: 0,
+      total: finalTotal,
+      amountReceived: finalTotal,
+      date: new Date().toISOString(),
+      status: 'completed',
+    });
+    if (couponApplied) {
+      const c = coupons.find((x) => x.code === appliedCode);
+      if (c) updateCoupon(appliedCode, { used: c.used + 1 });
+    }
+    setPaidInvoice(id);
   };
 
   return (
@@ -155,7 +192,7 @@ export default function CartPage() {
                       {couponApplied ? 'Applied' : 'Apply'}
                     </button>
                   </div>
-                  {couponApplied && <p className="text-emerald-500 text-xs mt-2 font-medium tracking-wide">10% Discount Applied!</p>}
+                  {couponApplied && <p className="text-emerald-500 text-xs mt-2 font-medium tracking-wide">{appliedPct}% Discount Applied! ({appliedCode})</p>}
                 </div>
 
                 <div className="flex flex-col gap-4 text-sm mb-8 font-medium">
@@ -182,8 +219,8 @@ export default function CartPage() {
                 
                 {/* Shipping Details Form */}
                 <div className="flex flex-col gap-4 mb-8">
-                  <input type="text" placeholder="Full Name" className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors" />
-                  <input type="tel" placeholder="Mobile Number" className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors" />
+                  <input type="text" value={custName} onChange={(e) => setCustName(e.target.value)} placeholder="Full Name" className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors" />
+                  <input type="tel" value={custPhone} onChange={(e) => setCustPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Mobile Number" className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors" />
                   
                   {/* Date of Birth */}
                   <div className="relative">
@@ -194,9 +231,10 @@ export default function CartPage() {
                   <textarea placeholder="Complete Delivery Address" rows={3} className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors resize-none"></textarea>
                 </div>
                 
-                <button 
-                  onClick={() => setShowCheckoutModal(true)}
-                  className="w-full h-14 bg-black text-white rounded-full flex items-center justify-between px-6 text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all group shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2)]"
+                <button
+                  onClick={() => { setPaidInvoice(null); setShowCheckoutModal(true); }}
+                  disabled={cartItems.length === 0}
+                  className="w-full h-14 bg-black text-white rounded-full flex items-center justify-between px-6 text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all group shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2)] disabled:opacity-40"
                 >
                   <span>Checkout</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -233,43 +271,59 @@ export default function CartPage() {
                 <X className="w-5 h-5" />
               </button>
               
-              <h2 className="text-2xl font-bold tracking-tighter uppercase mb-2">Payment Details</h2>
-              <p className="text-sm text-neutral-500 mb-8">Please select your preferred payment method to proceed securely via Razorpay.</p>
-
-              <div className="flex flex-col gap-4 mb-8">
-                <button 
-                  onClick={() => setPaymentMethod('card')}
-                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'card' ? 'border-black bg-white shadow-md' : 'border-black/5 hover:border-black/20 bg-transparent'}`}
-                >
-                  <CreditCard className={`w-6 h-6 ${paymentMethod === 'card' ? 'text-black' : 'text-neutral-400'}`} />
-                  <div className="text-left">
-                    <p className="font-bold text-sm">Credit / Debit Card</p>
-                    <p className="text-xs text-neutral-500">Secure payment via Razorpay</p>
+              {paidInvoice ? (
+                <div className="text-center py-2">
+                  <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-600">
+                    <CheckCircle2 className="w-8 h-8" />
                   </div>
-                </button>
+                  <h2 className="text-2xl font-bold tracking-tighter uppercase mb-2">Payment Successful</h2>
+                  <p className="text-sm text-neutral-500 mb-1">Invoice <span className="font-bold text-black">{paidInvoice}</span></p>
+                  <p className="text-sm text-neutral-500 mb-6">Your order is confirmed and now appears live in the store dashboard.</p>
+                  <button
+                    onClick={() => { setCartItems([]); window.location.href = '/profile'; }}
+                    className="w-full h-14 bg-black text-white rounded-full flex items-center justify-center px-6 text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all"
+                  >
+                    View My Orders
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold tracking-tighter uppercase mb-2">Payment Details</h2>
+                  <p className="text-sm text-neutral-500 mb-8">Please select your preferred payment method to proceed securely via Razorpay.</p>
 
-                <button 
-                  onClick={() => setPaymentMethod('cod')}
-                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'cod' ? 'border-black bg-white shadow-md' : 'border-black/5 hover:border-black/20 bg-transparent'}`}
-                >
-                  <Banknote className={`w-6 h-6 ${paymentMethod === 'cod' ? 'text-black' : 'text-neutral-400'}`} />
-                  <div className="text-left">
-                    <p className="font-bold text-sm">Cash on Delivery</p>
-                    <p className="text-xs text-neutral-500">Pay when you receive your order</p>
+                  <div className="flex flex-col gap-4 mb-8">
+                    <button
+                      onClick={() => setPaymentMethod('card')}
+                      className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'card' ? 'border-black bg-white shadow-md' : 'border-black/5 hover:border-black/20 bg-transparent'}`}
+                    >
+                      <CreditCard className={`w-6 h-6 ${paymentMethod === 'card' ? 'text-black' : 'text-neutral-400'}`} />
+                      <div className="text-left">
+                        <p className="font-bold text-sm">Credit / Debit Card</p>
+                        <p className="text-xs text-neutral-500">Secure payment via Razorpay</p>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => setPaymentMethod('cod')}
+                      className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'cod' ? 'border-black bg-white shadow-md' : 'border-black/5 hover:border-black/20 bg-transparent'}`}
+                    >
+                      <Banknote className={`w-6 h-6 ${paymentMethod === 'cod' ? 'text-black' : 'text-neutral-400'}`} />
+                      <div className="text-left">
+                        <p className="font-bold text-sm">Cash on Delivery</p>
+                        <p className="text-xs text-neutral-500">Pay when you receive your order</p>
+                      </div>
+                    </button>
                   </div>
-                </button>
-              </div>
 
-              <button 
-                disabled={!paymentMethod}
-                onClick={() => {
-                  alert('Redirecting to Razorpay Gateway...');
-                  setShowCheckoutModal(false);
-                }}
-                className="w-full h-14 bg-black text-white rounded-full flex items-center justify-center px-6 text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all shadow-xl disabled:opacity-50 disabled:hover:bg-black"
-              >
-                Proceed to Pay ₹{finalTotal.toLocaleString()}
-              </button>
+                  <button
+                    disabled={!paymentMethod}
+                    onClick={completePayment}
+                    className="w-full h-14 bg-black text-white rounded-full flex items-center justify-center px-6 text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all shadow-xl disabled:opacity-50 disabled:hover:bg-black"
+                  >
+                    Proceed to Pay ₹{finalTotal.toLocaleString()}
+                  </button>
+                </>
+              )}
             </motion.div>
           </div>
         )}

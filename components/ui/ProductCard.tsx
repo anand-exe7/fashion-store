@@ -54,8 +54,8 @@ export const ProductCard = ({ title, category, price, isNew, discount, image }: 
          
          {/* Badges */}
          <div className="absolute top-4 left-4 flex gap-2 z-10">
-           {isNew && <span className="px-3 py-1.5 bg-white/95 backdrop-blur-md text-[10px] font-bold uppercase tracking-widest rounded-md text-black shadow-lg">New</span>}
-           {discount && <span className="px-3 py-1.5 bg-red-500/95 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest rounded-md shadow-lg">{discount}</span>}
+           {isNew && <span className="px-3 py-1.5 bg-white/95 text-[10px] font-bold uppercase tracking-widest rounded-md text-black shadow-lg">New</span>}
+           {discount && <span className="px-3 py-1.5 bg-red-500/95 text-white text-[10px] font-bold uppercase tracking-widest rounded-md shadow-lg">{discount}</span>}
          </div>
          
          <div className="absolute top-4 right-4 z-10">
@@ -63,7 +63,7 @@ export const ProductCard = ({ title, category, price, isNew, discount, image }: 
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={(e: any) => e.preventDefault()}
-              className="w-10 h-10 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-lg"
+              className="w-10 h-10 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-lg"
             >
               <svg className="w-4 h-4 text-neutral-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
             </motion.button>
@@ -73,7 +73,7 @@ export const ProductCard = ({ title, category, price, isNew, discount, image }: 
          <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out z-10">
            <button 
              onClick={(e: any) => { e.preventDefault(); window.location.href = '/cart'; }}
-             className="w-full bg-white/95 backdrop-blur-md text-black py-3 rounded-xl text-xs font-bold uppercase tracking-widest shadow-xl hover:bg-black hover:text-white transition-colors"
+             className="w-full bg-white/95 text-black py-3 rounded-xl text-xs font-bold uppercase tracking-widest shadow-xl hover:bg-black hover:text-white transition-colors"
            >
              Quick Add
            </button>

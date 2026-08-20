@@ -57,7 +57,12 @@ export const Footer = () => {
           SHALISTONE <span className="text-[8vw] sm:text-[7vw] md:text-[6vw] lg:text-[5vw] ml-2 md:ml-4 text-neutral-600 hover:rotate-90 transition-transform duration-700">*</span>
         </motion.div>
         <div className="flex flex-col md:flex-row justify-between w-full text-xs text-neutral-500 pt-8 font-medium">
-          <p>© 2024 Shalistone. All rights reserved.</p>
+          <p>
+            © 2026 Shalistone. Powered by{' '}
+            <a href="https://www.cenexasystems.com" target="_blank" rel="noreferrer" className="text-neutral-300 hover:text-white transition-colors">
+              Cenexa Systems
+            </a>.
+          </p>
           <div className="flex gap-6 mt-4 md:mt-0">
             <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-white transition-colors">Terms of Service</a>

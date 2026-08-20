@@ -2,9 +2,18 @@
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { motion } from 'framer-motion';
-import { User, MapPin, Package, Settings, LogOut, ChevronRight } from 'lucide-react';
+import { User, MapPin, Package, Settings, ChevronRight } from 'lucide-react';
+import { useAdminData, inr } from '@/lib/store';
+
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtDate = (iso: string) => {
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${MON[Number(m) - 1]} ${Number(d)}, ${y}`;
+};
 
 export default function ProfilePage() {
+  const { orders: storeOrders } = useAdminData();
+
   const user = {
     name: 'Jane Doe',
     email: 'test@shalistone.store',
@@ -13,10 +22,23 @@ export default function ProfilePage() {
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop'
   };
 
-  const orders = [
-    { id: '#ORD-9821', date: 'Aug 12, 2026', items: 2, total: '₹67,900', status: 'In Transit' },
-    { id: '#ORD-8432', date: 'Jul 28, 2026', items: 1, total: '₹18,500', status: 'Delivered' },
+  // Orders placed online (Razorpay) flow into the customer's history.
+  const liveOrders = storeOrders
+    .filter((o) => o.source === 'online')
+    .map((o) => ({
+      id: o.id,
+      date: fmtDate(o.date),
+      items: o.items.reduce((a, i) => a + i.qty, 0),
+      total: inr(o.total),
+      status: 'Confirmed',
+    }));
+
+  const fallback = [
+    { id: 'INV-2026-9821XX', date: 'Aug 12, 2026', items: 2, total: '₹67,900', status: 'In Transit' },
+    { id: 'INV-2026-8432XX', date: 'Jul 28, 2026', items: 1, total: '₹18,500', status: 'Delivered' },
   ];
+
+  const orders = [...liveOrders, ...fallback].slice(0, 8);
 
   return (
     <div className="min-h-screen bg-[#F5F2EB] text-neutral-900 font-sans selection:bg-black selection:text-white flex flex-col">
