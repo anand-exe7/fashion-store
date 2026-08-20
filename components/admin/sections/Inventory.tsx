@@ -295,7 +295,7 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
           <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-black/[0.08] bg-black/[0.04]">
             {image ? <img src={image} alt="preview" className="h-full w-full object-cover" /> : <div className="grid h-full w-full place-items-center text-neutral-400"><ImagePlus className="h-6 w-6" /></div>}
           </div>
-          <div className="flex-1 space-y-2">
+          <div className="min-w-0 flex-1 space-y-2">
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-black/[0.1] px-3 py-2 text-xs font-bold text-neutral-700 hover:bg-black/[0.03]">
               <ImagePlus className="h-3.5 w-3.5" /> Upload image
               <input type="file" accept="image/*" onChange={onFile} className="hidden" />

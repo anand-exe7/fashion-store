@@ -112,7 +112,7 @@ export default function AdminDashboard() {
         </header>
 
         {/* Content */}
-        <main className="min-w-0 flex-1 p-3 sm:p-4 md:p-6">
+        <main className="min-w-0 flex-1 overflow-x-hidden p-3 sm:p-4 md:p-6">
           {active === 'billing' && <Billing go={setActive} />}
           {active === 'analytics' && <Analytics />}
           {active === 'orders' && <Orders go={setActive} />}

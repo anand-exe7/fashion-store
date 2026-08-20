@@ -3,7 +3,6 @@ import { ScrollProgress } from '@/components/ui/ScrollProgress';
 import { Hero } from '@/components/home/Hero';
 import { NewArrivals } from '@/components/home/NewArrivals';
 import { Marquee } from '@/components/home/Marquee';
-import { SeasonalDrop } from '@/components/home/SeasonalDrop';
 
 import { CategoryGrid } from '@/components/home/CategoryGrid';
 import { ShoppableLook } from '@/components/home/ShoppableLook';
@@ -26,7 +25,6 @@ export default async function Home() {
       <Hero />
       <NewArrivals />
       <Marquee />
-      <SeasonalDrop />
 
       <CategoryGrid />
       <ShoppableLook />

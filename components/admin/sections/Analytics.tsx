@@ -9,7 +9,27 @@ type Channel = 'all' | Source;
 type Tab = 'revenue' | 'today' | 'products' | 'coupons';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const YEAR = 2026;
+
+function startOfWeek(d: Date) {
+  const monday = new Date(d);
+  monday.setHours(0, 0, 0, 0);
+  const day = monday.getDay(); // 0=Sun..6=Sat
+  monday.setDate(monday.getDate() + (day === 0 ? -6 : 1 - day));
+  return monday;
+}
+
+function currentWeekDays() {
+  const monday = startOfWeek(new Date());
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
+
+const fmtShort = (d: Date) => `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 
 function inPeriod(iso: string, p: Period, from: string, to: string) {
   if (p === 'all') return true;
@@ -51,7 +71,7 @@ export default function Analytics() {
           <h2 className="text-2xl font-bold tracking-tight text-neutral-900">POS Analytics</h2>
           <p className="text-sm text-neutral-500">Real-time store &amp; channel insights</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="-mx-1 max-w-full overflow-x-auto px-1">
             <div className="flex w-max items-center gap-1 rounded-full border border-black/[0.06] bg-white p-1">
               <span className="px-2 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Period</span>
@@ -69,11 +89,11 @@ export default function Analytics() {
             </div>
           </div>
           {period === 'custom' && (
-            <div className="flex items-center gap-2 rounded-full border border-black/[0.06] bg-white px-3 py-1.5">
+            <div className="flex w-full max-w-full flex-wrap items-center gap-2 rounded-2xl border border-black/[0.06] bg-white px-3 py-2 sm:w-auto sm:flex-nowrap sm:rounded-full sm:py-1.5">
               <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">From</span>
-              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded border border-black/[0.09] px-2 py-1 text-xs outline-none focus:border-neutral-400" />
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="min-w-0 flex-1 rounded border border-black/[0.09] px-2 py-1 text-xs outline-none focus:border-neutral-400 sm:w-[130px] sm:flex-none" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">To</span>
-              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded border border-black/[0.09] px-2 py-1 text-xs outline-none focus:border-neutral-400" />
+              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="min-w-0 flex-1 rounded border border-black/[0.09] px-2 py-1 text-xs outline-none focus:border-neutral-400 sm:w-[130px] sm:flex-none" />
             </div>
           )}
         </div>
@@ -94,7 +114,7 @@ export default function Analytics() {
         ))}
       </div>
 
-      {tab === 'revenue' && <RevenueTab view={view} periodOrders={periodOrders} channel={channel} setChannel={setChannel} />}
+      {tab === 'revenue' && <RevenueTab view={view} periodOrders={periodOrders} channel={channel} setChannel={setChannel} period={period} />}
       {tab === 'today' && <TodayTab orders={orders} />}
       {tab === 'products' && <ProductsTab view={view} products={products} />}
       {tab === 'coupons' && <CouponsTab periodOrders={periodOrders} />}
@@ -104,7 +124,7 @@ export default function Analytics() {
 
 /* ------------------------------- REVENUE ------------------------------- */
 
-function RevenueTab({ view, periodOrders, channel, setChannel }: { view: Order[]; periodOrders: Order[]; channel: Channel; setChannel: (c: Channel) => void }) {
+function RevenueTab({ view, periodOrders, channel, setChannel, period }: { view: Order[]; periodOrders: Order[]; channel: Channel; setChannel: (c: Channel) => void; period: Period }) {
   const offline = periodOrders.filter((o) => o.source === 'offline');
   const online = periodOrders.filter((o) => o.source === 'online');
   const sum = (a: Order[]) => a.reduce((s, o) => s + o.total, 0);
@@ -115,10 +135,26 @@ function RevenueTab({ view, periodOrders, channel, setChannel }: { view: Order[]
   view.forEach((o) => o.items.forEach((i) => (topMap[i.name] = (topMap[i.name] || 0) + i.qty)));
   const topProduct = Object.entries(topMap).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
 
+  const isWeek = period === 'week';
+  const weekDays = useMemo(() => currentWeekDays(), []);
+
   const monthly = Array(12).fill(0) as number[];
   view.forEach((o) => { const d = new Date(o.date); if (d.getFullYear() === YEAR) monthly[d.getMonth()] += o.total; });
   const monthlyMax = Math.max(1, ...monthly);
   const yearTotal = monthly.reduce((a, b) => a + b, 0);
+
+  const weekly = weekDays.map((d) => view.filter((o) => new Date(o.date).toDateString() === d.toDateString()).reduce((s, o) => s + o.total, 0));
+  const weeklyMax = Math.max(1, ...weekly);
+  const weekTotal = weekly.reduce((a, b) => a + b, 0);
+
+  const trendLabels = isWeek ? WEEKDAYS : MONTHS;
+  const trendValues = isWeek ? weekly : monthly;
+  const trendMax = isWeek ? weeklyMax : monthlyMax;
+  const trendTotal = isWeek ? weekTotal : yearTotal;
+  const trendTitle = isWeek ? 'Revenue Trend · This Week' : `Revenue Trend · ${YEAR}`;
+  const trendSubtitle = isWeek
+    ? `${fmtShort(weekDays[0])} – ${fmtShort(weekDays[6])}, ${weekDays[0].getFullYear()}`
+    : `Avg ${inr(Math.round(yearTotal / 12))}/mo`;
 
   const revMap: Record<string, number> = {};
   view.forEach((o) => o.items.forEach((i) => (revMap[i.name] = (revMap[i.name] || 0) + i.price * i.qty)));
@@ -157,24 +193,26 @@ function RevenueTab({ view, periodOrders, channel, setChannel }: { view: Order[]
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <Card className="p-5 lg:col-span-2">
-          <div className="mb-6 flex items-end justify-between">
-            <div>
-              <p className="text-sm font-bold text-neutral-900">Revenue Trend · {YEAR}</p>
-              <p className="mt-1 text-2xl font-extrabold text-neutral-900">{inr(yearTotal)}</p>
+        <Card className="overflow-hidden p-5 lg:col-span-2">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-neutral-900">{trendTitle}</p>
+              <p className="mt-1 text-2xl font-extrabold text-neutral-900">{inr(trendTotal)}</p>
             </div>
-            <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700">Avg {inr(Math.round(yearTotal / 12))}/mo</span>
+            <span className="shrink-0 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700">{trendSubtitle}</span>
           </div>
-          <div className="flex h-48 items-end gap-1.5">
-            {monthly.map((v, i) => (
-              <div key={i} className="group flex flex-1 flex-col items-center justify-end gap-2">
-                <div className="relative w-full">
-                  <div className="w-full rounded-t bg-neutral-900 transition-all group-hover:bg-neutral-700" style={{ height: `${Math.max(2, (v / monthlyMax) * 160)}px` }} />
-                  {v > 0 && <span className="pointer-events-none absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-bold text-neutral-500 opacity-0 group-hover:opacity-100">{inr(v)}</span>}
+          <div className="-mx-1 overflow-x-auto px-1">
+            <div className="flex h-48 min-w-[320px] items-end gap-1.5">
+              {trendValues.map((v, i) => (
+                <div key={i} className="group flex flex-1 flex-col items-center justify-end gap-2">
+                  <div className="relative w-full">
+                    <div className="w-full rounded-t bg-neutral-900 transition-all group-hover:bg-neutral-700" style={{ height: `${Math.max(2, (v / trendMax) * 160)}px` }} />
+                    {v > 0 && <span className="pointer-events-none absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-bold text-neutral-500 opacity-0 group-hover:opacity-100">{inr(v)}</span>}
+                  </div>
+                  <span className="text-[9px] font-medium uppercase text-neutral-400">{trendLabels[i]}</span>
                 </div>
-                <span className="text-[9px] font-medium uppercase text-neutral-400">{MONTHS[i]}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </Card>
 
