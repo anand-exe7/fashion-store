@@ -365,6 +365,47 @@ export const fetchOrders = async (): Promise<Order[]> => {
   }));
 };
 
+export const fetchOrderById = async (id: string): Promise<Order | null> => {
+  const { data: o, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      order_items (*)
+    `)
+    .eq('id', id)
+    .single();
+
+  if (error || !o) return null;
+
+  return {
+    id: o.id,
+    customerName: o.customer_name,
+    customerPhone: o.customer_phone,
+    customerEmail: o.customer_email,
+    customerAddress: o.customer_address,
+    source: o.source as 'online' | 'offline',
+    subtotal: o.subtotal,
+    discount: o.discount,
+    couponCode: o.coupon_code,
+    delivery: o.delivery,
+    total: o.total,
+    amountReceived: o.amount_received,
+    status: o.status as any,
+    razorpayOrderId: o.razorpay_order_id,
+    razorpayPaymentId: o.razorpay_payment_id,
+    createdAt: o.created_at,
+    items: (o.order_items || []).map((i: any) => ({
+      id: i.id,
+      productId: i.product_id,
+      name: i.name,
+      size: i.size,
+      color: i.color,
+      quantity: i.quantity,
+      price: i.price,
+    })),
+  };
+};
+
 export const insertOrder = async (order: Order) => {
   const { error: oError } = await supabase.from('orders').insert({
     id: order.id,
@@ -411,23 +452,12 @@ export const deleteOrder = async (id: string) => {
 };
 
 export const generateInvoiceId = async (): Promise<string> => {
-  const currentYear = new Date().getFullYear();
-  const prefix = `INV-${currentYear}-`;
-  
-  const { data } = await supabase.from('orders').select('id');
-  let maxSeq = 0;
-  
-  if (data && data.length > 0) {
-    data.forEach((row: any) => {
-      const match = row.id.match(new RegExp(`^INV-\\d{4}-(\\d+)$`));
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxSeq) maxSeq = num;
-      }
-    });
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = 'ord_';
+  for (let i = 0; i < 9; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  
-  return `${prefix}${String(maxSeq + 1).padStart(5, '0')}`;
+  return result;
 };
 
 // ============================

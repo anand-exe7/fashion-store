@@ -231,15 +231,30 @@ export async function addProduct(p: Product) {
 }
 
 export async function updateProduct(id: string, patch: Partial<Product>) {
-  globalState = { ...globalState, products: globalState.products.map(p => p.id === id ? { ...p, ...patch } : p) };
+  const existing = globalState.products.find(p => p.id === id);
+  if (!existing) return;
+  
+  const updated = { ...existing, ...patch };
+
+  // If doing a quick stock patch (e.g. from the alert modal or adjustStock),
+  // sync the stock to the first variant so upsertProduct saves it to the database correctly.
+  if (patch.stock !== undefined && updated.variants && updated.variants.length > 0) {
+    updated.variants[0] = { ...updated.variants[0], stock: patch.stock };
+  }
+  
+  globalState = { ...globalState, products: globalState.products.map(p => p.id === id ? updated : p) };
   notify();
+  
   await db.upsertProduct({
     id,
-    name: patch.name,
-    category: patch.category,
-    price: patch.price,
-    image: patch.image
-  }, patch.images, patch.variants);
+    name: updated.name,
+    category: updated.category,
+    price: updated.price,
+    weightGrams: updated.weightGrams,
+    description: updated.description,
+    image: updated.image
+  }, updated.images, updated.variants);
+  
   refreshAll();
 }
 
@@ -254,10 +269,7 @@ export async function adjustStock(id: string, delta: number) {
   const p = globalState.products.find(x => x.id === id);
   if (!p) return;
   const newStock = Math.max(0, p.stock + delta);
-  globalState = { ...globalState, products: globalState.products.map(x => x.id === id ? { ...x, stock: newStock } : x) };
-  notify();
-  // Attempt to find the real DB product to get variant ID, for this adapter it's complex but refreshAll handles syncing eventually
-  refreshAll(); 
+  await updateProduct(id, { stock: newStock });
 }
 
 export async function addCoupon(c: Coupon) {

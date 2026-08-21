@@ -173,6 +173,10 @@ CREATE POLICY "Public read active coupons" ON coupons         FOR SELECT USING (
 CREATE POLICY "Public read active regions" ON delivery_regions FOR SELECT USING (is_active = TRUE);
 CREATE POLICY "Public read delivery tiers" ON delivery_tiers  FOR SELECT USING (TRUE);
 
+-- Public can read orders (secured by unguessable IDs)
+CREATE POLICY "Public read orders"         ON orders          FOR SELECT USING (TRUE);
+CREATE POLICY "Public read order items"    ON order_items     FOR SELECT USING (TRUE);
+
 -- Customers can insert their own orders
 CREATE POLICY "Anyone can place order"     ON orders       FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "Anyone can add items"       ON order_items  FOR INSERT WITH CHECK (TRUE);

@@ -28,7 +28,7 @@ export default function CartPage() {
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [splashActive, setSplashActive] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('card');
   
   // Shipping Form
   const [custName, setCustName] = useState('');
@@ -40,6 +40,11 @@ export default function CartPage() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem('cart');
+      if (saved) setCartItems(JSON.parse(saved));
+    } catch(e) {}
+
     fetchDeliveryRegions(true).then(data => {
       setRegions(data);
       if (data.length > 0) setSelectedRegionId(data[0].id);
@@ -62,17 +67,25 @@ export default function CartPage() {
   }, []);
 
   const updateQuantity = (id: number, delta: number) => {
-    setCartItems(items => items.map(item => {
-      if (item.id === id) {
-        const newQuantity = Math.max(1, item.quantity + delta);
-        return { ...item, quantity: newQuantity };
-      }
-      return item;
-    }));
+    setCartItems(items => {
+      const next = items.map(item => {
+        if (item.id === id) {
+          const newQuantity = Math.max(1, item.quantity + delta);
+          return { ...item, quantity: newQuantity };
+        }
+        return item;
+      });
+      localStorage.setItem('cart', JSON.stringify(next));
+      return next;
+    });
   };
 
   const removeItem = (id: number) => {
-    setCartItems(items => items.filter(item => item.id !== id));
+    setCartItems(items => {
+      const next = items.filter(item => item.id !== id);
+      localStorage.setItem('cart', JSON.stringify(next));
+      return next;
+    });
   };
 
   const rawTotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
@@ -132,59 +145,53 @@ export default function CartPage() {
 
       await insertOrder(orderData);
 
-      if (paymentMethod === 'card') {
-        const res = await fetch('/api/payment/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderId: invoiceId,
-            amountInPaise: finalTotal * 100,
-            customerEmail: custEmail,
-            customerName: custName,
-          })
-        });
-        
-        const { rpOrderId, key, error } = await res.json();
-        
-        if (error) {
-          alert('Failed to initiate payment: ' + error);
-          setIsProcessing(false);
-          return;
-        }
-
-        const options = {
-          key: key,
-          amount: finalTotal * 100,
-          currency: 'INR',
-          order_id: rpOrderId,
-          name: 'Shalistone',
-          description: `Order ${invoiceId}`,
-          handler: function (response: any) {
-            // Webhook will handle the actual verification and DB update
-            setPaidInvoice(invoiceId);
-            setIsProcessing(false);
-          },
-          prefill: {
-            name: custName,
-            email: custEmail,
-            contact: custPhone
-          },
-          theme: {
-            color: '#0a0a0a'
-          }
-        };
-        
-        const rzp = new (window as any).Razorpay(options);
-        rzp.on('payment.failed', function (response: any){
-          alert('Payment Failed. Please try again.');
-          setIsProcessing(false);
-        });
-        rzp.open();
-      } else {
-        // COD
-        setPaidInvoice(invoiceId);
+      const res = await fetch('/api/payment/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: invoiceId,
+          amountInPaise: finalTotal * 100,
+          customerEmail: custEmail,
+          customerName: custName,
+        })
+      });
+      
+      const { rpOrderId, key, error } = await res.json();
+      
+      if (error) {
+        alert('Failed to initiate payment: ' + error);
         setIsProcessing(false);
+        return;
       }
+
+      const options = {
+        key: key,
+        amount: finalTotal * 100,
+        currency: 'INR',
+        order_id: rpOrderId,
+        name: 'Shalistone',
+        description: `Order ${invoiceId}`,
+        handler: function (response: any) {
+          // Webhook will handle the actual verification and DB update
+          setPaidInvoice(invoiceId);
+          setIsProcessing(false);
+        },
+        prefill: {
+          name: custName,
+          email: custEmail,
+          contact: custPhone
+        },
+        theme: {
+          color: '#0a0a0a'
+        }
+      };
+      
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (response: any){
+        alert('Payment Failed. Please try again.');
+        setIsProcessing(false);
+      });
+      rzp.open();
     } catch (err: any) {
       console.error(err);
       alert('Error placing order: ' + err.message);
@@ -384,7 +391,7 @@ export default function CartPage() {
                   <p className="text-sm text-neutral-500 mb-1">Invoice <span className="font-bold text-black">{paidInvoice}</span></p>
                   <p className="text-sm text-neutral-500 mb-6">Your order is confirmed. A copy of your receipt has been sent to your email.</p>
                   <button
-                    onClick={() => { setCartItems([]); window.location.href = '/'; }}
+                    onClick={() => { setCartItems([]); localStorage.removeItem('cart'); window.location.href = '/'; }}
                     className="w-full h-14 bg-black text-white rounded-full flex items-center justify-center px-6 text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all"
                   >
                     Continue Shopping
@@ -392,33 +399,17 @@ export default function CartPage() {
                 </div>
               ) : (
                 <>
-                  <h2 className="text-2xl font-bold tracking-tighter uppercase mb-2">Payment Details</h2>
-                  <p className="text-sm text-neutral-500 mb-8">Please select your preferred payment method to proceed securely.</p>
+                  <h2 className="text-2xl font-bold tracking-tighter uppercase mb-2">Secure Checkout</h2>
+                  <p className="text-sm text-neutral-500 mb-8">You will be securely redirected to Razorpay to complete your payment.</p>
 
                   <div className="flex flex-col gap-4 mb-8">
-                    <button
-                      onClick={() => setPaymentMethod('card')}
-                      disabled={isProcessing}
-                      className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'card' ? 'border-black bg-white shadow-md' : 'border-black/5 hover:border-black/20 bg-transparent'}`}
-                    >
-                      <CreditCard className={`w-6 h-6 ${paymentMethod === 'card' ? 'text-black' : 'text-neutral-400'}`} />
+                    <div className="flex items-center gap-4 p-5 rounded-xl border border-black/10 bg-white shadow-sm">
+                      <CreditCard className="w-6 h-6 text-black" />
                       <div className="text-left">
-                        <p className="font-bold text-sm">Credit / Debit Card</p>
-                        <p className="text-xs text-neutral-500">Secure payment via Razorpay</p>
+                        <p className="font-bold text-sm">UPI, Credit/Debit Cards, & Netbanking</p>
+                        <p className="text-xs text-neutral-500">100% Secure payments powered by Razorpay</p>
                       </div>
-                    </button>
-
-                    <button
-                      onClick={() => setPaymentMethod('cod')}
-                      disabled={isProcessing}
-                      className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'cod' ? 'border-black bg-white shadow-md' : 'border-black/5 hover:border-black/20 bg-transparent'}`}
-                    >
-                      <Banknote className={`w-6 h-6 ${paymentMethod === 'cod' ? 'text-black' : 'text-neutral-400'}`} />
-                      <div className="text-left">
-                        <p className="font-bold text-sm">Cash on Delivery</p>
-                        <p className="text-xs text-neutral-500">Pay when you receive your order</p>
-                      </div>
-                    </button>
+                    </div>
                   </div>
 
                   <button
