@@ -3,8 +3,8 @@ import { motion } from 'framer-motion';
 
 export const Footer = () => {
   return (
-    <footer className="bg-neutral-950 text-white pt-24 pb-12 px-6 md:px-12">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-16 border-b border-neutral-800 pb-16">
+    <footer className="bg-neutral-950 text-white pt-16 pb-12 px-6 md:pt-24 md:px-12">
+      <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10 mb-10 border-b border-neutral-800 pb-10 sm:gap-8 md:mb-16 md:pb-16">
         <div>
            <h4 className="font-semibold mb-8 text-lg">Shop</h4>
            <ul className="space-y-4 text-sm text-neutral-400 font-medium">
@@ -29,7 +29,7 @@ export const Footer = () => {
              ))}
            </ul>
         </div>
-        <div>
+        <div className="col-span-2 md:col-span-1">
            <h4 className="font-semibold mb-8 text-lg">Stay Connected</h4>
            <p className="text-sm text-neutral-400 mb-6 font-medium leading-relaxed">Sign up for updates and exclusive offers.</p>
            <div className="flex flex-wrap gap-2 mb-8 relative group">
@@ -52,9 +52,9 @@ export const Footer = () => {
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 1, ease: "easeOut" }}
-          className="text-[12vw] sm:text-[10vw] md:text-[9vw] lg:text-[8vw] font-bold leading-none tracking-tighter mb-12 opacity-90 flex items-center justify-center select-none w-full"
+          className="text-[9vw] lg:text-[8vw] font-bold leading-none tracking-tighter mb-8 md:mb-12 opacity-90 flex items-center justify-center select-none w-full"
         >
-          SHALISTONE <span className="text-[8vw] sm:text-[7vw] md:text-[6vw] lg:text-[5vw] ml-2 md:ml-4 text-neutral-600 hover:rotate-90 transition-transform duration-700">*</span>
+          SHALISTONE <span className="text-[6vw] sm:text-[7vw] md:text-[6vw] lg:text-[5vw] ml-2 md:ml-4 text-neutral-600 hover:rotate-90 transition-transform duration-700">*</span>
         </motion.div>
         <div className="grid w-full grid-cols-1 items-center gap-4 pt-8 text-xs text-neutral-500 font-medium md:grid-cols-3">
           <p className="text-center md:text-left">© 2026 Shalistone. All Rights Reserved.</p>

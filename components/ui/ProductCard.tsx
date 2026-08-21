@@ -58,17 +58,6 @@ export const ProductCard = ({ title, category, price, isNew, discount, image }: 
            {discount && <span className="px-3 py-1.5 bg-red-500/95 text-white text-[10px] font-bold uppercase tracking-widest rounded-md shadow-lg">{discount}</span>}
          </div>
          
-         <div className="absolute top-4 right-4 z-10">
-            <motion.button 
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={(e: any) => e.preventDefault()}
-              className="w-10 h-10 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-lg"
-            >
-              <svg className="w-4 h-4 text-neutral-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
-            </motion.button>
-         </div>
-
          {/* Add to cart slide up */}
          <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out z-10">
            <button 
@@ -90,7 +79,7 @@ export const ProductCard = ({ title, category, price, isNew, discount, image }: 
            <div className="w-3.5 h-3.5 rounded-full bg-neutral-800 border-2 border-white shadow-sm cursor-pointer hover:scale-125 transition-transform origin-center"></div>
         </div>
       </div>
-      <p className="text-sm mt-2 font-bold px-1">${price}</p>
+      <p className="text-sm mt-2 font-bold px-1">₹{price}</p>
     </a>
   </motion.div>
   );
