@@ -133,10 +133,13 @@ export const Hero = () => {
 
       {/* ---------- Foreground editorial content ---------- */}
 
-      {/* Headline (left on desktop, centered on mobile) */}
+      {/* Headline (left on desktop, centered above the figure on mobile).
+          z-index sits BELOW the figure (z-20) on purpose: if the two ever get
+          close on an odd viewport, the figure should read as in front of the
+          text rather than the text garbling across the model's face. */}
       <motion.div
         style={{ x: headX, y: headScrollY, opacity: fade }}
-        className="absolute left-0 right-0 top-[7vh] z-30 px-[6vw] text-center sm:top-[13vh] md:left-[5vw] md:right-auto md:top-[20vh] md:max-w-[40vw] md:px-0 md:text-left pointer-events-none"
+        className="absolute left-0 right-0 top-[7vh] z-[15] px-[6vw] text-center sm:top-[13vh] md:left-[5vw] md:right-auto md:top-[20vh] md:z-30 md:max-w-[40vw] md:px-0 md:text-left pointer-events-none"
       >
         <h1
           className="uppercase text-[#141414]"
@@ -162,7 +165,7 @@ export const Hero = () => {
         </h1>
 
         <div
-          className="mx-auto mt-3 max-w-[260px] sm:mt-5 sm:max-w-[300px] md:mx-0 md:mt-6"
+          className="mx-auto mt-3 hidden max-w-[260px] sm:mt-5 sm:max-w-[300px] md:mx-0 md:mt-6 md:block"
           style={{ animation: 'heroFade 0.9s ease-out 0.6s both' }}
         >
           <p className="text-[11px] md:text-[12px] leading-relaxed font-semibold uppercase tracking-[0.04em] text-neutral-700">
@@ -204,7 +207,7 @@ export const Hero = () => {
             <div className="min-w-0 flex-1">
               <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-500">Featured</p>
               <p className="truncate text-[13px] font-semibold text-neutral-900">Cream Crewneck</p>
-              <p className="text-[13px] font-bold text-neutral-900">$120.00</p>
+              <p className="text-[13px] font-bold text-neutral-900">₹120.00</p>
             </div>
           </div>
           <a
