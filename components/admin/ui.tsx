@@ -71,9 +71,9 @@ export function Modal({
   open: boolean;
   onClose: () => void;
   children: ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
-  const max = size === 'sm' ? 'max-w-sm' : size === 'lg' ? 'max-w-2xl' : 'max-w-lg';
+  const max = size === 'sm' ? 'max-w-sm' : size === 'lg' ? 'max-w-2xl' : size === 'xl' ? 'max-w-4xl' : 'max-w-lg';
   return (
     <AnimatePresence>
       {open && (
@@ -89,7 +89,7 @@ export function Modal({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 24 }}
             transition={{ type: 'spring', stiffness: 260, damping: 26 }}
-            className={`relative z-10 max-h-[88vh] w-full ${max} overflow-y-auto rounded-t-3xl border border-black/[0.06] bg-white shadow-2xl sm:rounded-3xl`}
+            className={`relative z-10 max-h-[88vh] w-full ${max} overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] rounded-t-3xl border border-black/[0.06] bg-white shadow-2xl sm:rounded-3xl`}
           >
             {children}
           </motion.div>

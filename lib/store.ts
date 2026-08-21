@@ -40,6 +40,7 @@ export interface ProductVariant {
   price?: number;
   weightGrams?: number;
   stock: number;
+  isAvailable?: boolean;
 }
 
 export interface Product {
@@ -76,6 +77,18 @@ export interface StoreState {
 let globalState: StoreState = { orders: [], products: [], coupons: [] };
 let listeners = new Set<() => void>();
 let isFetching = false;
+export let currentToast: string | null = null;
+let toastTimeout: any = null;
+
+export function showToast(message: string) {
+  currentToast = message;
+  notify();
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    currentToast = null;
+    notify();
+  }, 3000);
+}
 
 function notify() {
   for (const l of listeners) l();
@@ -118,7 +131,17 @@ async function refreshAll() {
         weightGrams: p.weightGrams || 500,
         stock: defaultVariant?.stock || 0,
         lowStock: 6,
-        image: p.images[0]?.url || p.image || ''
+        image: p.images[0]?.url || p.image || '',
+        images: p.images?.map(img => img.url) || [],
+        variants: p.variants?.map(v => ({
+          id: v.id,
+          size: v.size || '',
+          colorName: v.colorName || '',
+          price: v.price,
+          weightGrams: v.weightGrams,
+          stock: v.stock || 0,
+          isAvailable: v.isAvailable
+        })) || []
       };
     });
 

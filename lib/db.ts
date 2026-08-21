@@ -243,6 +243,7 @@ export const upsertProduct = async (product: Partial<Product>, images?: string[]
         price: v.price || null,
         weight_grams: v.weightGrams || product.weightGrams || 0,
         stock: v.stock || 0,
+        is_available: v.isAvailable !== false,
         sort_order: i
       }))
     );

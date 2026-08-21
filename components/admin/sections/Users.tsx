@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Card, EmptyState } from '../ui';
 import { createClient } from '@/lib/supabase/client';
+import { showToast } from '@/lib/store';
 
 type Profile = {
   id: string;
@@ -38,10 +39,12 @@ export default function Users() {
     
     if (!confirmed) return;
 
-    const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', user.id);
-    if (!error) {
+    try {
+      const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', user.id);
+      if (error) throw error;
       setUsers(users.map(u => u.id === user.id ? { ...u, role: newRole } : u));
-    } else {
+      showToast(`${user.name || user.email} is now an ${newRole.toUpperCase()}`);
+    } catch (e: any) {
       alert("Failed to update role. Ensure you have admin privileges.");
     }
   };

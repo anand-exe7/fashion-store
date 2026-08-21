@@ -10,6 +10,8 @@ import Inventory from './sections/Inventory';
 import Coupons from './sections/Coupons';
 import Delivery from './sections/Delivery';
 import Users from './sections/Users';
+import { Toast } from './ui';
+import { currentToast, showToast } from '@/lib/store';
 
 const BRAND = 'SHALISTONE';
 
@@ -136,6 +138,7 @@ export default function AdminDashboard() {
           <span className="font-bold italic text-neutral-500">• Premium Wardrobe Experiences.</span>
         </footer>
       </div>
+      <Toast show={!!currentToast} message={currentToast || ''} />
     </div>
   );
 }

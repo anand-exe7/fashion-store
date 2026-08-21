@@ -52,7 +52,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   }, [images.length]);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start end", "end start"] });
+  // Removed useScroll here to fix "Target ref is defined but not hydrated" error during loading states
 
   if (loading) {
     return (
