@@ -1,27 +1,55 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Card, EmptyState } from '../ui';
+import { createClient } from '@/lib/supabase/client';
 
-const USERS = [
-  { name: 'Admin', email: 'admin@shalistone.com', role: 'Owner', status: 'Active' },
-  { name: 'Priya Nair', email: 'priya@shalistone.com', role: 'Manager', status: 'Active' },
-  { name: 'Rahul Verma', email: 'rahul@shalistone.com', role: 'Cashier', status: 'Active' },
-  { name: 'Sana Iqbal', email: 'sana@shalistone.com', role: 'Cashier', status: 'Invited' },
-];
+type Profile = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  created_at: string;
+};
 
-const ROLE = {
-  Owner: 'bg-neutral-900 text-white',
-  Manager: 'bg-blue-50 text-blue-700',
-  Cashier: 'bg-amber-50 text-amber-700',
+const ROLE_STYLES = {
+  admin: 'bg-neutral-900 text-white',
+  user: 'bg-neutral-100 text-neutral-600',
 } as Record<string, string>;
 
 export default function Users() {
   const [query, setQuery] = useState('');
+  const [users, setUsers] = useState<Profile[]>([]);
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function fetchUsers() {
+      const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      if (!error && data) {
+        setUsers(data);
+      }
+    }
+    fetchUsers();
+  }, []);
+
+  const toggleRole = async (user: Profile) => {
+    const newRole = user.role === 'admin' ? 'user' : 'admin';
+    const confirmed = window.confirm(`Are you sure you want to change ${user.name || user.email}'s role to ${newRole.toUpperCase()}?`);
+    
+    if (!confirmed) return;
+
+    const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', user.id);
+    if (!error) {
+      setUsers(users.map(u => u.id === user.id ? { ...u, role: newRole } : u));
+    } else {
+      alert("Failed to update role. Ensure you have admin privileges.");
+    }
+  };
+
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return USERS.filter((u) => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.role.toLowerCase().includes(q));
-  }, [query]);
+    return users.filter((u) => !q || (u.name || '').toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.role.toLowerCase().includes(q));
+  }, [query, users]);
 
   return (
     <div className="space-y-5">
@@ -49,17 +77,24 @@ export default function Users() {
             </thead>
             <tbody>
               {list.map((u) => (
-                <tr key={u.email} className="border-t border-black/[0.05]">
+                <tr key={u.id} className="border-t border-black/[0.05]">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <span className="grid h-9 w-9 place-items-center rounded-full bg-neutral-900 text-sm font-bold text-white">{u.name[0]}</span>
-                      <span className="text-sm font-bold text-neutral-900">{u.name}</span>
+                      <span className="grid h-9 w-9 place-items-center rounded-full bg-neutral-900 text-sm font-bold text-white">{(u.name || u.email)[0].toUpperCase()}</span>
+                      <span className="text-sm font-bold text-neutral-900">{u.name || 'Unknown'}</span>
                     </div>
                   </td>
                   <td className="px-3 py-4 text-sm text-neutral-600">{u.email}</td>
-                  <td className="px-3 py-4"><span className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase ${ROLE[u.role]}`}>{u.role}</span></td>
                   <td className="px-3 py-4">
-                    <span className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase ${u.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-500'}`}>{u.status}</span>
+                    <button 
+                      onClick={() => toggleRole(u)}
+                      className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase transition-colors cursor-pointer hover:opacity-80 ${ROLE_STYLES[u.role] || ROLE_STYLES.user}`}
+                    >
+                      {u.role}
+                    </button>
+                  </td>
+                  <td className="px-3 py-4">
+                    <span className="rounded-md px-2 py-1 text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700">Active</span>
                   </td>
                 </tr>
               ))}

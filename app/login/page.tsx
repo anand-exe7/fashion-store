@@ -1,8 +1,25 @@
 'use client';
 import { Navbar } from '@/components/layout/Navbar';
 import { motion } from 'framer-motion';
+import { createClient } from '@/lib/supabase/client';
+import { useState } from 'react';
 
 export default function LoginPage() {
+  const [loading, setLoading] = useState(false);
+  const supabase = createClient();
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get('next') || '/';
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${next}`,
+      },
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F2EB] text-neutral-900 font-sans selection:bg-black selection:text-white flex flex-col">
       <Navbar />
@@ -16,51 +33,15 @@ export default function LoginPage() {
         >
           <div className="text-center mb-10">
             <h1 className="text-3xl font-bold tracking-tighter uppercase mb-2">Welcome Back</h1>
-            <p className="text-neutral-500 text-sm">Enter your credentials to access your account.</p>
+            <p className="text-neutral-500 text-sm">Sign in to access your account.</p>
           </div>
           
-          <form className="flex flex-col gap-5">
-            <div>
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-neutral-500 mb-2">Email Address</label>
-              <input 
-                type="email" 
-                defaultValue="test@shalistone.store"
-                placeholder="you@example.com" 
-                className="w-full bg-[#F5F2EB] border border-black/5 rounded-xl px-4 py-4 text-sm focus:outline-none focus:border-black/20 transition-colors placeholder:text-neutral-400" 
-              />
-            </div>
-            
-            <div>
-              <label className="block text-[10px] font-bold tracking-widest uppercase text-neutral-500 mb-2 flex justify-between">
-                <span>Password</span>
-                <a href="#" className="hover:text-black transition-colors">Forgot?</a>
-              </label>
-              <input 
-                type="password" 
-                defaultValue="password123"
-                placeholder="••••••••" 
-                className="w-full bg-[#F5F2EB] border border-black/5 rounded-xl px-4 py-4 text-sm focus:outline-none focus:border-black/20 transition-colors placeholder:text-neutral-400" 
-              />
-            </div>
-            
+          <div className="flex flex-col gap-5">
             <button 
               type="button" 
-              onClick={() => window.location.href = '/'}
-              className="w-full h-14 mt-4 bg-black text-white rounded-full flex items-center justify-center font-bold tracking-[0.2em] text-[10px] uppercase hover:bg-neutral-800 transition-colors shadow-lg hover:shadow-xl"
-            >
-              Sign In
-            </button>
-            
-            <div className="relative flex items-center py-2">
-              <div className="flex-grow border-t border-black/10"></div>
-              <span className="flex-shrink-0 mx-4 text-[10px] uppercase tracking-widest text-neutral-400 font-bold">Or</span>
-              <div className="flex-grow border-t border-black/10"></div>
-            </div>
-
-            <button 
-              type="button" 
-              onClick={() => window.location.href = '/'}
-              className="w-full h-14 bg-white text-black border border-black/10 rounded-full flex items-center justify-center font-bold tracking-[0.15em] text-[10px] uppercase hover:bg-neutral-50 transition-colors shadow-sm gap-3"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full h-14 bg-white text-black border border-black/10 rounded-full flex items-center justify-center font-bold tracking-[0.15em] text-[10px] uppercase hover:bg-neutral-50 transition-colors shadow-sm gap-3 disabled:opacity-50"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -68,15 +49,9 @@ export default function LoginPage() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
-              Continue with Google
+              {loading ? 'Connecting...' : 'Continue with Google'}
             </button>
-            
-            <div className="text-center mt-6">
-              <p className="text-xs text-neutral-600">
-                New to Shalistone? <a href="#" className="text-black hover:underline underline-offset-4 font-bold">Create an account</a>
-              </p>
-            </div>
-          </form>
+          </div>
         </motion.div>
       </main>
     </div>

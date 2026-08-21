@@ -8,6 +8,7 @@ import Analytics from './sections/Analytics';
 import Orders from './sections/Orders';
 import Inventory from './sections/Inventory';
 import Coupons from './sections/Coupons';
+import Delivery from './sections/Delivery';
 import Users from './sections/Users';
 
 const BRAND = 'SHALISTONE';
@@ -19,7 +20,7 @@ export default function AdminDashboard() {
 
   return (
     <div
-      className="flex min-h-screen w-full bg-[#f4f2ec] text-neutral-800"
+      className="flex h-screen w-full overflow-hidden bg-[#f4f2ec] text-neutral-800"
       style={{ fontFamily: 'var(--font-poppins), system-ui, sans-serif' }}
     >
       {/* Mobile backdrop */}
@@ -37,7 +38,7 @@ export default function AdminDashboard() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col overflow-y-auto border-r border-black/[0.06] bg-white transition-all duration-300 lg:static lg:z-auto lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen flex-col overflow-y-auto border-r border-black/[0.06] bg-white transition-all duration-300 lg:static lg:z-auto lg:translate-x-0 ${
           collapsed ? 'lg:w-[80px]' : 'lg:w-64'
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
@@ -80,7 +81,7 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Main column */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex h-screen min-w-0 flex-1 flex-col overflow-y-auto">
         {/* Top bar */}
         <header className="sticky top-0 z-20 flex h-[73px] shrink-0 items-center justify-between border-b border-black/[0.06] bg-[#f4f2ec]/80 px-4 backdrop-blur-md md:px-8">
           <div className="flex items-center gap-3">
@@ -118,6 +119,7 @@ export default function AdminDashboard() {
           {active === 'orders' && <Orders go={setActive} />}
           {active === 'inventory' && <Inventory />}
           {active === 'coupons' && <Coupons />}
+          {active === 'delivery' && <Delivery />}
           {active === 'users' && <Users />}
         </main>
 

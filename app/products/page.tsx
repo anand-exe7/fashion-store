@@ -2,25 +2,24 @@
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
-
-const ALL_PRODUCTS = [
-  { id: 1, name: "Lumina Trench Coat", price: "₹39,500", category: "Outerwear", img: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=800&auto=format&fit=crop" },
-  { id: 2, name: "Silk Slip Dress", price: "₹18,500", category: "Dresses", img: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=800&auto=format&fit=crop" },
-  { id: 3, name: "Architectural Boots", price: "₹28,400", category: "Footwear", img: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800&auto=format&fit=crop" },
-  { id: 4, name: "Oversized Shades", price: "₹14,800", category: "Accessories", img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=800&auto=format&fit=crop" },
-  { id: 5, name: "Minimalist Tote", price: "₹34,000", category: "Accessories", img: "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=800&auto=format&fit=crop" },
-  { id: 6, name: "Cashmere Turtleneck", price: "₹22,000", category: "Knitwear", img: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=800&auto=format&fit=crop" },
-  { id: 7, name: "Wide Leg Trousers", price: "₹16,500", category: "Pants", img: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?q=80&w=800&auto=format&fit=crop" },
-  { id: 8, name: "Sculptural Ring", price: "₹8,900", category: "Jewelry", img: "https://images.unsplash.com/photo-1605100804763-247f67b8548e?q=80&w=800&auto=format&fit=crop" },
-];
+import { useState, useEffect } from 'react';
+import { fetchProducts, Product } from '@/lib/db';
 
 export default function ProductsPage() {
   const [filter, setFilter] = useState('All');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    fetchProducts().then(data => {
+      setProducts(data);
+      setLoading(false);
+    });
+  }, []);
   
   const categories = ['All', 'Outerwear', 'Dresses', 'Footwear', 'Accessories', 'Knitwear', 'Pants', 'Jewelry'];
   
-  const filteredProducts = filter === 'All' ? ALL_PRODUCTS : ALL_PRODUCTS.filter(p => p.category === filter);
+  const filteredProducts = filter === 'All' ? products : products.filter(p => p.category === filter);
 
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-neutral-900 font-sans selection:bg-black selection:text-white">
@@ -59,40 +58,51 @@ export default function ProductsPage() {
         </div>
 
         {/* Product Grid */}
-        <motion.div 
-          layout
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
-        >
-          {filteredProducts.map((prod, i) => (
-            <motion.div 
-              key={prod.id}
-              layout
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.5, delay: i * 0.05 }}
-              className="group cursor-pointer flex flex-col"
-              onClick={() => window.location.href = '/product'}
-            >
-              <div className="aspect-[3/4] bg-white/50 rounded-xl mb-5 overflow-hidden relative shadow-sm group-hover:shadow-xl transition-all duration-500">
-                <img src={prod.img} alt={prod.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700 ease-out" />
-                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="absolute bottom-6 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-4 group-hover:translate-y-0">
-                  <span className="bg-white/90 backdrop-blur-md text-black text-[10px] uppercase tracking-widest font-bold px-6 py-3 rounded-full shadow-lg">Quick View</span>
-                </div>
-              </div>
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-sm font-semibold tracking-wide text-[#3c3c3a]">{prod.name}</h3>
-                  <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-1">{prod.category}</p>
-                </div>
-                <p className="text-sm font-medium tracking-tight">{prod.price}</p>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
+        {loading ? (
+          <div className="text-center py-24 text-neutral-500 text-xs tracking-widest uppercase font-bold">
+            Loading Collection...
+          </div>
+        ) : (
+          <motion.div 
+            layout
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
+          >
+            {filteredProducts.map((prod, i) => {
+              // Find the primary image, or fallback to first image, or legacy image
+              const primaryImg = prod.images.find(img => img.isPrimary)?.url || prod.images[0]?.url || prod.image || '';
+
+              return (
+                <motion.div 
+                  key={prod.id}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.5, delay: i * 0.05 }}
+                  className="group cursor-pointer flex flex-col"
+                  onClick={() => window.location.href = `/product/${prod.id}`}
+                >
+                  <div className="aspect-[3/4] bg-white/50 rounded-xl mb-5 overflow-hidden relative shadow-sm group-hover:shadow-xl transition-all duration-500">
+                    <img src={primaryImg} alt={prod.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700 ease-out" />
+                    <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="absolute bottom-6 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-4 group-hover:translate-y-0">
+                      <span className="bg-white/90 backdrop-blur-md text-black text-[10px] uppercase tracking-widest font-bold px-6 py-3 rounded-full shadow-lg">Quick View</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-sm font-semibold tracking-wide text-[#3c3c3a]">{prod.name}</h3>
+                      <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-1">{prod.category}</p>
+                    </div>
+                    <p className="text-sm font-medium tracking-tight">₹{prod.price.toLocaleString()}</p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )}
         
-        {filteredProducts.length === 0 && (
+        {!loading && filteredProducts.length === 0 && (
           <div className="text-center py-24 text-neutral-500">
             No products found in this category.
           </div>

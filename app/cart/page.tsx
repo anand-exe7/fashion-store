@@ -3,42 +3,63 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Minus, Plus, X, ArrowRight, Tag, CreditCard, Banknote, CheckCircle2 } from 'lucide-react';
-import { useState } from 'react';
-import { addOrder, updateCoupon, evaluateCoupon, genInvoiceId, useAdminData } from '@/lib/store';
+import { useState, useEffect } from 'react';
+import { fetchDeliveryRegions, calculateDeliveryFee, validateCoupon, generateInvoiceId, insertOrder, DeliveryRegion, Coupon } from '@/lib/db';
+import { createClient } from '@/lib/supabase/client';
+import Script from 'next/script';
 
 export default function CartPage() {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: "Lumina Trench Coat",
-      size: "M",
-      color: "Noir",
-      price: 39500,
-      image: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=600&auto=format&fit=crop",
-      quantity: 1
-    },
-    {
-      id: 2,
-      name: "Architectural Boots",
-      size: "42",
-      color: "Bone",
-      price: 28400,
-      image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=600&auto=format&fit=crop",
-      quantity: 1
-    }
-  ]);
+  const [cartItems, setCartItems] = useState<{
+    id: number;
+    productId: string;
+    name: string;
+    size: string;
+    color: string;
+    price: number;
+    image: string;
+    quantity: number;
+    weightGrams: number;
+  }[]>([]);
 
-  const { coupons } = useAdminData();
+  const [regions, setRegions] = useState<DeliveryRegion[]>([]);
+  const [selectedRegionId, setSelectedRegionId] = useState<string>('');
   const [couponCode, setCouponCode] = useState('');
   const [couponApplied, setCouponApplied] = useState(false);
-  const [appliedPct, setAppliedPct] = useState(0);
-  const [appliedCode, setAppliedCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [splashActive, setSplashActive] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('');
+  
+  // Shipping Form
   const [custName, setCustName] = useState('');
   const [custPhone, setCustPhone] = useState('');
+  const [custEmail, setCustEmail] = useState('');
+  const [custAddress, setCustAddress] = useState('');
+  
   const [paidInvoice, setPaidInvoice] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    fetchDeliveryRegions(true).then(data => {
+      setRegions(data);
+      if (data.length > 0) setSelectedRegionId(data[0].id);
+    });
+    
+    async function prefillProfile() {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setCustEmail(session.user.email || '');
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+        if (profile) {
+          if (profile.name) setCustName(profile.name);
+          if (profile.mobile) setCustPhone(profile.mobile);
+          if (profile.address) setCustAddress(profile.address);
+        }
+      }
+    }
+    prefillProfile();
+  }, []);
 
   const updateQuantity = (id: number, delta: number) => {
     setCartItems(items => items.map(item => {
@@ -55,53 +76,125 @@ export default function CartPage() {
   };
 
   const rawTotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const discount = couponApplied ? Math.round((rawTotal * appliedPct) / 100) : 0;
-  const finalTotal = rawTotal - discount;
+  const totalWeightGrams = cartItems.reduce((acc, item) => acc + (item.weightGrams * item.quantity), 0);
+  
+  const selectedRegion = regions.find(r => r.id === selectedRegionId) || null;
+  const deliveryFee = calculateDeliveryFee(totalWeightGrams, selectedRegion);
+  
+  const discount = couponApplied && appliedCoupon ? Math.round((rawTotal * appliedCoupon.discountPct) / 100) : 0;
+  const finalTotal = rawTotal - discount + deliveryFee;
 
-  const applyCoupon = () => {
-    const res = evaluateCoupon(couponCode, rawTotal, coupons);
-    if (res.ok) {
+  const applyCoupon = async () => {
+    const res = await validateCoupon(couponCode, rawTotal);
+    if (res.ok && res.coupon) {
       setSplashActive(true);
       setTimeout(() => {
         setCouponApplied(true);
-        setAppliedPct(res.coupon.discountPct);
-        setAppliedCode(res.coupon.code);
+        setAppliedCoupon(res.coupon || null);
         setSplashActive(false);
       }, 1200);
     } else {
-      alert(res.reason + '. Try SHALISTONE10');
+      alert(res.reason || 'Invalid Coupon');
     }
   };
 
-  // Demo Razorpay: on successful "payment" record an ONLINE order in the shared
-  // store so it shows up in the admin Analytics & Orders instantly.
-  const completePayment = () => {
+  const completePayment = async () => {
     if (cartItems.length === 0) return;
-    const id = genInvoiceId();
-    addOrder({
-      id,
-      customer: custName.trim() || 'Online Customer',
-      phone: custPhone.trim(),
-      source: 'online',
-      items: cartItems.map((i) => ({ name: i.name, price: i.price, qty: i.quantity })),
-      subtotal: rawTotal,
-      couponCode: couponApplied ? appliedCode : null,
-      discount,
-      delivery: 0,
-      total: finalTotal,
-      amountReceived: finalTotal,
-      date: new Date().toISOString(),
-      status: 'completed',
-    });
-    if (couponApplied) {
-      const c = coupons.find((x) => x.code === appliedCode);
-      if (c) updateCoupon(appliedCode, { used: c.used + 1 });
+    setIsProcessing(true);
+    
+    try {
+      const invoiceId = await generateInvoiceId();
+      
+      const orderData = {
+        id: invoiceId,
+        customerName: custName.trim() || 'Online Customer',
+        customerPhone: custPhone.trim(),
+        customerEmail: custEmail.trim(),
+        customerAddress: custAddress.trim(),
+        source: 'online' as const,
+        subtotal: rawTotal,
+        discount,
+        couponCode: couponApplied ? appliedCoupon?.code : undefined,
+        delivery: deliveryFee,
+        total: finalTotal,
+        amountReceived: paymentMethod === 'card' ? 0 : finalTotal, // 0 for card until webhook verifies
+        status: 'pending' as const,
+        createdAt: new Date().toISOString(),
+        items: cartItems.map((i) => ({
+          productId: i.productId,
+          name: i.name,
+          size: i.size,
+          color: i.color,
+          price: i.price,
+          quantity: i.quantity,
+        })),
+      };
+
+      await insertOrder(orderData);
+
+      if (paymentMethod === 'card') {
+        const res = await fetch('/api/payment/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: invoiceId,
+            amountInPaise: finalTotal * 100,
+            customerEmail: custEmail,
+            customerName: custName,
+          })
+        });
+        
+        const { rpOrderId, key, error } = await res.json();
+        
+        if (error) {
+          alert('Failed to initiate payment: ' + error);
+          setIsProcessing(false);
+          return;
+        }
+
+        const options = {
+          key: key,
+          amount: finalTotal * 100,
+          currency: 'INR',
+          order_id: rpOrderId,
+          name: 'Shalistone',
+          description: `Order ${invoiceId}`,
+          handler: function (response: any) {
+            // Webhook will handle the actual verification and DB update
+            setPaidInvoice(invoiceId);
+            setIsProcessing(false);
+          },
+          prefill: {
+            name: custName,
+            email: custEmail,
+            contact: custPhone
+          },
+          theme: {
+            color: '#0a0a0a'
+          }
+        };
+        
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', function (response: any){
+          alert('Payment Failed. Please try again.');
+          setIsProcessing(false);
+        });
+        rzp.open();
+      } else {
+        // COD
+        setPaidInvoice(invoiceId);
+        setIsProcessing(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert('Error placing order: ' + err.message);
+      setIsProcessing(false);
     }
-    setPaidInvoice(id);
   };
 
   return (
     <div className="min-h-screen bg-[#F5F2EB] text-neutral-900 font-sans selection:bg-black selection:text-white flex flex-col relative overflow-x-hidden">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
       <Navbar />
       
       {/* Splash Effect for Coupon */}
@@ -192,7 +285,22 @@ export default function CartPage() {
                       {couponApplied ? 'Applied' : 'Apply'}
                     </button>
                   </div>
-                  {couponApplied && <p className="text-emerald-500 text-xs mt-2 font-medium tracking-wide">{appliedPct}% Discount Applied! ({appliedCode})</p>}
+                  {couponApplied && appliedCoupon && <p className="text-emerald-500 text-xs mt-2 font-medium tracking-wide">{appliedCoupon.discountPct}% Discount Applied! ({appliedCoupon.code})</p>}
+                </div>
+                
+                {/* Delivery Region */}
+                <div className="mb-6">
+                  <label className="block text-[10px] font-bold tracking-widest uppercase text-neutral-500 mb-2">Delivery Region</label>
+                  <select
+                    value={selectedRegionId}
+                    onChange={(e) => setSelectedRegionId(e.target.value)}
+                    className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors appearance-none"
+                  >
+                    <option value="" disabled>Select your region</option>
+                    {regions.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="flex flex-col gap-4 text-sm mb-8 font-medium">
@@ -208,7 +316,7 @@ export default function CartPage() {
                   )}
                   <div className="flex justify-between">
                     <span className="text-neutral-500">Shipping</span>
-                    <span>Complimentary</span>
+                    <span>{deliveryFee === 0 ? 'Complimentary' : `₹${deliveryFee.toLocaleString()}`}</span>
                   </div>
                 </div>
                 
@@ -221,20 +329,14 @@ export default function CartPage() {
                 <div className="flex flex-col gap-4 mb-8">
                   <input type="text" value={custName} onChange={(e) => setCustName(e.target.value)} placeholder="Full Name" className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors" />
                   <input type="tel" value={custPhone} onChange={(e) => setCustPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Mobile Number" className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors" />
-                  
-                  {/* Date of Birth */}
-                  <div className="relative">
-                    <label className="absolute -top-2 left-3 bg-[#F5F2EB] px-1 text-[10px] uppercase font-bold text-neutral-500 tracking-widest">Date of Birth</label>
-                    <input type="date" className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors" />
-                  </div>
-
-                  <textarea placeholder="Complete Delivery Address" rows={3} className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors resize-none"></textarea>
+                  <input type="email" value={custEmail} onChange={(e) => setCustEmail(e.target.value)} placeholder="Email Address" className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors" />
+                  <textarea value={custAddress} onChange={(e) => setCustAddress(e.target.value)} placeholder="Complete Delivery Address" rows={3} className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors resize-none"></textarea>
                 </div>
                 
                 <button
                   onClick={() => { setPaidInvoice(null); setShowCheckoutModal(true); }}
-                  disabled={cartItems.length === 0}
-                  className="w-full h-14 bg-black text-white rounded-full flex items-center justify-between px-6 text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all group shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2)] disabled:opacity-40"
+                  disabled={cartItems.length === 0 || !custName || !custPhone || !custAddress || !selectedRegionId}
+                  className="w-full h-14 bg-black text-white rounded-full flex items-center justify-between px-6 text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all group shadow-[0_10px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.2)] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <span>Checkout</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -255,7 +357,7 @@ export default function CartPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowCheckoutModal(false)}
+              onClick={() => !isProcessing && setShowCheckoutModal(false)}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
             <motion.div 
@@ -264,36 +366,39 @@ export default function CartPage() {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="relative w-full max-w-md bg-[#F5F2EB] rounded-2xl shadow-2xl p-6 md:p-8 overflow-hidden"
             >
-              <button 
-                onClick={() => setShowCheckoutModal(false)}
-                className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-black transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {!isProcessing && !paidInvoice && (
+                <button 
+                  onClick={() => setShowCheckoutModal(false)}
+                  className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-black transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
               
               {paidInvoice ? (
                 <div className="text-center py-2">
                   <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-600">
                     <CheckCircle2 className="w-8 h-8" />
                   </div>
-                  <h2 className="text-2xl font-bold tracking-tighter uppercase mb-2">Payment Successful</h2>
+                  <h2 className="text-2xl font-bold tracking-tighter uppercase mb-2">Order Confirmed</h2>
                   <p className="text-sm text-neutral-500 mb-1">Invoice <span className="font-bold text-black">{paidInvoice}</span></p>
-                  <p className="text-sm text-neutral-500 mb-6">Your order is confirmed and now appears live in the store dashboard.</p>
+                  <p className="text-sm text-neutral-500 mb-6">Your order is confirmed. A copy of your receipt has been sent to your email.</p>
                   <button
-                    onClick={() => { setCartItems([]); window.location.href = '/profile'; }}
+                    onClick={() => { setCartItems([]); window.location.href = '/'; }}
                     className="w-full h-14 bg-black text-white rounded-full flex items-center justify-center px-6 text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all"
                   >
-                    View My Orders
+                    Continue Shopping
                   </button>
                 </div>
               ) : (
                 <>
                   <h2 className="text-2xl font-bold tracking-tighter uppercase mb-2">Payment Details</h2>
-                  <p className="text-sm text-neutral-500 mb-8">Please select your preferred payment method to proceed securely via Razorpay.</p>
+                  <p className="text-sm text-neutral-500 mb-8">Please select your preferred payment method to proceed securely.</p>
 
                   <div className="flex flex-col gap-4 mb-8">
                     <button
                       onClick={() => setPaymentMethod('card')}
+                      disabled={isProcessing}
                       className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'card' ? 'border-black bg-white shadow-md' : 'border-black/5 hover:border-black/20 bg-transparent'}`}
                     >
                       <CreditCard className={`w-6 h-6 ${paymentMethod === 'card' ? 'text-black' : 'text-neutral-400'}`} />
@@ -305,6 +410,7 @@ export default function CartPage() {
 
                     <button
                       onClick={() => setPaymentMethod('cod')}
+                      disabled={isProcessing}
                       className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === 'cod' ? 'border-black bg-white shadow-md' : 'border-black/5 hover:border-black/20 bg-transparent'}`}
                     >
                       <Banknote className={`w-6 h-6 ${paymentMethod === 'cod' ? 'text-black' : 'text-neutral-400'}`} />
@@ -316,11 +422,11 @@ export default function CartPage() {
                   </div>
 
                   <button
-                    disabled={!paymentMethod}
+                    disabled={!paymentMethod || isProcessing}
                     onClick={completePayment}
                     className="w-full h-14 bg-black text-white rounded-full flex items-center justify-center px-6 text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all shadow-xl disabled:opacity-50 disabled:hover:bg-black"
                   >
-                    Proceed to Pay ₹{finalTotal.toLocaleString()}
+                    {isProcessing ? 'Processing...' : `Confirm Order ₹${finalTotal.toLocaleString()}`}
                   </button>
                 </>
               )}

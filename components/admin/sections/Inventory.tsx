@@ -246,40 +246,94 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [price, setPrice] = useState('');
+  const [weight, setWeight] = useState('');
   const [stock, setStock] = useState('');
   const [lowStock, setLowStock] = useState('6');
-  const [image, setImage] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [description, setDescription] = useState('');
+  const [variants, setVariants] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   // load values when the modal opens for a product
   useEffect(() => {
     if (state.open) {
       setName(editing?.name ?? '');
       setCategory(editing?.category ?? '');
+      setDescription(editing?.description ?? '');
       setPrice(editing ? String(editing.price) : '');
+      setWeight(editing ? String(editing.weightGrams || '') : '');
       setStock(editing ? String(editing.stock) : '');
       setLowStock(editing ? String(editing.lowStock) : '6');
-      setImage(editing?.image ?? '');
+      
+      const allImages = editing?.images ? [...editing.images] : [];
+      if (editing?.image && !allImages.includes(editing.image)) {
+        allImages.unshift(editing.image);
+      }
+      setImages(allImages);
+      
+      setVariants(editing?.variants ? [...editing.variants] : [{ size: '', stock: 0 }]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.open, editing]);
 
-  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => setImage(String(reader.result));
-    reader.readAsDataURL(f);
+  const addVariant = () => setVariants([...variants, { size: '', stock: 0, weightGrams: '' }]);
+  const removeVariant = (idx: number) => setVariants(variants.filter((_, i) => i !== idx));
+  const updateVariant = (idx: number, field: string, val: any) => {
+    const v = [...variants];
+    v[idx] = { ...v[idx], [field]: val };
+    setVariants(v);
+  };
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    
+    setUploading(true);
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      
+      const newUrls: string[] = [];
+      for (const f of files) {
+        const ext = f.name.split('.').pop() || 'jpg';
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
+        const filePath = `products/${fileName}`;
+        
+        const { error } = await supabase.storage.from('images').upload(filePath, f);
+        if (error) {
+          alert(`Upload failed for ${f.name}. Make sure you have created an 'images' bucket in Supabase and made it public.`);
+          console.error(error);
+          continue;
+        }
+        
+        const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(filePath);
+        newUrls.push(publicUrl);
+      }
+      
+      setImages(prev => [...prev, ...newUrls]);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const save = () => {
     if (!name.trim() || !price) return;
+    
+    const validVariants = variants.filter(v => v.size.trim());
+    const totalStock = validVariants.length > 0 
+      ? validVariants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
+      : (Number(stock) || 0);
+
     const payload = {
       name: name.trim(),
       category: category.trim() || 'General',
+      description: description.trim(),
       price: Number(price) || 0,
-      stock: Number(stock) || 0,
+      weightGrams: Number(weight) || 0,
+      stock: totalStock,
       lowStock: Number(lowStock) || 6,
-      image: image || undefined,
+      image: images[0] || undefined,
+      images: images.length > 0 ? images : undefined,
+      variants: validVariants.length > 0 ? validVariants : undefined,
     };
     if (editing) updateProduct(editing.id, payload);
     else addProduct({ id: 'P' + Math.random().toString(36).slice(2, 7).toUpperCase(), ...payload });
@@ -287,33 +341,96 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
   };
 
   return (
-    <Modal open={state.open} onClose={onClose} size="md">
+    <Modal open={state.open} onClose={onClose} size="lg">
       <ModalHeader title={editing ? 'Edit Product' : 'Add Product'} onClose={onClose} />
-      <div className="space-y-4 p-5 sm:p-6">
-        {/* image picker */}
-        <div className="flex items-center gap-4">
-          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-black/[0.08] bg-black/[0.04]">
-            {image ? <img src={image} alt="preview" className="h-full w-full object-cover" /> : <div className="grid h-full w-full place-items-center text-neutral-400"><ImagePlus className="h-6 w-6" /></div>}
+      
+      <div className="grid grid-cols-1 md:grid-cols-2">
+        {/* Left Column: Basic Info & Images */}
+        <div className="space-y-6 p-5 sm:p-6 border-b md:border-b-0 md:border-r border-black/[0.06] bg-white">
+          <div className="space-y-4">
+            <h3 className="text-sm font-extrabold tracking-tight text-neutral-900">Basic Details</h3>
+            <Field label="Product Name"><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Merino Sweater" /></Field>
+            <Field label="Description"><textarea className={`${inputCls} h-28 resize-none`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Tell your customers about this product..." /></Field>
           </div>
-          <div className="min-w-0 flex-1 space-y-2">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-black/[0.1] px-3 py-2 text-xs font-bold text-neutral-700 hover:bg-black/[0.03]">
-              <ImagePlus className="h-3.5 w-3.5" /> Upload image
-              <input type="file" accept="image/*" onChange={onFile} className="hidden" />
-            </label>
-            <input className={`${inputCls} text-xs`} value={image.startsWith('data:') ? '' : image} onChange={(e) => setImage(e.target.value)} placeholder="…or paste an image URL" />
+
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-extrabold tracking-tight text-neutral-900">Media Gallery</h3>
+              <label className="cursor-pointer text-xs font-bold text-neutral-900 hover:underline">
+                Upload
+                <input type="file" accept="image/*" multiple onChange={onFile} className="hidden" disabled={uploading} />
+              </label>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              {images.map((url, i) => (
+                <div key={i} className={`group relative h-20 w-20 overflow-hidden rounded-xl border ${i === 0 ? 'border-neutral-900 shadow-sm' : 'border-black/[0.08]'} bg-black/[0.04]`}>
+                  {i === 0 && <div className="absolute top-0 left-0 right-0 bg-neutral-900/80 px-1 py-0.5 text-center text-[8px] font-bold uppercase text-white backdrop-blur-sm z-10">Primary</div>}
+                  <img src={url} alt={`Preview ${i}`} className="h-full w-full object-cover" />
+                  <button onClick={() => setImages(images.filter((_, idx) => idx !== i))} className="absolute inset-0 z-20 grid place-items-center bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/70"><Trash2 className="h-4 w-4" /></button>
+                </div>
+              ))}
+              <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-700 transition-colors">
+                <ImagePlus className="h-5 w-5" />
+                <input type="file" accept="image/*" multiple onChange={onFile} className="hidden" disabled={uploading} />
+              </label>
+            </div>
           </div>
         </div>
 
-        <Field label="Product Name"><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Merino Sweater" /></Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Category"><input className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Knitwear" /></Field>
-          <Field label="Price (₹)"><input className={inputCls} value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" /></Field>
+        {/* Right Column: Organization, Pricing, Variants */}
+        <div className="space-y-6 p-5 sm:p-6 bg-neutral-50 rounded-br-3xl flex flex-col">
+          <div className="space-y-4">
+            <h3 className="text-sm font-extrabold tracking-tight text-neutral-900">Organization & Pricing</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Category"><input className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Knitwear" /></Field>
+              <Field label="Base Price (₹)"><input className={inputCls} value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Base Weight (g)"><input className={inputCls} value={weight} onChange={(e) => setWeight(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 500" inputMode="numeric" /></Field>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-2">
+            <h3 className="text-sm font-extrabold tracking-tight text-neutral-900">Inventory Default</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Default Stock"><input className={inputCls} value={stock} onChange={(e) => setStock(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" disabled={variants.some(v => v.size.trim())} /></Field>
+              <Field label="Low-stock alert at"><input className={inputCls} value={lowStock} onChange={(e) => setLowStock(e.target.value.replace(/\D/g, ''))} placeholder="6" inputMode="numeric" /></Field>
+            </div>
+            {variants.some(v => v.size.trim()) && <p className="text-[10px] text-neutral-500 font-medium">Default stock is disabled because you have specific variants configured below.</p>}
+          </div>
+
+          <div className="space-y-4 pt-2 flex-1">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-extrabold tracking-tight text-neutral-900">Variants</h3>
+              <button type="button" onClick={addVariant} className="text-xs font-bold text-neutral-900 hover:underline">+ Add Row</button>
+            </div>
+            
+            <div className="space-y-2">
+              {variants.map((v, i) => (
+                <div key={i} className="flex items-center gap-1.5 bg-white p-1.5 rounded-xl border border-black/[0.06] shadow-sm flex-wrap">
+                  <input className={`${inputCls} w-[22%] !border-none !shadow-none !bg-transparent`} placeholder="Size" value={v.size} onChange={e => updateVariant(i, 'size', e.target.value)} />
+                  <input className={`${inputCls} w-[22%] !border-none !shadow-none !bg-transparent`} placeholder="Color" value={v.colorName || ''} onChange={e => updateVariant(i, 'colorName', e.target.value)} />
+                  <input className={`${inputCls} w-[18%] !border-none !shadow-none !bg-transparent`} placeholder="+₹" type="number" value={v.price || ''} onChange={e => updateVariant(i, 'price', Number(e.target.value) || undefined)} />
+                  <input className={`${inputCls} w-[18%] !border-none !shadow-none !bg-transparent`} placeholder="Wt(g)" type="number" value={v.weightGrams || ''} onChange={e => updateVariant(i, 'weightGrams', Number(e.target.value) || undefined)} />
+                  <input className={`${inputCls} w-[10%] !border-none !shadow-none !bg-transparent min-w-[50px]`} placeholder="Qty" type="number" value={v.stock || ''} onChange={e => updateVariant(i, 'stock', Number(e.target.value) || 0)} />
+                  <button type="button" onClick={() => removeVariant(i)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
+              ))}
+              {variants.length === 0 && (
+                <div className="py-6 border-2 border-dashed border-black/[0.08] rounded-xl text-center text-xs font-medium text-neutral-500">
+                  No variants added.<br/>Product will use default stock.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-black/[0.06]">
+            <button disabled={uploading} onClick={save} className="w-full rounded-xl bg-neutral-900 py-3.5 text-sm font-extrabold tracking-wide text-white shadow-lg shadow-black/10 transition-all hover:bg-neutral-800 hover:shadow-xl active:scale-[0.98] disabled:opacity-50">
+              {uploading ? 'Uploading...' : editing ? 'Save Changes' : 'Add to Catalog'}
+            </button>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Stock"><input className={inputCls} value={stock} onChange={(e) => setStock(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" /></Field>
-          <Field label="Low-stock alert at"><input className={inputCls} value={lowStock} onChange={(e) => setLowStock(e.target.value.replace(/\D/g, ''))} placeholder="6" inputMode="numeric" /></Field>
-        </div>
-        <button onClick={save} className="w-full rounded-xl bg-neutral-900 py-3 text-sm font-bold text-white hover:bg-neutral-800">{editing ? 'Save Changes' : 'Add to Catalog'}</button>
       </div>
     </Modal>
   );

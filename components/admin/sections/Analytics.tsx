@@ -72,8 +72,8 @@ export default function Analytics() {
           <p className="text-sm text-neutral-500">Real-time store &amp; channel insights</p>
         </div>
         <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <div className="-mx-1 max-w-full overflow-x-auto px-1">
-            <div className="flex w-max items-center gap-1 rounded-full border border-black/[0.06] bg-white p-1">
+          <div className="max-w-full">
+            <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-black/[0.06] bg-white p-1 sm:rounded-full">
               <span className="px-2 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Period</span>
               {(['all', 'today', 'week', 'month', 'year', 'custom'] as Period[]).map((p) => (
                 <button
