@@ -1,5 +1,5 @@
 'use client';
-import { Search, ShoppingBag, Menu, X } from 'lucide-react';
+import { Search, ShoppingBag, Menu, X, User } from 'lucide-react';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
 import { CartDrawer } from '../ui/CartDrawer';

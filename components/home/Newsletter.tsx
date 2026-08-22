@@ -56,22 +56,65 @@ export const Newsletter = () => {
           </a>
         </div>
 
-        {/* Right: framed map with a glass pin card */}
-        <div className="relative h-[280px] w-full sm:h-[360px] md:h-auto md:w-[62%] md:min-h-[520px]">
-          <iframe
-            title="Shalistone studio location"
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3023.366224168019!2d-73.99849208459424!3d40.73200787932938!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c259972b9a7c35%3A0xc66df952112e4b47!2sWashington%20Square%20Park!5e0!3m2!1sen!2sus!4v1655132204780!5m2!1sen!2sus"
-            width="100%"
-            height="100%"
-            style={{ border: 0 }}
-            allowFullScreen={false}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
+        {/* Right: brand-styled abstract map (no raw Google chrome to clash with the theme) */}
+        <div className="relative h-[280px] w-full overflow-hidden sm:h-[360px] md:h-auto md:w-[62%] md:min-h-[520px]">
+          <svg
+            viewBox="0 0 600 520"
+            preserveAspectRatio="xMidYMid slice"
             className="absolute inset-0 h-full w-full"
-          />
-          {/* soft edge vignette so the map blends into the card instead of feeling like a raw embed */}
+            aria-hidden="true"
+          >
+            <rect width="600" height="520" fill="#EDE6D6" />
+            {/* park block */}
+            <rect x="60" y="70" width="200" height="170" rx="18" fill="#E1D8C2" />
+            <rect x="340" y="270" width="210" height="180" rx="18" fill="#E1D8C2" />
+            {/* streets */}
+            <g stroke="#D8CDB4" strokeWidth="10">
+              <line x1="0" y1="260" x2="600" y2="260" />
+              <line x1="0" y1="400" x2="600" y2="400" />
+              <line x1="300" y1="0" x2="300" y2="520" />
+              <line x1="150" y1="0" x2="150" y2="520" />
+              <line x1="450" y1="0" x2="450" y2="520" />
+            </g>
+            <g stroke="#D8CDB4" strokeWidth="4">
+              <line x1="0" y1="130" x2="600" y2="130" />
+              <line x1="0" y1="335" x2="600" y2="335" />
+              <line x1="75" y1="0" x2="75" y2="520" />
+              <line x1="225" y1="0" x2="225" y2="520" />
+              <line x1="375" y1="0" x2="375" y2="520" />
+              <line x1="525" y1="0" x2="525" y2="520" />
+            </g>
+            {/* dashed route to the pin */}
+            <path d="M60 400 Q 220 380 300 260" fill="none" stroke="#141414" strokeWidth="2.5" strokeDasharray="2 8" strokeLinecap="round" opacity="0.35" />
+          </svg>
+
+          {/* soft edge so the graphic reads as a framed card, not a flat cutout */}
           <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/10 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/10 to-transparent" />
+
+          {/* Pin marker */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%+10px)]">
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-black text-white shadow-[0_10px_25px_rgba(0,0,0,0.3)] ring-4 ring-white/70">
+              <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z" />
+                <circle cx="12" cy="10" r="2.5" />
+              </svg>
+            </span>
+            <span className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 bg-black" />
+          </div>
+
+          {/* Open in Google Maps — real navigation, kept subtle */}
+          <a
+            href="https://www.google.com/maps/dir/?api=1&destination=Washington+Square+Park+New+York"
+            target="_blank"
+            rel="noreferrer"
+            className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-black/10 bg-white/90 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-neutral-700 shadow-sm transition-colors hover:bg-white sm:right-5 sm:top-5"
+          >
+            Open in Maps
+            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M7 17 17 7M9 7h8v8" />
+            </svg>
+          </a>
 
           {/* Glass pin card */}
           <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex items-center gap-3 rounded-2xl border border-white/60 bg-white/90 p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.12)] sm:bottom-5 sm:left-5 sm:right-5 sm:p-4 md:left-6 md:right-auto md:max-w-xs">

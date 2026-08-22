@@ -19,7 +19,7 @@ export const Features = () => {
   };
 
   return (
-    <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto border-t border-neutral-200 mt-12">
+    <section className="pt-10 pb-20 md:pt-14 md:pb-24 px-6 md:px-12 max-w-7xl mx-auto border-t border-neutral-200">
       <motion.div 
         variants={containerVariants}
         initial="hidden"

@@ -38,10 +38,10 @@ export const BestSellers = ({ products }: { products?: any[] }) => {
           viewport={{ once: true }}
           className="flex flex-wrap justify-center gap-8 md:gap-12 text-xs font-bold uppercase tracking-[0.2em] text-neutral-400"
         >
-          <button className="text-black border-b-2 border-black pb-2">All</button>
-          <button className="hover:text-black transition-colors pb-2">Hoodies</button>
-          <button className="hover:text-black transition-colors pb-2">Shirts</button>
-          <button className="hover:text-black transition-colors pb-2">Jackets</button>
+          <a href="/products" className="text-black border-b-2 border-black pb-2">All</a>
+          <a href="/products" className="hover:text-black transition-colors pb-2">Hoodies</a>
+          <a href="/products" className="hover:text-black transition-colors pb-2">Shirts</a>
+          <a href="/products" className="hover:text-black transition-colors pb-2">Jackets</a>
         </motion.div>
       </div>
       <motion.div 
