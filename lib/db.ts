@@ -452,12 +452,13 @@ export const deleteOrder = async (id: string) => {
 };
 
 export const generateInvoiceId = async (): Promise<string> => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = 'ord_';
-  for (let i = 0; i < 9; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  const currentYear = new Date().getFullYear();
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let randomPart = '';
+  for (let i = 0; i < 5; i++) {
+    randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  return result;
+  return `INV-${currentYear}-${randomPart}`;
 };
 
 // ============================

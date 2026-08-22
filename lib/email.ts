@@ -65,7 +65,7 @@ export async function sendOrderConfirmationEmail(orderId: string, toEmail: strin
   `;
 
   await resend.emails.send({
-    from: 'Shalistone <orders@shalistone.com>', // Replace with your verified sender domain if you have one, or a sandbox address
+    from: 'onboarding@resend.dev', // Must use this for unverified Resend domains!
     to: toEmail,
     subject: `Your Order ${order.id} is Confirmed!`,
     html: htmlContent,
