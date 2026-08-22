@@ -145,6 +145,17 @@ export default function CartPage() {
 
       await insertOrder(orderData);
 
+      // Save phone/address to profile if logged in
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await supabase.from('profiles').update({
+          mobile: custPhone.trim(),
+          address: custAddress.trim(),
+          name: custName.trim()
+        }).eq('id', session.user.id);
+      }
+
       const res = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

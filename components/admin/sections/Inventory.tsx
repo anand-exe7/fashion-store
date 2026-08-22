@@ -152,13 +152,13 @@ export default function Inventory() {
       {list.length === 0 ? (
         <Card><EmptyState message="No products match your filters." /></Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
           {list.map((p) => {
             const st = statusOf(p);
             const cardCls = st === 'out' ? 'border-red-300 bg-red-50' : st === 'low' ? 'border-amber-300 bg-amber-50' : 'border-black/[0.06] bg-white';
             return (
               <div key={p.id} className={`overflow-hidden rounded-2xl border ${cardCls}`}>
-                <div className="relative aspect-[16/10] w-full overflow-hidden bg-black/[0.04]">
+                <div className="relative aspect-[3/4] w-full overflow-hidden bg-black/[0.04]">
                   <ProductImg product={p} className="h-full w-full" />
                   <span className="absolute left-3 top-3"><StockBadge status={st} /></span>
                   <div className="absolute right-3 top-3 flex gap-1.5">
@@ -174,13 +174,11 @@ export default function Inventory() {
                     </div>
                     <p className="shrink-0 text-sm font-extrabold text-neutral-900">{inr(p.price)}</p>
                   </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center rounded-lg border border-black/[0.12] bg-white">
-                      <button onClick={() => adjustStock(p.id, -1)} className="grid h-9 w-9 place-items-center text-neutral-500 hover:text-black"><Minus className="h-3.5 w-3.5" /></button>
-                      <span className="w-10 text-center text-sm font-bold text-neutral-900">{p.stock}</span>
-                      <button onClick={() => adjustStock(p.id, 1)} className="grid h-9 w-9 place-items-center text-neutral-500 hover:text-black"><Plus className="h-3.5 w-3.5" /></button>
+                  <div className="mt-4 flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:justify-between">
+                    <div className="flex w-max items-center rounded-lg border border-black/[0.12] bg-neutral-50 px-3 py-1.5">
+                      <span className="text-sm font-bold text-neutral-900">{p.stock} Total Units</span>
                     </div>
-                    <span className="text-[11px] font-medium text-neutral-500">
+                    <span className="text-[11px] font-medium text-neutral-500 leading-tight whitespace-nowrap">
                       {st === 'out' ? 'Restock needed' : st === 'low' ? `Low · reorder @ ${p.lowStock}` : 'In stock'}
                     </span>
                   </div>
@@ -209,9 +207,9 @@ export default function Inventory() {
                 <div key={p.id} className={`flex items-center justify-between rounded-xl border px-4 py-3 ${statusOf(p) === 'out' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
                   <div>
                     <p className="text-sm font-semibold text-neutral-900">{p.name}</p>
-                    <p className="text-xs text-neutral-500">{p.category} · {p.stock} left</p>
+                    <p className="text-xs text-neutral-500">{p.category} · {p.stock} Total Units left</p>
                   </div>
-                  <button onClick={async () => { await updateProduct(p.id, { stock: p.stock + 10 }); showToast("Restocked +10 successfully!"); }} className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-neutral-800">Restock +10</button>
+                  <button onClick={() => setForm({ open: true, product: p })} className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-neutral-800">Edit Variants</button>
                 </div>
               ))}
             </div>
@@ -254,6 +252,8 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
   const [description, setDescription] = useState('');
   const [variants, setVariants] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [isNew, setIsNew] = useState(false);
+  const [discountLabel, setDiscountLabel] = useState('');
 
   // load values when the modal opens for a product
   useEffect(() => {
@@ -265,6 +265,8 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
       setWeight(editing ? String(editing.weightGrams || '') : '');
       setStock(editing ? String(editing.stock) : '');
       setLowStock(editing ? String(editing.lowStock) : '6');
+      setIsNew(editing?.isNew ?? false);
+      setDiscountLabel(editing?.discountLabel ?? '');
       
       const allImages = editing?.images ? [...editing.images] : [];
       if (editing?.image && !allImages.includes(editing.image)) {
@@ -339,6 +341,8 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
         weightGrams: Number(weight) || 0,
         stock: totalStock,
         lowStock: Number(lowStock) || 6,
+        is_new: isNew,
+        discount_label: discountLabel.trim() || null,
         image: images[0] || undefined,
         images: images.length > 0 ? images : undefined,
         variants: validVariants.length > 0 ? validVariants : undefined,
@@ -410,16 +414,22 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Base Weight (g)"><input className={inputCls} value={weight} onChange={(e) => setWeight(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 500" inputMode="numeric" /></Field>
+                <Field label="Discount Label"><input className={inputCls} value={discountLabel} onChange={(e) => setDiscountLabel(e.target.value)} placeholder="e.g. -20% or SALE" /></Field>
               </div>
+              <label className="flex items-center gap-2 cursor-pointer mt-2 text-sm font-bold text-neutral-700">
+                <input type="checkbox" checked={isNew} onChange={(e) => setIsNew(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black" />
+                Mark as "New Arrival"
+              </label>
             </div>
 
             <div className="space-y-4 pt-2">
-              <h3 className="text-sm font-extrabold tracking-tight text-neutral-900">Inventory Default</h3>
+              <h3 className="text-sm font-extrabold tracking-tight text-neutral-900">Inventory Alerts</h3>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Default Stock"><input className={inputCls} value={stock} onChange={(e) => setStock(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" disabled={variants.some(v => v.size.trim())} /></Field>
+                {!variants.some(v => v.size.trim()) && (
+                  <Field label="Default Stock"><input className={inputCls} value={stock} onChange={(e) => setStock(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" /></Field>
+                )}
                 <Field label="Low-stock alert at"><input className={inputCls} value={lowStock} onChange={(e) => setLowStock(e.target.value.replace(/\D/g, ''))} placeholder="6" inputMode="numeric" /></Field>
               </div>
-              {variants.some(v => v.size.trim()) && <p className="text-[10px] text-neutral-500 font-medium">Default stock is disabled because you have specific variants configured below.</p>}
             </div>
           </div>
         </div>

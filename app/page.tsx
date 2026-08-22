@@ -13,23 +13,26 @@ import { LovedByThousands } from '@/components/home/LovedByThousands';
 import { Instagram } from '@/components/home/Instagram';
 import { Newsletter } from '@/components/home/Newsletter';
 import { Footer } from '@/components/layout/Footer';
+import { fetchProducts } from '@/lib/db';
 
 export default async function Home() {
   // Artificial delay to perfectly match the 2-second curtain animation
   await new Promise(resolve => setTimeout(resolve, 2100));
+  
+  const allProducts = await fetchProducts();
 
   return (
     <div className="min-h-screen bg-[#F5F2EB] text-neutral-900 font-sans selection:bg-black selection:text-white overflow-x-hidden">
       <ScrollProgress />
       <Navbar />
       <Hero />
-      <NewArrivals />
+      <NewArrivals products={allProducts} />
       <Marquee />
 
       <CategoryGrid />
       <ShoppableLook />
 
-      <BestSellers />
+      <BestSellers products={allProducts} />
       <Features />
       <LovedByThousands />
       <Instagram />

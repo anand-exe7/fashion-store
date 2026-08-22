@@ -13,13 +13,19 @@ const containerVariants = {
   }
 };
 
-export const BestSellers = () => {
-  const products = [
-    { title: "Classic Knit Hoodie", category: "Women", price: "89.00", discount: "-10%", image: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=800&auto=format&fit=crop" },
-    { title: "Premium Zip Jacket", category: "Men", price: "110.00", image: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=800&auto=format&fit=crop" },
-    { title: "Dark Wash Denim", category: "Men", price: "95.00", image: "https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=800&auto=format&fit=crop" },
-    { title: "Cozy Ribbed Top", category: "Women", price: "65.00", isNew: true, image: "https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=800&auto=format&fit=crop" }
-  ];
+export const BestSellers = ({ products }: { products?: any[] }) => {
+  const displayProducts = (products || [])
+    .filter(p => !p.isNew) // or whatever logic you want for best sellers
+    .slice(0, 4)
+    .map(p => ({
+      id: p.id,
+      title: p.name,
+      category: p.category,
+      price: p.price.toLocaleString(),
+      isNew: p.isNew,
+      discount: p.discountLabel,
+      image: p.images?.[0]?.url || 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=800'
+    }));
 
   return (
     <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto">
@@ -45,7 +51,7 @@ export const BestSellers = () => {
         viewport={{ once: true, margin: "-100px" }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
       >
-        {products.map((p, i) => (
+        {displayProducts.map((p, i) => (
           <ProductCard key={i} {...p} />
         ))}
       </motion.div>

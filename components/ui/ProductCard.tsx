@@ -7,7 +7,7 @@ const itemVariants: any = {
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 50, damping: 15 } }
 };
 
-export const ProductCard = ({ title, category, price, isNew, discount, image }: any) => {
+export const ProductCard = ({ id, title, category, price, isNew, discount, image }: any) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const rotateXRaw = useMotionValue(0);
   const rotateYRaw = useMotionValue(0);
@@ -34,7 +34,7 @@ export const ProductCard = ({ title, category, price, isNew, discount, image }: 
     variants={itemVariants}
     className="group flex flex-col"
   >
-    <a href="/products" className="block h-full cursor-pointer">
+    <a href={`/product/${id}`} className="block h-full cursor-pointer">
       <motion.div
         ref={cardRef}
         onMouseMove={handleMouseMove}
@@ -72,7 +72,14 @@ export const ProductCard = ({ title, category, price, isNew, discount, image }: 
          {/* Add to cart slide up */}
          <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out z-10">
            <button 
-             onClick={(e: any) => { e.preventDefault(); window.location.href = '/cart'; }}
+             onClick={(e: any) => { 
+               e.preventDefault(); 
+               const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+               const numPrice = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : price;
+               cart.push({ id: Date.now(), productId: id, name: title, size: 'M', color: 'Default', price: numPrice, image, quantity: 1, weightGrams: 500 });
+               localStorage.setItem('cart', JSON.stringify(cart));
+               window.location.href = '/cart'; 
+             }}
              className="w-full bg-white/95 text-black py-3 rounded-xl text-xs font-bold uppercase tracking-widest shadow-xl hover:bg-black hover:text-white transition-colors"
            >
              Quick Add
@@ -90,7 +97,7 @@ export const ProductCard = ({ title, category, price, isNew, discount, image }: 
            <div className="w-3.5 h-3.5 rounded-full bg-neutral-800 border-2 border-white shadow-sm cursor-pointer hover:scale-125 transition-transform origin-center"></div>
         </div>
       </div>
-      <p className="text-sm mt-2 font-bold px-1">${price}</p>
+      <p className="text-sm mt-2 font-bold px-1">₹{price}</p>
     </a>
   </motion.div>
   );

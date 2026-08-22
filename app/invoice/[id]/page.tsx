@@ -175,23 +175,40 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             <h3 className="text-[10px] font-bold text-neutral-400 uppercase tracking-[0.2em] mb-3 self-start sm:self-auto">Order Details</h3>
             <div className="inline-block text-left text-sm space-y-1">
               <div className="flex gap-2">
-                <span className="text-neutral-500 font-bold w-12 text-left sm:text-right">Date:</span>
+                <span className="text-neutral-500 font-bold w-20 text-left sm:text-right">Date:</span>
                 <span className="text-black font-black">{new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
               </div>
               <div className="flex gap-2">
-                <span className="text-neutral-500 font-bold w-12 text-left sm:text-right">Time:</span>
+                <span className="text-neutral-500 font-bold w-20 text-left sm:text-right">Time:</span>
                 <span className="text-black font-black">{new Date(order.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <div className="flex gap-2">
-                <span className="text-neutral-500 font-bold w-12 text-left sm:text-right">Type:</span>
+                <span className="text-neutral-500 font-bold w-20 text-left sm:text-right">Type:</span>
                 <span className="text-black font-black uppercase">{order.source} SALE</span>
               </div>
-              {order.razorpayPaymentId && (
-                <div className="flex gap-2 pt-2">
-                  <span className="text-neutral-500 font-bold w-12 text-left sm:text-right">Ref:</span>
-                  <span className="text-black font-black text-xs uppercase break-all">{order.razorpayPaymentId}</span>
+              
+              <div className="pt-3 mt-3 border-t border-black/5">
+                <div className="flex gap-2 mb-1">
+                  <span className="text-neutral-500 font-bold w-20 text-left sm:text-right">Gateway:</span>
+                  <span className="text-black font-black uppercase">Razorpay</span>
                 </div>
-              )}
+                <div className="flex gap-2 mb-1">
+                  <span className="text-neutral-500 font-bold w-20 text-left sm:text-right">Status:</span>
+                  <span className={`font-black uppercase ${order.status === 'completed' ? 'text-emerald-600' : 'text-amber-600'}`}>{order.status}</span>
+                </div>
+                {order.razorpayOrderId && (
+                  <div className="flex gap-2 mb-1">
+                    <span className="text-neutral-500 font-bold w-20 text-left sm:text-right">Order Ref:</span>
+                    <span className="text-black font-black text-xs uppercase break-all">{order.razorpayOrderId}</span>
+                  </div>
+                )}
+                {order.razorpayPaymentId && (
+                  <div className="flex gap-2">
+                    <span className="text-neutral-500 font-bold w-20 text-left sm:text-right">Txn ID:</span>
+                    <span className="text-black font-black text-xs uppercase break-all">{order.razorpayPaymentId}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

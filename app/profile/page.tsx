@@ -220,7 +220,7 @@ export default function ProfilePage() {
                         {orders.map((order, idx) => {
                           const totalItems = order.items.reduce((acc, item) => acc + item.quantity, 0);
                           return (
-                            <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-xl border border-black/10 hover:border-black/30 transition-colors group cursor-pointer">
+                            <div key={idx} onClick={() => window.location.href = `/invoice/${order.id}`} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-xl border border-black/10 hover:border-black/30 transition-colors group cursor-pointer">
                               <div className="flex flex-col gap-1 mb-4 sm:mb-0">
                                 <span className="font-bold">{order.id}</span>
                                 <span className="text-xs text-neutral-500">{fmtDate(order.createdAt)} • {totalItems} Items</span>

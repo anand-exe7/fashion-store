@@ -57,6 +57,8 @@ export interface Product {
   image?: string;
   images?: string[];
   variants?: ProductVariant[];
+  isNew?: boolean;
+  discountLabel?: string | null;
 }
 
 export interface Coupon {
@@ -141,7 +143,9 @@ async function refreshAll() {
           weightGrams: v.weightGrams,
           stock: v.stock || 0,
           isAvailable: v.isAvailable
-        })) || []
+        })) || [],
+        isNew: p.isNew,
+        discountLabel: p.discountLabel
       };
     });
 
@@ -223,6 +227,8 @@ export async function addProduct(p: Product) {
     price: p.price,
     weightGrams: p.weightGrams,
     image: p.image,
+    isNew: p.isNew,
+    discountLabel: p.discountLabel || undefined,
     isAvailable: true
   }, p.images, p.variants);
   // Note: we can't easily insert default variant here using db.upsertProduct without changing db.ts, 
@@ -252,7 +258,9 @@ export async function updateProduct(id: string, patch: Partial<Product>) {
     price: updated.price,
     weightGrams: updated.weightGrams,
     description: updated.description,
-    image: updated.image
+    image: updated.image,
+    isNew: updated.isNew,
+    discountLabel: updated.discountLabel || undefined
   }, updated.images, updated.variants);
   
   refreshAll();

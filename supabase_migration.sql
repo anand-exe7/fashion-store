@@ -1,8 +1,14 @@
 -- ==========================================
--- 0. CLEANUP (ERASE PREVIOUS TABLES)
+-- 0. CLEANUP (ERASE PREVIOUS TABLES & TRIGGERS)
 -- ==========================================
-DROP TABLE IF EXISTS delivery_tiers CASCADE;
-DROP TABLE IF EXISTS delivery_regions CASCADE;
+-- Wipe out common broken auth triggers that cause "Database error saving new user"
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users CASCADE;
+DROP FUNCTION IF EXISTS handle_new_user() CASCADE;
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
+
+-- Drop all our tables
+DROP TABLE IF EXISTS delivery_tiers CASCADE;  
+DROP TABLE IF EXISTS delivery_regions   CASCADE;
 DROP TABLE IF EXISTS order_items CASCADE;
 DROP TABLE IF EXISTS orders CASCADE;
 DROP TABLE IF EXISTS coupons CASCADE;
