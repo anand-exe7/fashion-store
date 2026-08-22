@@ -78,7 +78,7 @@ export const ProductCard = ({ id, title, category, price, isNew, discount, image
                const numPrice = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : price;
                cart.push({ id: Date.now(), productId: id, name: title, size: 'M', color: 'Default', price: numPrice, image, quantity: 1, weightGrams: 500 });
                localStorage.setItem('cart', JSON.stringify(cart));
-               window.location.href = '/cart'; 
+               window.dispatchEvent(new Event('open-cart')); 
              }}
              className="w-full bg-white/95 text-black py-3 rounded-xl text-xs font-bold uppercase tracking-widest shadow-xl hover:bg-black hover:text-white transition-colors"
            >
