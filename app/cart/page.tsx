@@ -4,7 +4,7 @@ import { Footer } from '@/components/layout/Footer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Minus, Plus, X, ArrowRight, Tag, CreditCard, Banknote, CheckCircle2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { fetchDeliveryRegions, calculateDeliveryFee, validateCoupon, generateInvoiceId, insertOrder, DeliveryRegion, Coupon } from '@/lib/db';
+import { fetchDeliveryRegions, calculateDeliveryFee, validateCoupon, DeliveryRegion, Coupon } from '@/lib/db';
 import { createClient } from '@/lib/supabase/client';
 import Script from 'next/script';
 
@@ -114,38 +114,9 @@ export default function CartPage() {
   const completePayment = async () => {
     if (cartItems.length === 0) return;
     setIsProcessing(true);
-    
+
     try {
-      const invoiceId = await generateInvoiceId();
-      
-      const orderData = {
-        id: invoiceId,
-        customerName: custName.trim() || 'Online Customer',
-        customerPhone: custPhone.trim(),
-        customerEmail: custEmail.trim(),
-        customerAddress: custAddress.trim(),
-        source: 'online' as const,
-        subtotal: rawTotal,
-        discount,
-        couponCode: couponApplied ? appliedCoupon?.code : undefined,
-        delivery: deliveryFee,
-        total: finalTotal,
-        amountReceived: paymentMethod === 'card' ? 0 : finalTotal, // 0 for card until webhook verifies
-        status: 'pending' as const,
-        createdAt: new Date().toISOString(),
-        items: cartItems.map((i) => ({
-          productId: i.productId,
-          name: i.name,
-          size: i.size,
-          color: i.color,
-          price: i.price,
-          quantity: i.quantity,
-        })),
-      };
-
-      await insertOrder(orderData);
-
-      // Save phone/address to profile if logged in
+      // Save phone/address to profile if logged in (self-update).
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -156,34 +127,45 @@ export default function CartPage() {
         }).eq('id', session.user.id);
       }
 
+      // Send only WHAT is being bought. The server recomputes prices,
+      // discount and delivery, creates the order, and returns the
+      // Razorpay order to pay against. No amount is trusted from here.
       const res = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orderId: invoiceId,
-          amountInPaise: finalTotal * 100,
-          customerEmail: custEmail,
+          items: cartItems.map((i) => ({
+            productId: i.productId,
+            size: i.size,
+            color: i.color,
+            quantity: i.quantity,
+          })),
+          couponCode: couponApplied ? appliedCoupon?.code : undefined,
+          regionId: selectedRegionId,
           customerName: custName,
+          customerPhone: custPhone,
+          customerEmail: custEmail,
+          customerAddress: custAddress,
         })
       });
-      
-      const { rpOrderId, key, error } = await res.json();
-      
-      if (error) {
-        alert('Failed to initiate payment: ' + error);
+
+      const { rpOrderId, key, invoiceId, amount, error } = await res.json();
+
+      if (error || !rpOrderId) {
+        alert('Failed to initiate payment: ' + (error || 'Unknown error'));
         setIsProcessing(false);
         return;
       }
 
       const options = {
         key: key,
-        amount: finalTotal * 100,
+        amount: amount,
         currency: 'INR',
         order_id: rpOrderId,
         name: 'Shalistone',
         description: `Order ${invoiceId}`,
         handler: function (response: any) {
-          // Webhook will handle the actual verification and DB update
+          // Webhook is authoritative: it verifies the payment and completes the order.
           setPaidInvoice(invoiceId);
           setIsProcessing(false);
         },
@@ -196,7 +178,7 @@ export default function CartPage() {
           color: '#0a0a0a'
         }
       };
-      
+
       const rzp = new (window as any).Razorpay(options);
       rzp.on('payment.failed', function (response: any){
         alert('Payment Failed. Please try again.');

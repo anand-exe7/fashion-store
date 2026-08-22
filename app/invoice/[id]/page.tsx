@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import { ShoppingBag, MapPin, Phone, Printer, Copy, Check, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { fetchOrderById, Order } from "@/lib/db";
+import { Order } from "@/lib/db";
 
 export default function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
@@ -24,10 +24,11 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        const data = await fetchOrderById(id);
-        if (!data) {
+        const res = await fetch(`/api/orders/${encodeURIComponent(id)}`);
+        if (!res.ok) {
           setError(true);
         } else {
+          const data: Order = await res.json();
           setOrder(data);
           document.title = `Invoice - ${data.id}`;
         }
