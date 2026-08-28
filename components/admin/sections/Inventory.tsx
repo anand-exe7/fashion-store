@@ -240,10 +240,14 @@ function StockBadge({ status }: { status: 'ok' | 'low' | 'out' }) {
   return <span className={`rounded-md px-2 py-1 text-[9px] font-bold uppercase shadow-sm ${map[status]}`}>{label}</span>;
 }
 
+const DEFAULT_DEPARTMENTS = ['Kids', 'Mens'];
+
 function ProductForm({ state, onClose }: { state: { open: boolean; product: Product | null }; onClose: () => void }) {
   const editing = state.product;
+  const { products } = useAdminData();
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
   const [price, setPrice] = useState('');
   const [weight, setWeight] = useState('');
   const [stock, setStock] = useState('');
@@ -254,6 +258,11 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
   const [uploading, setUploading] = useState(false);
   const [isNew, setIsNew] = useState(false);
   const [discountLabel, setDiscountLabel] = useState('');
+
+  const departments = useMemo(() => {
+    const fromProducts = products.map((p) => p.category).filter(Boolean);
+    return Array.from(new Set([...DEFAULT_DEPARTMENTS, ...fromProducts])).sort();
+  }, [products]);
 
   // load values when the modal opens for a product
   useEffect(() => {
@@ -333,9 +342,10 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
         ? validVariants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
         : (Number(stock) || 0);
 
+      const resolvedCategory = category === '__custom__' ? customCategory.trim() : category.trim();
       const payload = {
         name: name.trim(),
-        category: category.trim() || 'General',
+        category: resolvedCategory || 'Kids',
         description: description.trim(),
         price: Number(price) || 0,
         weightGrams: Number(weight) || 0,
@@ -409,7 +419,23 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
             <div className="space-y-4">
               <h3 className="text-sm font-extrabold tracking-tight text-neutral-900">Organization & Pricing</h3>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Category"><input className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Knitwear" /></Field>
+                <Field label="Department">
+                  <select
+                    className={inputCls}
+                    value={category === '__custom__' ? '__custom__' : category}
+                    onChange={(e) => {
+                      setCategory(e.target.value);
+                      if (e.target.value !== '__custom__') setCustomCategory('');
+                    }}
+                  >
+                    <option value="">Select department</option>
+                    {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+                    <option value="__custom__">+ Add New Department</option>
+                  </select>
+                  {category === '__custom__' && (
+                    <input className={`${inputCls} mt-2`} value={customCategory} onChange={(e) => setCustomCategory(e.target.value)} placeholder="New department name" autoFocus />
+                  )}
+                </Field>
                 <Field label="Base Price (₹)"><input className={inputCls} value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" /></Field>
               </div>
               <div className="grid grid-cols-2 gap-4">
