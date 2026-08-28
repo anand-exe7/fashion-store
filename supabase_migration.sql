@@ -32,10 +32,22 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 
 -- ==========================================
--- 2. CATEGORIES
+-- 2. DEPARTMENTS & CATEGORIES
 -- ==========================================
+CREATE TABLE IF NOT EXISTS departments (
+  name        TEXT PRIMARY KEY,
+  is_active   BOOLEAN DEFAULT TRUE,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Insert default departments
+INSERT INTO departments (name, is_active) VALUES 
+('Men', TRUE), ('Women', TRUE), ('Kids', TRUE), ('Unisex', TRUE) 
+ON CONFLICT (name) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS categories (
   name        TEXT PRIMARY KEY,
+  is_active   BOOLEAN DEFAULT TRUE,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -52,6 +64,7 @@ CREATE TABLE IF NOT EXISTS products (
   image         TEXT, -- primary image URL (legacy, keep for now)
   is_new        BOOLEAN DEFAULT FALSE,
   discount_label TEXT,
+  department    TEXT CHECK (department IN ('Men', 'Women', 'Kids', 'Unisex')) DEFAULT 'Unisex',
   is_available  BOOLEAN DEFAULT TRUE,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );

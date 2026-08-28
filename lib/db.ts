@@ -40,6 +40,7 @@ export interface Product {
   image?: string; // Legacy
   isNew?: boolean;
   discountLabel?: string;
+  department?: 'Men' | 'Women' | 'Kids' | 'Unisex';
   isAvailable: boolean;
   images: ProductImage[];
   variants: ProductVariant[];
@@ -101,6 +102,53 @@ export interface DeliveryRegion {
 }
 
 // ============================
+// TAXONOMY
+// ============================
+export interface Category {
+  name: string;
+  isActive: boolean;
+}
+
+export interface Department {
+  name: string;
+  isActive: boolean;
+}
+
+export const fetchCategories = async (): Promise<Category[]> => {
+  const { data, error } = await supabase.from('categories').select('*').order('name');
+  if (error) {
+    console.error("fetchCategories error (table might not exist):", error);
+    return [];
+  }
+  return (data || []).map(c => ({ name: c.name, isActive: c.is_active }));
+};
+
+export const fetchDepartments = async (): Promise<Department[]> => {
+  const { data, error } = await supabase.from('departments').select('*').order('name');
+  if (error) {
+    console.error("fetchDepartments error (table might not exist):", error);
+    return [];
+  }
+  return (data || []).map(d => ({ name: d.name, isActive: d.is_active }));
+};
+
+export const updateCategory = async (name: string, isActive: boolean) => {
+  const { error } = await supabase.from('categories').update({ is_active: isActive }).eq('name', name);
+  if (error) throw error;
+};
+
+export const updateDepartment = async (name: string, isActive: boolean) => {
+  const { error } = await supabase.from('departments').update({ is_active: isActive }).eq('name', name);
+  if (error) throw error;
+};
+
+export const deleteCategory = async (name: string) => {
+  // Be careful: if products use this category, it might fail due to FK constraints
+  const { error } = await supabase.from('categories').delete().eq('name', name);
+  if (error) throw error;
+};
+
+// ============================
 // PRODUCTS
 // ============================
 export const fetchProducts = async (): Promise<Product[]> => {
@@ -125,6 +173,7 @@ export const fetchProducts = async (): Promise<Product[]> => {
     image: p.image,
     isNew: p.is_new,
     discountLabel: p.discount_label,
+    department: p.department,
     isAvailable: p.is_available,
     images: (images || [])
       .filter((i: any) => i.product_id === p.id)

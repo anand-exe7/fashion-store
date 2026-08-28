@@ -142,3 +142,39 @@ CREATE POLICY "Regions admin all" ON delivery_regions FOR ALL
   USING (public.is_admin()) WITH CHECK (public.is_admin());
 CREATE POLICY "Tiers admin all" ON delivery_tiers FOR ALL
   USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+-- ==========================================================
+-- AUTO-CREATE PROFILE ON SIGNUP
+-- The base migration drops this trigger; restore it so every new
+-- auth.users row gets a profiles row. SECURITY DEFINER runs as the
+-- owner and bypasses RLS, avoiding the "Database error saving new
+-- user" failure that an unprivileged trigger causes. This is the
+-- canonical path; the OAuth callback upsert remains as a fallback.
+-- ==========================================================
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, name, role)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.email, ''),
+    COALESCE(
+      NEW.raw_user_meta_data->>'full_name',
+      NEW.raw_user_meta_data->>'name',
+      split_part(COALESCE(NEW.email, ''), '@', 1)
+    ),
+    'user'
+  )
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

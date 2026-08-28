@@ -47,6 +47,7 @@ export interface Product {
   id: string;
   name: string;
   category: string;
+  department?: 'Men' | 'Women' | 'Kids' | 'Unisex';
   description?: string;
   details?: string;
   benefits?: string[];
@@ -74,9 +75,11 @@ export interface StoreState {
   orders: Order[];
   products: Product[];
   coupons: Coupon[];
+  categories: db.Category[];
+  departments: db.Department[];
 }
 
-let globalState: StoreState = { orders: [], products: [], coupons: [] };
+let globalState: StoreState = { orders: [], products: [], coupons: [], categories: [], departments: [] };
 let listeners = new Set<() => void>();
 let isFetching = false;
 export let currentToast: string | null = null;
@@ -100,10 +103,12 @@ async function refreshAll() {
   if (isFetching) return;
   isFetching = true;
   try {
-    const [dbOrders, dbProducts, dbCoupons] = await Promise.all([
+    const [dbOrders, dbProducts, dbCoupons, dbCategories, dbDepartments] = await Promise.all([
       db.fetchOrders(),
       db.fetchProducts(),
-      db.fetchCoupons()
+      db.fetchCoupons(),
+      db.fetchCategories(),
+      db.fetchDepartments(),
     ]);
     
     const mappedOrders: Order[] = dbOrders.map(o => ({
@@ -128,6 +133,7 @@ async function refreshAll() {
         id: p.id,
         name: p.name,
         category: p.category,
+        department: p.department as 'Men' | 'Women' | 'Kids' | 'Unisex' | undefined,
         description: p.description || '',
         price: p.price,
         weightGrams: p.weightGrams || 500,
@@ -158,7 +164,13 @@ async function refreshAll() {
       used: c.used
     }));
 
-    globalState = { orders: mappedOrders, products: mappedProducts, coupons: mappedCoupons };
+    globalState = { 
+      orders: mappedOrders, 
+      products: mappedProducts, 
+      coupons: mappedCoupons,
+      categories: dbCategories,
+      departments: dbDepartments
+    };
     notify();
   } catch (err) {
     console.error("Failed to load store data:", err);
@@ -312,6 +324,31 @@ export async function deleteCoupon(code: string) {
   globalState = { ...globalState, coupons: globalState.coupons.filter(c => c.code !== code) };
   notify();
   await db.deleteCoupon(code);
+  refreshAll();
+}
+
+export async function updateCategory(name: string, isActive: boolean) {
+  globalState = { ...globalState, categories: globalState.categories.map(c => c.name === name ? { ...c, isActive } : c) };
+  notify();
+  await db.updateCategory(name, isActive);
+  refreshAll();
+}
+
+export async function updateDepartment(name: string, isActive: boolean) {
+  globalState = { ...globalState, departments: globalState.departments.map(d => d.name === name ? { ...d, isActive } : d) };
+  notify();
+  await db.updateDepartment(name, isActive);
+  refreshAll();
+}
+
+export async function deleteCategory(name: string) {
+  globalState = { ...globalState, categories: globalState.categories.filter(c => c.name !== name) };
+  notify();
+  try {
+    await db.deleteCategory(name);
+  } catch (e) {
+    showToast("Cannot delete category currently in use.");
+  }
   refreshAll();
 }
 
