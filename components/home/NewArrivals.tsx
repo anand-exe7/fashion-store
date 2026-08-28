@@ -31,6 +31,10 @@ export const NewArrivals = ({ products }: { products?: any[] }) => {
 
   const cols = newProducts.length <= 3 ? 'md:grid-cols-3' : 'md:grid-cols-4';
 
+  if (newProducts.length === 0) {
+    return null;
+  }
+
   return (
     <section className="py-32 px-6 md:px-12 max-w-7xl mx-auto">
       <div className="flex flex-col mb-20">

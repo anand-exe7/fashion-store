@@ -256,7 +256,7 @@ const DEFAULT_DEPARTMENTS = ['Kids', 'Mens'];
 
 function ProductForm({ state, onClose }: { state: { open: boolean; product: Product | null }; onClose: () => void }) {
   const editing = state.product;
-  const { products } = useAdminData();
+  const { products, categories = [] } = useAdminData();
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [department, setDepartment] = useState<'Men' | 'Women' | 'Kids' | 'Unisex'>('Unisex');
@@ -364,8 +364,8 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
         weightGrams: Number(weight) || 0,
         stock: totalStock,
         lowStock: Number(lowStock) || 6,
-        is_new: isNew,
-        discount_label: discountLabel.trim() || null,
+        isNew: isNew,
+        discountLabel: discountLabel.trim() || null,
         image: images[0] || undefined,
         images: images.length > 0 ? images : undefined,
         variants: validVariants.length > 0 ? validVariants : undefined,
@@ -432,7 +432,14 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
             <div className="space-y-4">
               <h3 className="text-sm font-extrabold tracking-tight text-neutral-900">Organization & Pricing</h3>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Category"><input className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Knitwear" /></Field>
+                <Field label="Category">
+                  <select className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)}>
+                    <option value="" disabled>Select category</option>
+                    {categories.map(c => (
+                      <option key={c.name} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </Field>
                 <Field label="Department">
                   <select className={inputCls} value={department} onChange={(e) => setDepartment(e.target.value as any)}>
                     <option value="Men">Men</option>
