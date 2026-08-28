@@ -10,6 +10,7 @@ import Inventory from './sections/Inventory';
 import Coupons from './sections/Coupons';
 import Delivery from './sections/Delivery';
 import Users from './sections/Users';
+import WebsiteContent from './sections/WebsiteContent';
 import { Toast } from './ui';
 import { currentToast, showToast } from '@/lib/store';
 
@@ -45,9 +46,7 @@ export default function AdminDashboard() {
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className={`flex h-[73px] shrink-0 items-center gap-2.5 border-b border-black/[0.06] px-4 lg:px-5 ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}>
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-neutral-900 text-white">
-            <Store className="h-[18px] w-[18px]" />
-          </span>
+          <img src="/logo.jpeg" alt="Shalistone" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
           <span className={`flex items-baseline gap-1.5 overflow-hidden ${collapsed ? 'lg:hidden' : ''}`}>
             <span className="font-extrabold tracking-[0.14em] text-neutral-900">{BRAND}</span>
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400">Admin</span>
@@ -123,6 +122,7 @@ export default function AdminDashboard() {
           {active === 'coupons' && <Coupons />}
           {active === 'delivery' && <Delivery />}
           {active === 'users' && <Users />}
+          {active === 'website' && <WebsiteContent />}
         </main>
 
         {/* Footer */}
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
             </a>{' '}
             ©2026
           </span>
-          <span className="font-bold italic text-neutral-500">• Premium Wardrobe Experiences.</span>
+          <span className="font-bold italic text-neutral-500">• Kids &amp; Mens Fashion.</span>
         </footer>
       </div>
       <Toast show={!!currentToast} message={currentToast || ''} />
