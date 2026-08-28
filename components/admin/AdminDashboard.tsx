@@ -7,6 +7,7 @@ import Billing from './sections/Billing';
 import Analytics from './sections/Analytics';
 import Orders from './sections/Orders';
 import Inventory from './sections/Inventory';
+import Categories from './sections/Categories';
 import Coupons from './sections/Coupons';
 import Delivery from './sections/Delivery';
 import Users from './sections/Users';
@@ -119,6 +120,7 @@ export default function AdminDashboard() {
           {active === 'analytics' && <Analytics />}
           {active === 'orders' && <Orders go={setActive} />}
           {active === 'inventory' && <Inventory />}
+          {active === 'categories' && <Categories />}
           {active === 'coupons' && <Coupons />}
           {active === 'delivery' && <Delivery />}
           {active === 'users' && <Users />}

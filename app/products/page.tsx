@@ -3,24 +3,50 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { fetchProducts, Product } from '@/lib/db';
+import { fetchProducts, fetchCategories, fetchDepartments, Product } from '@/lib/db';
 
 export default function ProductsPage() {
-  const [filter, setFilter] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [departmentFilter, setDepartmentFilter] = useState('All');
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>(['All']);
+  const [departments, setDepartments] = useState<string[]>(['All']);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    fetchProducts().then(data => {
-      setProducts(data);
+    Promise.all([
+      fetchProducts(),
+      fetchCategories(),
+      fetchDepartments()
+    ]).then(([prodData, catData, deptData]) => {
+      setProducts(prodData);
+      
+      const activeCats = catData.filter(c => c.isActive).map(c => c.name);
+      setCategories(['All', ...activeCats]);
+      
+      const activeDepts = deptData.filter(d => d.isActive).map(d => d.name);
+      setDepartments(['All', ...activeDepts]);
+      
+      setLoading(false);
+    }).catch(async (err) => {
+      console.error("Failed to load taxonomy, falling back to products only.", err);
+      // Fallback: just load products and use defaults
+      const prodData = await fetchProducts().catch(() => []);
+      setProducts(prodData);
+      
+      const allCats = Array.from(new Set(prodData.map(p => p.category)));
+      setCategories(['All', ...allCats]);
+      setDepartments(['All', 'Men', 'Women', 'Kids', 'Unisex']);
       setLoading(false);
     });
   }, []);
   
-  const categories = ['All', 'Kids', 'Boys', 'Girls', 'Baby', 'Teens', 'Mens'];
-  
-  const filteredProducts = filter === 'All' ? products : products.filter(p => p.category === filter);
-
+  const filteredProducts = products.filter(p => {
+    const categoryMatch = categoryFilter === 'All' || p.category === categoryFilter;
+    // For legacy products without a department, we treat them as matching 'All' or 'Unisex'
+    const deptMatch = departmentFilter === 'All' || p.department === departmentFilter || (!p.department && departmentFilter === 'Unisex');
+    return categoryMatch && deptMatch;
+  });
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-neutral-900 font-sans selection:bg-black selection:text-white">
       <Navbar />
@@ -45,16 +71,32 @@ export default function ProductsPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap justify-center gap-4 mb-16">
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setFilter(cat)}
-              className={`px-4 py-2 text-[10px] uppercase tracking-[0.2em] transition-all rounded-full border ${filter === cat ? 'bg-[#3c3c3a] text-white border-[#3c3c3a]' : 'bg-transparent text-[#3c3c3a] border-black/10 hover:border-black/30'}`}
-            >
-              {cat}
-            </button>
-          ))}
+        <div className="flex flex-col items-center gap-6 mb-16">
+          <div className="flex flex-wrap justify-center gap-3">
+            <span className="text-[10px] uppercase tracking-widest text-neutral-400 py-2 mr-2 hidden md:block">Department</span>
+            {departments.map(dept => (
+              <button
+                key={dept}
+                onClick={() => setDepartmentFilter(dept)}
+                className={`px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all rounded-full border ${departmentFilter === dept ? 'bg-black text-white border-black shadow-md' : 'bg-transparent text-neutral-600 border-black/10 hover:border-black/30 bg-white/50'}`}
+              >
+                {dept}
+              </button>
+            ))}
+          </div>
+          
+          <div className="flex flex-wrap justify-center gap-3">
+            <span className="text-[10px] uppercase tracking-widest text-neutral-400 py-2 mr-2 hidden md:block">Category</span>
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all rounded-full border ${categoryFilter === cat ? 'bg-black text-white border-black shadow-md' : 'bg-transparent text-neutral-600 border-black/10 hover:border-black/30 bg-white/50'}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Product Grid */}
@@ -92,7 +134,9 @@ export default function ProductsPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="text-sm font-semibold tracking-wide text-[#3c3c3a]">{prod.name}</h3>
-                      <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-1">{prod.category}</p>
+                      <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-1">
+                        {prod.department ? `${prod.department} • ` : ''}{prod.category}
+                      </p>
                     </div>
                     <p className="text-sm font-medium tracking-tight">₹{prod.price.toLocaleString()}</p>
                   </div>

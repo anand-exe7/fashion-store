@@ -58,6 +58,7 @@ export default function Inventory() {
   const { products } = useAdminData();
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState('all');
+  const [dept, setDept] = useState<'all' | 'Men' | 'Women' | 'Kids' | 'Unisex'>('all');
   const [status, setStatus] = useState<'all' | 'low' | 'out'>('all');
   const [sort, setSort] = useState<'name' | 'stock-asc' | 'stock-desc' | 'price'>('name');
   const [alertOpen, setAlertOpen] = useState(false);
@@ -81,6 +82,7 @@ export default function Inventory() {
     const filtered = products.filter(
       (p) =>
         (cat === 'all' || p.category === cat) &&
+        (dept === 'all' || p.department === dept || (!p.department && dept === 'Unisex')) &&
         (status === 'all' || statusOf(p) === status) &&
         (!q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)),
     );
@@ -90,7 +92,7 @@ export default function Inventory() {
       if (sort === 'price') return b.price - a.price;
       return a.name.localeCompare(b.name);
     });
-  }, [products, query, cat, status, sort]);
+  }, [products, query, cat, dept, status, sort]);
 
   return (
     <div className="space-y-5">
@@ -130,6 +132,16 @@ export default function Inventory() {
           <div className="relative">
             <select value={cat} onChange={(e) => setCat(e.target.value)} className="appearance-none rounded-lg border border-black/[0.09] bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-neutral-700 outline-none focus:border-neutral-400">
               {categories.map((c) => <option key={c} value={c}>{c === 'all' ? 'All Categories' : c}</option>)}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+          </div>
+          <div className="relative">
+            <select value={dept} onChange={(e) => setDept(e.target.value as any)} className="appearance-none rounded-lg border border-black/[0.09] bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-neutral-700 outline-none focus:border-neutral-400">
+              <option value="all">All Depts</option>
+              <option value="Men">Men</option>
+              <option value="Women">Women</option>
+              <option value="Kids">Kids</option>
+              <option value="Unisex">Unisex</option>
             </select>
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
           </div>
@@ -247,7 +259,7 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
   const { products } = useAdminData();
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
-  const [customCategory, setCustomCategory] = useState('');
+  const [department, setDepartment] = useState<'Men' | 'Women' | 'Kids' | 'Unisex'>('Unisex');
   const [price, setPrice] = useState('');
   const [weight, setWeight] = useState('');
   const [stock, setStock] = useState('');
@@ -269,6 +281,7 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
     if (state.open) {
       setName(editing?.name ?? '');
       setCategory(editing?.category ?? '');
+      setDepartment(editing?.department ?? 'Unisex');
       setDescription(editing?.description ?? '');
       setPrice(editing ? String(editing.price) : '');
       setWeight(editing ? String(editing.weightGrams || '') : '');
@@ -342,10 +355,10 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
         ? validVariants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
         : (Number(stock) || 0);
 
-      const resolvedCategory = category === '__custom__' ? customCategory.trim() : category.trim();
       const payload = {
         name: name.trim(),
-        category: resolvedCategory || 'Kids',
+        category: category.trim() || 'General',
+        department: department,
         description: description.trim(),
         price: Number(price) || 0,
         weightGrams: Number(weight) || 0,
@@ -419,27 +432,21 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
             <div className="space-y-4">
               <h3 className="text-sm font-extrabold tracking-tight text-neutral-900">Organization & Pricing</h3>
               <div className="grid grid-cols-2 gap-4">
+                <Field label="Category"><input className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Knitwear" /></Field>
                 <Field label="Department">
-                  <select
-                    className={inputCls}
-                    value={category === '__custom__' ? '__custom__' : category}
-                    onChange={(e) => {
-                      setCategory(e.target.value);
-                      if (e.target.value !== '__custom__') setCustomCategory('');
-                    }}
-                  >
-                    <option value="">Select department</option>
-                    {departments.map((d) => <option key={d} value={d}>{d}</option>)}
-                    <option value="__custom__">+ Add New Department</option>
+                  <select className={inputCls} value={department} onChange={(e) => setDepartment(e.target.value as any)}>
+                    <option value="Men">Men</option>
+                    <option value="Women">Women</option>
+                    <option value="Kids">Kids</option>
+                    <option value="Unisex">Unisex</option>
                   </select>
-                  {category === '__custom__' && (
-                    <input className={`${inputCls} mt-2`} value={customCategory} onChange={(e) => setCustomCategory(e.target.value)} placeholder="New department name" autoFocus />
-                  )}
                 </Field>
-                <Field label="Base Price (₹)"><input className={inputCls} value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" /></Field>
               </div>
               <div className="grid grid-cols-2 gap-4">
+                <Field label="Base Price (₹)"><input className={inputCls} value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" /></Field>
                 <Field label="Base Weight (g)"><input className={inputCls} value={weight} onChange={(e) => setWeight(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 500" inputMode="numeric" /></Field>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <Field label="Discount Label"><input className={inputCls} value={discountLabel} onChange={(e) => setDiscountLabel(e.target.value)} placeholder="e.g. -20% or SALE" /></Field>
               </div>
               <label className="flex items-center gap-2 cursor-pointer mt-2 text-sm font-bold text-neutral-700">
