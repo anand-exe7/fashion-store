@@ -11,15 +11,9 @@ const HERO_FIGURE = '/new_cutout_2.png';
 
 const NEXT_BG = '#F5F2EB';
 
-interface HeroSettings {
-  headline: string[];
-  subtext: string;
-  rightCopy: string;
-  featuredTitle: string;
-  featuredPrice: string;
-}
 
-const DEFAULT_HERO: HeroSettings = {
+
+const settings = {
   headline: ['Little Stars,', 'Big Style —', 'Made for', 'Every Age'],
   subtext: 'Adorable outfits for kids aged 0–16. Designed to play, built to last.',
   rightCopy: 'Where comfort meets playful style for your little ones.',
@@ -69,14 +63,6 @@ const DOODLES = [
 
 export const Hero = () => {
   const { scrollY } = useScroll();
-  const [settings, setSettings] = useState<HeroSettings>(DEFAULT_HERO);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('shalistone_hero_settings');
-      if (raw) setSettings(JSON.parse(raw));
-    } catch {}
-  }, []);
 
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);

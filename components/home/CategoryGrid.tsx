@@ -32,17 +32,7 @@ const DEFAULT_CATEGORIES = [
   ];
 
 export const CategoryGrid = () => {
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('shalistone_category_settings');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) setCategories(parsed);
-      }
-    } catch {}
-  }, []);
+  const categories = DEFAULT_CATEGORIES;
 
   return (
     <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto">

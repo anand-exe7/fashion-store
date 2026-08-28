@@ -14,28 +14,12 @@ const containerVariants = {
   }
 };
 
-const DEFAULT_SETTINGS = { label: 'Curated Selection', heading: 'New\nArrivals', linkText: 'Discover All', count: 3, selectedProductIds: [] as string[] };
-
 export const NewArrivals = ({ products }: { products?: any[] }) => {
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('shalistone_new_arrivals_settings');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed });
-      }
-    } catch {}
-  }, []);
 
   const all = products || [];
-  const ids = settings.selectedProductIds || [];
-  const picked = ids.length > 0
-    ? ids.map(id => all.find(p => p.id === id)).filter(Boolean)
-    : all.filter(p => p.isNew).slice(0, settings.count);
+  const picked = all.filter(p => p.isNew).slice(0, 4);
 
-  const newProducts = picked.slice(0, settings.count).map((p: any) => ({
+  const newProducts = picked.map((p: any) => ({
     id: p.id,
     title: p.name,
     category: p.category,
@@ -45,15 +29,15 @@ export const NewArrivals = ({ products }: { products?: any[] }) => {
     image: p.images?.[0]?.url || 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=800'
   }));
 
-  const cols = settings.count <= 3 ? 'md:grid-cols-3' : 'md:grid-cols-4';
+  const cols = newProducts.length <= 3 ? 'md:grid-cols-3' : 'md:grid-cols-4';
 
   return (
     <section className="py-32 px-6 md:px-12 max-w-7xl mx-auto">
       <div className="flex flex-col mb-20">
-        <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2">{settings.label}</span>
+        <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2">Curated Selection</span>
         <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 md:gap-0">
-          <RevealText as="h2" text={settings.heading} className="text-6xl md:text-8xl font-bold tracking-tighter uppercase leading-[0.85]" />
-          <a href="/products" className="text-[10px] font-bold uppercase tracking-widest underline underline-offset-8 hover:text-neutral-500 transition-colors">{settings.linkText}</a>
+          <RevealText as="h2" text="New\nArrivals" className="text-6xl md:text-8xl font-bold tracking-tighter uppercase leading-[0.85]" />
+          <a href="/products" className="text-[10px] font-bold uppercase tracking-widest underline underline-offset-8 hover:text-neutral-500 transition-colors">Discover All</a>
         </div>
       </div>
       <motion.div

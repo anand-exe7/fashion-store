@@ -11,7 +11,6 @@ import Categories from './sections/Categories';
 import Coupons from './sections/Coupons';
 import Delivery from './sections/Delivery';
 import Users from './sections/Users';
-import WebsiteContent from './sections/WebsiteContent';
 import { Toast } from './ui';
 import { currentToast, showToast } from '@/lib/store';
 
@@ -124,7 +123,6 @@ export default function AdminDashboard() {
           {active === 'coupons' && <Coupons />}
           {active === 'delivery' && <Delivery />}
           {active === 'users' && <Users />}
-          {active === 'website' && <WebsiteContent />}
         </main>
 
         {/* Footer */}
