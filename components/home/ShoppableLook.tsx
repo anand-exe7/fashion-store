@@ -4,14 +4,14 @@ import { RevealText } from '../ui/RevealText';
 
 const LOOKS = {
   left: {
-    src: 'https://images.unsplash.com/photo-1542272604-787c3835535d?q=80&w=900&auto=format&fit=crop',
-    label: 'Editorial 01',
-    caption: 'The Tailored Line',
+    src: 'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?q=80&w=900&auto=format&fit=crop',
+    label: 'Collection 01',
+    caption: 'Play-Ready Sets',
   },
   right: {
-    src: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=900&auto=format&fit=crop',
-    label: 'Editorial 02',
-    caption: 'Utility Reworked',
+    src: 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?q=80&w=900&auto=format&fit=crop',
+    label: 'Collection 02',
+    caption: 'Comfort First',
   },
 };
 
@@ -77,7 +77,7 @@ export const ShoppableLook = () => {
           <RevealText as="h2" text="The New" className="mb-1 text-3xl font-light uppercase tracking-[0.2em] text-neutral-800 md:text-5xl" />
           <RevealText as="h3" text="classics" className="mb-6 font-serif text-5xl italic text-neutral-900 md:text-7xl" />
           <p className="mb-8 max-w-[280px] text-[11px] font-bold uppercase leading-relaxed tracking-widest text-neutral-500 md:text-xs">
-            Elevating everyday essentials with timeless craftsmanship and modern sensibility.
+            Adorable outfits crafted with care — play-ready, comfy, and always in style.
           </p>
           <a
             href="/products"
