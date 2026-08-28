@@ -47,7 +47,6 @@ export default function ProductsPage() {
     const deptMatch = departmentFilter === 'All' || p.department === departmentFilter || (!p.department && departmentFilter === 'Unisex');
     return categoryMatch && deptMatch;
   });
-
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-neutral-900 font-sans selection:bg-black selection:text-white">
       <Navbar />

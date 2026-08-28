@@ -59,9 +59,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
     return (
       <div className="min-h-screen bg-[#F5F2EB] flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center">
-            <ShoppingBag className="w-6 h-6 text-white" />
-          </div>
+          <img src="/logo.jpeg" alt="Shalistone" className="w-16 h-16 rounded-xl object-cover" />
           <p className="text-black font-bold tracking-widest uppercase text-sm">Generating Digital Bill...</p>
         </div>
       </div>
@@ -71,6 +69,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
   if (error || !order) {
     return (
       <div className="min-h-screen bg-[#F5F2EB] flex flex-col items-center justify-center gap-4">
+        <img src="/logo.jpeg" alt="Shalistone" className="w-16 h-16 rounded-xl object-cover" />
         <p className="text-black font-bold text-xl">Invoice Not Found</p>
         <Link href="/" className="px-6 py-2.5 bg-black hover:bg-neutral-800 text-white rounded-xl font-bold transition-colors shadow-md">
           Return to Store
@@ -98,7 +97,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
           }
         }
       `}</style>
-      
+
       {/* Top Navigation / Action Bar (Hidden when printing) */}
       <div className="w-full max-w-3xl flex flex-wrap justify-between items-center mb-6 sm:mb-8 print:hidden gap-3">
         <Link
@@ -109,7 +108,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
         </Link>
 
         <div className="flex items-center gap-2.5">
-          <button 
+          <button
             onClick={handleCopyLink}
             className="flex items-center gap-2 bg-white hover:bg-neutral-50 text-neutral-700 hover:text-black font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-xl shadow-sm border border-black/10 transition-colors cursor-pointer"
           >
@@ -124,7 +123,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             )}
           </button>
 
-          <button 
+          <button
             onClick={handlePrint}
             className="flex items-center gap-2 bg-black hover:bg-neutral-800 text-white font-extrabold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl shadow-md transition-all cursor-pointer"
           >
@@ -135,14 +134,15 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
 
       {/* The Invoice Document */}
       <div className="w-full max-w-3xl bg-white border border-black/10 rounded-2xl shadow-xl print:shadow-none print:border-none print:rounded-none overflow-hidden">
-        
-        {/* Header Section */}
+
+        {/* Header Section with Logo */}
         <div className="bg-neutral-50 border-b border-black/10 p-8 sm:p-12 print:p-6 flex flex-col items-center text-center">
-          <div className="mb-4">
+          <div className="mb-4 flex flex-col items-center gap-3">
+            <img src="/logo.jpeg" alt="Shalistone" className="w-16 h-16 rounded-xl object-cover shadow-sm print:w-12 print:h-12" />
             <h1 className="text-3xl font-black tracking-tighter uppercase">Shalistone</h1>
           </div>
           <p className="text-xs text-neutral-500 font-bold tracking-wider mt-1 mb-4">INVOICE: {order.id}</p>
-          
+
           <div className="flex flex-col items-center gap-2 text-sm text-neutral-600 font-semibold">
             <div className="text-center max-w-md leading-relaxed">
               <span className="inline-block text-neutral-400 mr-1.5 align-middle -mt-0.5">
@@ -187,7 +187,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                 <span className="text-neutral-500 font-bold w-20 text-left sm:text-right">Type:</span>
                 <span className="text-black font-black uppercase">{order.source} SALE</span>
               </div>
-              
+
               <div className="pt-3 mt-3 border-t border-black/5">
                 <div className="flex gap-2 mb-1">
                   <span className="text-neutral-500 font-bold w-20 text-left sm:text-right">Gateway:</span>
@@ -239,8 +239,8 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                     )}
                   </td>
                   <td className="py-6 px-4 print:py-3 text-center text-sm font-bold text-neutral-700">{item.quantity}</td>
-                  <td className="py-6 pl-4 print:py-3 text-right text-sm font-bold text-neutral-700">₹{item.price.toLocaleString('en-IN')}</td>
-                  <td className="py-6 pl-4 print:py-3 text-right text-sm font-black text-black">₹{(item.price * item.quantity).toLocaleString('en-IN')}</td>
+                  <td className="py-6 pl-4 print:py-3 text-right text-sm font-bold text-neutral-700">{'₹'}{item.price.toLocaleString('en-IN')}</td>
+                  <td className="py-6 pl-4 print:py-3 text-right text-sm font-black text-black">{'₹'}{(item.price * item.quantity).toLocaleString('en-IN')}</td>
                 </tr>
               ))}
             </tbody>
@@ -255,37 +255,38 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
               {(order.discount > 0 || order.delivery > 0) && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-neutral-500 font-bold uppercase tracking-wider">Subtotal</span>
-                  <span className="font-bold text-black">₹{order.subtotal.toLocaleString('en-IN')}</span>
+                  <span className="font-bold text-black">{'₹'}{order.subtotal.toLocaleString('en-IN')}</span>
                 </div>
               )}
-              
+
               {order.discount > 0 && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-neutral-500 font-bold uppercase tracking-wider">
                     Discount {order.couponCode ? `(${order.couponCode})` : ''}
                   </span>
-                  <span className="font-bold text-emerald-600">-₹{order.discount.toLocaleString('en-IN')}</span>
+                  <span className="font-bold text-emerald-600">-{'₹'}{order.discount.toLocaleString('en-IN')}</span>
                 </div>
               )}
 
               {order.delivery > 0 && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-neutral-500 font-bold uppercase tracking-wider">Delivery Fee</span>
-                  <span className="font-bold text-black">₹{order.delivery.toLocaleString('en-IN')}</span>
+                  <span className="font-bold text-black">{'₹'}{order.delivery.toLocaleString('en-IN')}</span>
                 </div>
               )}
 
-              <div className="border-t border-black/10 pt-4 mt-2 flex justify-between items-center">
+              <div className="border-t-2 border-black/10 pt-4 mt-2 flex justify-between items-center">
                 <span className="text-sm font-black text-black uppercase tracking-widest">Total Amount</span>
-                <span className="text-3xl font-black text-black">₹{order.total.toLocaleString('en-IN')}</span>
+                <span className="text-3xl font-black text-black">{'₹'}{order.total.toLocaleString('en-IN')}</span>
               </div>
             </div>
         </div>
-        
+
         {/* Footer */}
-        <div className="border-t border-black/5 p-6 print:p-4 text-center bg-white flex flex-col items-center justify-center gap-1.5">
-          <p className="text-xs font-bold text-black tracking-wider uppercase">Thank you for shopping!</p>
-          <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-[0.15em]">Powered by Cenexa Systems @ {new Date().getFullYear()}</p>
+        <div className="border-t border-black/5 p-6 print:p-4 text-center bg-white flex flex-col items-center justify-center gap-2">
+          <img src="/logo.jpeg" alt="Shalistone" className="w-8 h-8 rounded-lg object-cover opacity-60 print:w-6 print:h-6" />
+          <p className="text-xs font-bold text-black tracking-wider uppercase">Thank you for shopping with Shalistone!</p>
+          <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-[0.15em]">Powered by Cenexa Systems &copy; {new Date().getFullYear()}</p>
         </div>
 
       </div>

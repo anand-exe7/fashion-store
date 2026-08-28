@@ -59,7 +59,7 @@ async function AsyncProducts() {
 
 export default async function Home() {
   return (
-    <div className="min-h-screen bg-[#F5F2EB] text-neutral-900 font-sans selection:bg-black selection:text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#F5F2EB] text-neutral-900 font-sans selection:bg-black selection:text-white overflow-x-hidden cursor-default">
       <ScrollProgress />
       <Navbar />
       <Hero />
@@ -78,6 +78,8 @@ export default async function Home() {
       <Instagram />
       <Newsletter />
       <Footer />
+      {/* Prevents dark footer background from bleeding on overscroll */}
+      <div className="h-0 bg-[#F5F2EB]" style={{ boxShadow: '0 50vh 0 50vh #F5F2EB' }} />
     </div>
   );
 }

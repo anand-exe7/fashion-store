@@ -252,8 +252,11 @@ function StockBadge({ status }: { status: 'ok' | 'low' | 'out' }) {
   return <span className={`rounded-md px-2 py-1 text-[9px] font-bold uppercase shadow-sm ${map[status]}`}>{label}</span>;
 }
 
+const DEFAULT_DEPARTMENTS = ['Kids', 'Mens'];
+
 function ProductForm({ state, onClose }: { state: { open: boolean; product: Product | null }; onClose: () => void }) {
   const editing = state.product;
+  const { products } = useAdminData();
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [department, setDepartment] = useState<'Men' | 'Women' | 'Kids' | 'Unisex'>('Unisex');
@@ -267,6 +270,11 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
   const [uploading, setUploading] = useState(false);
   const [isNew, setIsNew] = useState(false);
   const [discountLabel, setDiscountLabel] = useState('');
+
+  const departments = useMemo(() => {
+    const fromProducts = products.map((p) => p.category).filter(Boolean);
+    return Array.from(new Set([...DEFAULT_DEPARTMENTS, ...fromProducts])).sort();
+  }, [products]);
 
   // load values when the modal opens for a product
   useEffect(() => {

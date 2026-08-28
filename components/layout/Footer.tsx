@@ -8,8 +8,8 @@ export const Footer = () => {
         <div>
            <h4 className="font-semibold mb-8 text-lg">Shop</h4>
            <ul className="space-y-4 text-sm text-neutral-400 font-medium">
-             {['Men', 'Women', 'Kids', 'Accessories', 'Sale'].map(link => (
-                <li key={link}><a href="#" className="hover:text-white transition-colors">{link}</a></li>
+             {['Kids', 'Boys', 'Girls', 'Baby', 'Mens'].map(link => (
+                <li key={link}><a href="/products" className="hover:text-white transition-colors">{link}</a></li>
              ))}
            </ul>
         </div>
@@ -45,19 +45,22 @@ export const Footer = () => {
            </div>
         </div>
       </div>
-      
+
       <div className="max-w-7xl mx-auto flex flex-col items-center overflow-hidden">
-        <motion.div 
+        <motion.div
           initial={{ y: 100, opacity: 0 }}
           whileInView={{ y: 0, opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 1, ease: "easeOut" }}
-          className="text-[9vw] lg:text-[8vw] font-bold leading-none tracking-tighter mb-8 md:mb-12 opacity-90 flex items-center justify-center select-none w-full"
+          className="mb-8 md:mb-12 flex items-center justify-center gap-4 select-none w-full"
         >
-          SHALISTONE <span className="text-[6vw] sm:text-[7vw] md:text-[6vw] lg:text-[5vw] ml-2 md:ml-4 text-neutral-600 hover:rotate-90 transition-transform duration-700">*</span>
+          <img src="/logo.jpeg" alt="Shalistone" className="h-14 w-14 rounded-xl object-cover md:h-20 md:w-20" />
+          <span className="text-[9vw] lg:text-[8vw] font-bold leading-none tracking-tighter opacity-90">
+            SHALISTONE
+          </span>
         </motion.div>
         <div className="grid w-full grid-cols-1 items-center gap-4 pt-8 text-xs text-neutral-500 font-medium md:grid-cols-3">
-          <p className="text-center md:text-left">© 2026 Shalistone. All Rights Reserved.</p>
+          <p className="text-center md:text-left">&copy; 2026 Shalistone. All Rights Reserved.</p>
           <p className="text-center">
             Powered by{' '}
             <a href="https://www.cenexasystems.com" target="_blank" rel="noreferrer" className="text-neutral-300 hover:text-white transition-colors">

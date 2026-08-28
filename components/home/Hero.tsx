@@ -5,42 +5,59 @@ import { Magnetic } from '../ui/Magnetic';
 
 const HEADLINE_FONT = "'Arial Black', 'Arial Bold', 'Helvetica Neue', Gadget, sans-serif";
 
-// Your transparent cutout lives in /public. Swap this file to change the figure.
 const FIGURE_PRIMARY = '/hero-figure-2.png';
 const FIGURE_FALLBACK =
-  'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=1200&auto=format&fit=crop';
+  'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?q=80&w=1200&auto=format&fit=crop';
 
-// Next section's background — the gradual blur fades into this for a seamless seam.
 const NEXT_BG = '#F5F2EB';
+
+interface HeroSettings {
+  headline: string[];
+  subtext: string;
+  rightCopy: string;
+  featuredTitle: string;
+  featuredPrice: string;
+}
+
+const DEFAULT_HERO: HeroSettings = {
+  headline: ['Little Stars,', 'Big Style —', 'Made for', 'Every Age'],
+  subtext: 'Adorable outfits for kids aged 0–16. Designed to play, built to last.',
+  rightCopy: 'Where comfort meets playful style for your little ones.',
+  featuredTitle: 'Kids Comfort Set',
+  featuredPrice: '₹899.00',
+};
 
 export const Hero = () => {
   const { scrollY } = useScroll();
   const [figureSrc, setFigureSrc] = useState(FIGURE_PRIMARY);
   const figureRef = useRef<HTMLImageElement>(null);
+  const [settings, setSettings] = useState<HeroSettings>(DEFAULT_HERO);
 
   useEffect(() => {
     const img = figureRef.current;
     if (img && img.complete && img.naturalWidth === 0) setFigureSrc(FIGURE_FALLBACK);
+    try {
+      const raw = localStorage.getItem('shalistone_hero_settings');
+      if (raw) setSettings(JSON.parse(raw));
+    } catch {}
   }, []);
 
-  // Mouse parallax — only recomputes while the pointer moves, so it's idle-cheap.
-  // It's applied only to plain (unfiltered, unmasked) layers so the compositor
-  // can move them on the GPU without repainting.
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const spring = { damping: 32, stiffness: 110 };
   const sx = useSpring(mouseX, spring);
   const sy = useSpring(mouseY, spring);
 
-  const figX = useTransform(sx, [-1000, 1000], [-14, 14]);
-  const figY = useTransform(sy, [-1000, 1000], [-8, 8]);
-  const headX = useTransform(sx, [-1000, 1000], [8, -8]);
-  const wiseX = useTransform(sx, [-1000, 1000], [16, -16]);
+  const figX = useTransform(sx, [-1000, 1000], [-12, 12]);
+  const figY = useTransform(sy, [-1000, 1000], [-6, 6]);
+  const childX = useTransform(sx, [-1000, 1000], [-6, 6]);
+  const childY = useTransform(sy, [-1000, 1000], [-3, 3]);
+  const headX = useTransform(sx, [-1000, 1000], [6, -6]);
+  const wiseX = useTransform(sx, [-1000, 1000], [14, -14]);
 
-  // Scroll parallax (translate + opacity only — compositor-friendly).
-  const figScrollY = useTransform(scrollY, [0, 800], [0, -55]);
-  const wiseScrollY = useTransform(scrollY, [0, 800], [0, 80]);
-  const headScrollY = useTransform(scrollY, [0, 800], [0, -90]);
+  const figScrollY = useTransform(scrollY, [0, 800], [0, -50]);
+  const wiseScrollY = useTransform(scrollY, [0, 800], [0, 70]);
+  const headScrollY = useTransform(scrollY, [0, 800], [0, -80]);
   const fade = useTransform(scrollY, [0, 550], [1, 0]);
 
   const onMove = (e: React.MouseEvent) => {
@@ -52,107 +69,126 @@ export const Hero = () => {
   return (
     <section
       onMouseMove={onMove}
-      className="relative h-[100svh] min-h-[600px] w-full overflow-hidden"
+      className="relative h-[100svh] min-h-[600px] w-full overflow-hidden cursor-default"
     >
-      {/* Atmospheric gradient base */}
+      {/* Warm atmospheric gradient */}
       <div
         className="absolute inset-0 z-0"
         style={{
           background:
-            'radial-gradient(130% 95% at 66% 6%, #e0eff1 0%, #e9ede9 40%, #efe8d9 74%, #ece2d0 100%)',
+            'radial-gradient(130% 95% at 60% 8%, #e8f0e8 0%, #eee9e0 38%, #efe8d9 70%, #ece2d0 100%)',
         }}
       />
-      {/* Soft studio spotlight behind the figure for depth */}
       <div
         className="absolute inset-0 z-0"
         style={{
           background:
-            'radial-gradient(46% 60% at 50% 46%, rgba(255,255,255,0.72), transparent 72%)',
+            'radial-gradient(50% 65% at 55% 50%, rgba(255,255,255,0.65), transparent 70%)',
         }}
       />
 
-      {/* Technical grid with edge fade (static — no per-frame repaint) */}
+      {/* Subtle grid texture */}
       <div
         className="absolute -inset-8 z-0"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(30,42,46,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(30,42,46,0.045) 1px, transparent 1px)',
-          backgroundSize: '54px 54px',
-          maskImage: 'radial-gradient(120% 110% at 50% 42%, #000 35%, transparent 82%)',
-          WebkitMaskImage: 'radial-gradient(120% 110% at 50% 42%, #000 35%, transparent 82%)',
+            'linear-gradient(rgba(30,42,46,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(30,42,46,0.035) 1px, transparent 1px)',
+          backgroundSize: '60px 60px',
+          maskImage: 'radial-gradient(120% 110% at 55% 42%, #000 30%, transparent 78%)',
+          WebkitMaskImage: 'radial-gradient(120% 110% at 55% 42%, #000 30%, transparent 78%)',
         }}
       />
 
-      {/* Fine static noise */}
+      {/* Fine noise overlay */}
       <div
-        className="absolute inset-0 z-[6] pointer-events-none opacity-[0.035]"
+        className="absolute inset-0 z-[6] pointer-events-none opacity-[0.03]"
         style={{
           backgroundImage:
             'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")',
         }}
       />
 
-      {/* Giant SHALISTONE wordmark — sits BEHIND the figure for depth */}
+      {/* Giant SHALISTONE watermark */}
       <motion.div
         style={{ y: wiseScrollY, x: wiseX, opacity: fade }}
-        className="absolute inset-x-0 bottom-[19%] md:bottom-[16%] z-10 flex justify-center pointer-events-none select-none"
+        className="absolute inset-x-0 bottom-[18%] md:bottom-[14%] z-10 flex justify-center pointer-events-none select-none"
       >
         <span
           className="font-black leading-none whitespace-nowrap"
           style={{
             fontFamily: HEADLINE_FONT,
-            fontSize: 'clamp(3.4rem, 13.5vw, 11.5rem)',
+            fontSize: 'clamp(3.2rem, 13vw, 11rem)',
             letterSpacing: '-0.045em',
             color: '#d7c7a6',
-            textShadow: '0 2px 1px rgba(255,255,255,0.45), 0 12px 30px rgba(120,105,75,0.16)',
+            opacity: 0.7,
+            textShadow: '0 2px 1px rgba(255,255,255,0.45), 0 12px 30px rgba(120,105,75,0.12)',
           }}
         >
           SHALISTONE
         </span>
       </motion.div>
 
-      {/* Center figure — your transparent cutout (painted above the wordmark).
-          Parallax lives on the wrapper so the filtered <img> layer is only
-          translated by the compositor, never re-rasterised. */}
+      {/* ——— Figures group: main model + child ——— */}
+      {/* Main figure (right-center) */}
       <motion.div
         style={{ y: figScrollY }}
-        className="absolute left-1/2 bottom-0 z-20 h-[42vh] w-[130vw] max-w-none -translate-x-1/2 pointer-events-none sm:h-[56vh] md:h-[93vh] md:w-[min(96vw,660px)]"
+        className="absolute bottom-0 z-20 pointer-events-none
+          left-[50%] -translate-x-1/2 h-[44vh] w-[130vw] max-w-none
+          sm:h-[58vh]
+          md:left-[55%] md:-translate-x-1/2 md:h-[90vh] md:w-[min(90vw,620px)]"
       >
         <motion.div style={{ x: figX, y: figY }} className="relative h-full w-full will-change-transform">
-          {/* soft ground shadow anchors the figure */}
-          <div className="absolute inset-x-[24%] bottom-[2%] h-[7%] rounded-[50%] bg-black/25 blur-2xl" />
+          <div className="absolute inset-x-[26%] bottom-[2%] h-[6%] rounded-[50%] bg-black/20 blur-2xl" />
           <img
             ref={figureRef}
             src={figureSrc}
-            alt="Shalistone editorial figure"
+            alt="Shalistone kids collection"
             className="relative h-full w-full object-contain object-bottom"
             onError={() => figureSrc !== FIGURE_FALLBACK && setFigureSrc(FIGURE_FALLBACK)}
           />
         </motion.div>
       </motion.div>
 
-      {/* ---------- Foreground editorial content ---------- */}
+      {/* Child figure (standing beside the main model) */}
+      <motion.div
+        style={{ y: figScrollY, opacity: fade }}
+        className="absolute bottom-0 z-[21] pointer-events-none hidden md:block
+          left-[30%] -translate-x-1/2"
+      >
+        <motion.div
+          style={{ x: childX, y: childY }}
+          className="relative will-change-transform"
+        >
+          <div className="absolute inset-x-[18%] bottom-[1%] h-[5%] rounded-[50%] bg-black/15 blur-lg" />
+          <img
+            src="/child3.png"
+            alt="Shalistone kids"
+            className="h-[40vh] md:h-[55vh] w-auto object-contain object-bottom drop-shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
+          />
+        </motion.div>
+      </motion.div>
 
-      {/* Headline (left on desktop, centered above the figure on mobile).
-          z-index sits BELOW the figure (z-20) on purpose: if the two ever get
-          close on an odd viewport, the figure should read as in front of the
-          text rather than the text garbling across the model's face. */}
+      {/* ——— Text content ——— */}
+      {/* Headline — top left */}
       <motion.div
         style={{ x: headX, y: headScrollY, opacity: fade }}
-        className="absolute left-0 right-0 top-[7vh] z-[15] px-[6vw] text-center sm:top-[13vh] md:left-[5vw] md:right-auto md:top-[20vh] md:z-30 md:max-w-[40vw] md:px-0 md:text-left pointer-events-none"
+        className="absolute z-[25] pointer-events-none
+          left-0 right-0 top-[8vh] px-[6vw] text-center
+          sm:top-[14vh]
+          md:left-[4vw] md:right-auto md:top-[18vh] md:max-w-[34vw] md:px-0 md:text-left"
       >
         <h1
           className="uppercase text-[#141414]"
           style={{
             fontFamily: HEADLINE_FONT,
             fontWeight: 900,
-            fontSize: 'clamp(1.85rem, 6.6vw, 4.15rem)',
-            lineHeight: 0.9,
+            fontSize: 'clamp(1.9rem, 5.8vw, 3.8rem)',
+            lineHeight: 0.92,
             letterSpacing: '-0.03em',
-            textShadow: '0 1px 0 rgba(255,255,255,0.5)',
+            textShadow: '0 1px 0 rgba(255,255,255,0.6)',
           }}
         >
-          {['Digital', 'Fashion is', 'A New', 'Chapter'].map((line, i) => (
+          {settings.headline.map((line, i) => (
             <span key={line} className="block overflow-hidden">
               <span
                 className="block"
@@ -165,77 +201,97 @@ export const Hero = () => {
         </h1>
 
         <div
-          className="mx-auto mt-3 hidden max-w-[260px] sm:mt-5 sm:max-w-[300px] md:mx-0 md:mt-6 md:block"
+          className="mx-auto mt-4 hidden max-w-[280px] md:mx-0 md:mt-6 md:block"
           style={{ animation: 'heroFade 0.9s ease-out 0.6s both' }}
         >
-          <p className="text-[11px] md:text-[12px] leading-relaxed font-semibold uppercase tracking-[0.04em] text-neutral-700">
-            Timeless pieces, crafted for the modern wardrobe — designed to move and made to last.
+          <p className="text-[11px] md:text-[12px] leading-relaxed font-semibold uppercase tracking-[0.04em] text-neutral-600">
+            {settings.subtext}
           </p>
+        </div>
+
+        {/* CTA directly under headline on desktop */}
+        <div
+          className="hidden md:block mt-8"
+          style={{ animation: 'heroFade 0.9s ease-out 0.8s both' }}
+        >
+          <Magnetic strength={0.22}>
+            <a
+              href="/products"
+              className="group pointer-events-auto inline-flex items-center gap-3 whitespace-nowrap rounded-full bg-black px-7 py-3.5 text-[10px] font-bold uppercase tracking-[0.2em] text-white shadow-[0_12px_35px_rgba(0,0,0,0.2)] transition-all hover:bg-neutral-800 hover:shadow-[0_16px_45px_rgba(0,0,0,0.25)]"
+            >
+              Explore Collection
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/20 transition-transform duration-300 group-hover:rotate-45">
+                <svg width="10" height="10" viewBox="0 0 15 15" fill="none">
+                  <path d="M8.146 3.146a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L11.293 8H2.5a.5.5 0 0 1 0-1h8.793L8.146 3.854a.5.5 0 0 1 0-.708Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
+                </svg>
+              </span>
+            </a>
+          </Magnetic>
         </div>
       </motion.div>
 
-      {/* Right merge copy — desktop only */}
+      {/* Right copy — desktop only */}
       <motion.div
         style={{ opacity: fade }}
-        className="absolute right-[5vw] top-[21vh] z-30 hidden md:block max-w-[210px] text-left pointer-events-none"
+        className="absolute right-[4vw] top-[19vh] z-30 hidden lg:block max-w-[190px] text-left pointer-events-none"
       >
         <div style={{ animation: 'heroFade 0.9s ease-out 0.55s both' }}>
-          <p className="text-[11px] leading-[1.7] font-bold uppercase tracking-[0.12em] text-neutral-700">
-            Where craftsmanship meets a new generation of effortless self-expression.
+          <p className="text-[10px] leading-[1.8] font-bold uppercase tracking-[0.14em] text-neutral-500">
+            {settings.rightCopy}
           </p>
-          <div className="mt-3 h-px w-14 bg-neutral-400/60" />
+          <div className="mt-3 h-px w-12 bg-neutral-400/50" />
         </div>
       </motion.div>
 
-      {/* Glassmorphism mini product card — desktop only */}
+      {/* Featured product card — desktop only */}
       <motion.div
         style={{ opacity: fade }}
-        className="absolute right-[5vw] top-[48vh] z-40 hidden lg:block"
+        className="absolute right-[4vw] top-[42vh] z-40 hidden lg:block"
       >
         <div
-          style={{ animation: 'heroFade 0.9s ease-out 0.8s both' }}
-          className="w-60 rounded-3xl border border-white/60 bg-white/85 p-3 shadow-[0_18px_50px_rgba(40,45,60,0.12)]"
+          style={{ animation: 'heroFade 0.9s ease-out 0.85s both' }}
+          className="w-56 rounded-2xl border border-white/50 bg-white/80 p-3 shadow-[0_16px_40px_rgba(40,45,60,0.1)] backdrop-blur-sm"
         >
           <div className="flex items-center gap-3">
-            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-neutral-200">
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-neutral-200">
               <img
-                src="https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=200&auto=format&fit=crop"
-                alt="Cream Crewneck"
+                src="https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?q=80&w=200&auto=format&fit=crop"
+                alt="Kids Outfit Set"
                 className="h-full w-full object-cover"
               />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-neutral-500">Featured</p>
-              <p className="truncate text-[13px] font-semibold text-neutral-900">Cream Crewneck</p>
-              <p className="text-[13px] font-bold text-neutral-900">₹120.00</p>
+              <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-neutral-400">Featured</p>
+              <p className="truncate text-[12px] font-semibold text-neutral-900 mt-0.5">{settings.featuredTitle}</p>
+              <p className="text-[12px] font-bold text-neutral-900">{settings.featuredPrice}</p>
             </div>
           </div>
           <a
-            href="/product"
-            className="mt-3 flex items-center justify-center gap-2 rounded-full bg-black py-2.5 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-neutral-800"
+            href="/products"
+            className="mt-2.5 flex items-center justify-center gap-2 rounded-full bg-black py-2 text-[9px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-neutral-800"
           >
             Shop the look
-            <svg width="10" height="10" viewBox="0 0 15 15" fill="none">
+            <svg width="9" height="9" viewBox="0 0 15 15" fill="none">
               <path d="M8.146 3.146a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L11.293 8H2.5a.5.5 0 0 1 0-1h8.793L8.146 3.854a.5.5 0 0 1 0-.708Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
             </svg>
           </a>
         </div>
       </motion.div>
 
-      {/* Glass CTA — centered pill on mobile, left-aligned on desktop */}
+      {/* Mobile CTA — bottom center */}
       <motion.div
         style={{ opacity: fade }}
-        className="absolute bottom-[5.5%] left-1/2 z-40 -translate-x-1/2 md:bottom-[10%] md:left-[5vw] md:translate-x-0"
+        className="absolute bottom-[6%] left-1/2 z-40 -translate-x-1/2 md:hidden"
       >
         <div style={{ animation: 'heroFade 0.9s ease-out 0.8s both' }}>
           <Magnetic strength={0.22}>
             <a
               href="/products"
-              className="group inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-white/50 bg-white/80 px-5 py-3 text-[10px] font-bold uppercase tracking-[0.15em] text-neutral-800 shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-colors hover:bg-white sm:gap-3 sm:px-7 sm:py-3.5 sm:text-[11px] sm:tracking-[0.2em] md:px-6 md:py-3"
+              className="group inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-black px-6 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white shadow-[0_10px_30px_rgba(0,0,0,0.2)]"
             >
               Explore Collection
-              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-black text-white transition-transform duration-300 group-hover:rotate-45 sm:h-6 sm:w-6">
-                <svg width="9" height="9" viewBox="0 0 15 15" fill="none" className="sm:h-[10px] sm:w-[10px]">
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white/20 transition-transform duration-300 group-hover:rotate-45">
+                <svg width="9" height="9" viewBox="0 0 15 15" fill="none">
                   <path d="M8.146 3.146a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L11.293 8H2.5a.5.5 0 0 1 0-1h8.793L8.146 3.854a.5.5 0 0 1 0-.708Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
                 </svg>
               </span>
@@ -248,19 +304,18 @@ export const Hero = () => {
       <motion.div
         animate={{ y: [0, 8, 0] }}
         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute bottom-10 right-[5vw] z-40 hidden lg:flex flex-col items-center gap-2"
+        className="absolute bottom-10 right-[4vw] z-40 hidden lg:flex flex-col items-center gap-2"
       >
-        <span className="text-[9px] uppercase tracking-[0.4em] text-neutral-500" style={{ writingMode: 'vertical-rl' }}>
+        <span className="text-[8px] uppercase tracking-[0.4em] text-neutral-400" style={{ writingMode: 'vertical-rl' }}>
           Scroll
         </span>
-        <div className="h-10 w-px bg-gradient-to-b from-neutral-500/60 to-transparent" />
+        <div className="h-8 w-px bg-gradient-to-b from-neutral-400/50 to-transparent" />
       </motion.div>
 
-      {/* Colour wash that fades into the next component's background.
-          (A plain gradient — no backdrop-filter — so scrolling stays smooth.) */}
+      {/* Bottom gradient fade into page */}
       <div
         className="absolute inset-x-0 bottom-0 z-[39] h-48 pointer-events-none"
-        style={{ background: `linear-gradient(to bottom, transparent 35%, ${NEXT_BG} 100%)` }}
+        style={{ background: `linear-gradient(to bottom, transparent 30%, ${NEXT_BG} 100%)` }}
       />
 
       <style>{`

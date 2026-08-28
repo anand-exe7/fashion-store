@@ -45,13 +45,13 @@ export const Marquee = () => {
         {/* Duplicate the items to make the scrolling seamless */}
         {[...Array(2)].map((_, i) => (
           <div key={i} className="flex gap-12 items-center">
-            <span>DESIGNED TO MOVE</span>
+            <span>DESIGNED FOR KIDS</span>
             <span className="text-2xl text-neutral-300">✳</span>
-            <span>MADE TO LAST</span>
+            <span>BUILT TO PLAY</span>
             <span className="text-2xl text-neutral-300">✳</span>
-            <span>DESIGNED TO MOVE</span>
+            <span>DESIGNED FOR KIDS</span>
             <span className="text-2xl text-neutral-300">✳</span>
-            <span>MADE TO LAST</span>
+            <span>BUILT TO PLAY</span>
             <span className="text-2xl text-neutral-300">✳</span>
           </div>
         ))}

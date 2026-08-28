@@ -58,21 +58,11 @@ export const ProductCard = ({ id, title, category, price, isNew, discount, image
            {discount && <span className="px-3 py-1.5 bg-red-500/95 text-white text-[10px] font-bold uppercase tracking-widest rounded-md shadow-lg">{discount}</span>}
          </div>
          
-         {/* Add to cart slide up */}
+         {/* View product slide up */}
          <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out z-10">
-           <button 
-             onClick={(e: any) => { 
-               e.preventDefault(); 
-               const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-               const numPrice = typeof price === 'string' ? parseFloat(price.replace(/,/g, '')) : price;
-               cart.push({ id: Date.now(), productId: id, name: title, size: 'M', color: 'Default', price: numPrice, image, quantity: 1, weightGrams: 500 });
-               localStorage.setItem('cart', JSON.stringify(cart));
-               window.dispatchEvent(new Event('open-cart')); 
-             }}
-             className="w-full bg-white/95 text-black py-3 rounded-xl text-xs font-bold uppercase tracking-widest shadow-xl hover:bg-black hover:text-white transition-colors"
-           >
-             Quick Add
-           </button>
+           <span className="block w-full bg-white/95 text-black py-3 rounded-xl text-xs font-bold uppercase tracking-widest shadow-xl text-center hover:bg-black hover:text-white transition-colors">
+             View Product
+           </span>
          </div>
       </motion.div>
 
