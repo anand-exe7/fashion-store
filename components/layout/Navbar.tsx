@@ -6,9 +6,8 @@ import { CartDrawer } from '../ui/CartDrawer';
 
 const LINKS = [
   { label: 'Home', href: '/' },
-  { label: 'Gifting', href: '/products' },
-  { label: 'Accessories', href: '/products' },
-  { label: 'Profile', href: '/profile' },
+  { label: 'Products', href: '/products' },
+  { label: 'New Arrivals', href: '/products' },
 ];
 
 export const Navbar = () => {
@@ -22,12 +21,10 @@ export const Navbar = () => {
 
   useMotionValueEvent(scrollY, 'change', (latest) => {
     const previous = scrollY.getPrevious() ?? 0;
-    // Don't auto-hide while a panel is open.
     setHidden(!searchOpen && !menuOpen && latest > previous && latest > 150);
     setIsScrolled(latest > 50);
   });
 
-  // Focus the field when search opens; close panels on Escape.
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
@@ -73,8 +70,13 @@ export const Navbar = () => {
             : 'px-2 py-1'
         }`}
       >
-        {/* Wordmark */}
+        {/* Logo + Wordmark */}
         <a href="/" className="group flex items-center gap-2 pl-1 sm:pl-2">
+          <img
+            src="/logo.jpeg"
+            alt="Shalistone"
+            className="h-8 w-8 rounded-lg object-cover sm:h-9 sm:w-9"
+          />
           <span
             className="text-[15px] font-black tracking-[0.1em] text-neutral-900 transition-opacity group-hover:opacity-70 sm:text-lg sm:tracking-[0.18em]"
             style={{ fontFamily: "'Arial Black', 'Helvetica Neue', sans-serif" }}
@@ -111,9 +113,9 @@ export const Navbar = () => {
             <Search className="h-4 w-4 sm:h-3.5 sm:w-3.5" strokeWidth={2.2} />
             <span className="hidden sm:inline">Search</span>
           </button>
-          
+
           <span className="hidden h-4 w-px bg-neutral-400/50 sm:block" />
-          
+
           <a
             href="/profile"
             aria-label="Profile"
@@ -163,7 +165,7 @@ export const Navbar = () => {
                 ref={searchRef}
                 name="q"
                 type="text"
-                placeholder="Search for pieces, collections…"
+                placeholder="Search for kids sets, outfits…"
                 className="w-full bg-transparent py-3 text-sm text-neutral-800 placeholder:text-neutral-400 focus:outline-none"
               />
               <button
@@ -203,7 +205,7 @@ export const Navbar = () => {
         )}
       </AnimatePresence>
     </motion.header>
-      
+
       <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
     </>
   );

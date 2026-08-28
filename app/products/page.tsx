@@ -17,7 +17,7 @@ export default function ProductsPage() {
     });
   }, []);
   
-  const categories = ['All', 'Outerwear', 'Dresses', 'Footwear', 'Accessories', 'Knitwear', 'Pants', 'Jewelry'];
+  const categories = ['All', 'Kids', 'Boys', 'Girls', 'Baby', 'Teens', 'Mens'];
   
   const filteredProducts = filter === 'All' ? products : products.filter(p => p.category === filter);
 
