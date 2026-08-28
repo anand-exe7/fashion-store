@@ -1,13 +1,13 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
 import { Magnetic } from '../ui/Magnetic';
 
 const HEADLINE_FONT = "'Arial Black', 'Arial Bold', 'Helvetica Neue', Gadget, sans-serif";
 
-const FIGURE_PRIMARY = '/hero-figure-2.png';
-const FIGURE_FALLBACK =
-  'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?q=80&w=1200&auto=format&fit=crop';
+// Single duo cutout (big brother + little one). The subject sits dead-centre in the
+// PNG with ~34% transparent margin each side, so plain centring lines it up correctly.
+const HERO_FIGURE = '/new_cutout_2.png';
 
 const NEXT_BG = '#F5F2EB';
 
@@ -27,15 +27,51 @@ const DEFAULT_HERO: HeroSettings = {
   featuredPrice: '₹899.00',
 };
 
+const Star = ({ c }: { c: string }) => (
+  <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
+    <path
+      d="M12 2.6c.9 4.6 2.3 6 6.9 6.9-4.6.9-6 2.3-6.9 6.9-.9-4.6-2.3-6-6.9-6.9 4.6-.9 6-2.3 6.9-6.9Z"
+      fill={c}
+    />
+  </svg>
+);
+
+const Cloud = ({ c }: { c: string }) => (
+  <svg width="66" height="40" viewBox="0 0 66 40" fill="none">
+    <path
+      d="M17 33h31a10 10 0 0 0 .6-20A14 14 0 0 0 22 11a9 9 0 0 0-5 17Z"
+      fill={c}
+    />
+  </svg>
+);
+
+const Balloon = ({ c }: { c: string }) => (
+  <svg width="30" height="46" viewBox="0 0 30 46" fill="none">
+    <ellipse cx="15" cy="15" rx="11" ry="13.5" fill={c} />
+    <path d="M15 28.5v14" stroke={c} strokeWidth="1.6" strokeLinecap="round" opacity="0.7" />
+  </svg>
+);
+
+const Rainbow = ({ c }: { c: string }) => (
+  <svg width="52" height="30" viewBox="0 0 52 30" fill="none">
+    <path d="M4 27a22 22 0 0 1 44 0" stroke={c} strokeWidth="4.5" strokeLinecap="round" />
+    <path d="M13 27a13 13 0 0 1 26 0" stroke={c} strokeWidth="4.5" strokeLinecap="round" opacity="0.55" />
+  </svg>
+);
+
+const DOODLES = [
+  { key: 'star-a', left: '9%', top: '58%', dur: 7, delay: 0, svg: <Star c="#e8c76a" /> },
+  { key: 'cloud-a', left: '22%', top: '12%', dur: 11, delay: 0.8, svg: <Cloud c="#ffffff" /> },
+  { key: 'balloon', left: '74%', top: '62%', dur: 9, delay: 0.4, svg: <Balloon c="#f3b7c8" /> },
+  { key: 'rainbow', left: '86%', top: '82%', dur: 10, delay: 1.2, svg: <Rainbow c="#a8cbb0" /> },
+  { key: 'star-b', left: '66%', top: '15%', dur: 8, delay: 1.6, svg: <Star c="#c9d7e6" /> },
+] as const;
+
 export const Hero = () => {
   const { scrollY } = useScroll();
-  const [figureSrc, setFigureSrc] = useState(FIGURE_PRIMARY);
-  const figureRef = useRef<HTMLImageElement>(null);
   const [settings, setSettings] = useState<HeroSettings>(DEFAULT_HERO);
 
   useEffect(() => {
-    const img = figureRef.current;
-    if (img && img.complete && img.naturalWidth === 0) setFigureSrc(FIGURE_FALLBACK);
     try {
       const raw = localStorage.getItem('shalistone_hero_settings');
       if (raw) setSettings(JSON.parse(raw));
@@ -50,8 +86,6 @@ export const Hero = () => {
 
   const figX = useTransform(sx, [-1000, 1000], [-12, 12]);
   const figY = useTransform(sy, [-1000, 1000], [-6, 6]);
-  const childX = useTransform(sx, [-1000, 1000], [-6, 6]);
-  const childY = useTransform(sy, [-1000, 1000], [-3, 3]);
   const headX = useTransform(sx, [-1000, 1000], [6, -6]);
   const wiseX = useTransform(sx, [-1000, 1000], [14, -14]);
 
@@ -59,6 +93,8 @@ export const Hero = () => {
   const wiseScrollY = useTransform(scrollY, [0, 800], [0, 70]);
   const headScrollY = useTransform(scrollY, [0, 800], [0, -80]);
   const fade = useTransform(scrollY, [0, 550], [1, 0]);
+  // Doodles stay deliberately faint so they read as texture, not clip-art.
+  const doodleFade = useTransform(scrollY, [0, 550], [0.5, 0]);
 
   const onMove = (e: React.MouseEvent) => {
     if (typeof window === 'undefined') return;
@@ -108,6 +144,27 @@ export const Hero = () => {
         }}
       />
 
+      {/* Cartoon doodles — small, soft, and behind everything else */}
+      <motion.div
+        style={{ opacity: doodleFade }}
+        className="absolute inset-0 z-[7] hidden select-none pointer-events-none sm:block"
+        aria-hidden
+      >
+        {DOODLES.map((d) => (
+          <span
+            key={d.key}
+            className="absolute block"
+            style={{
+              left: d.left,
+              top: d.top,
+              animation: `heroFloat ${d.dur}s ease-in-out ${d.delay}s infinite`,
+            }}
+          >
+            {d.svg}
+          </span>
+        ))}
+      </motion.div>
+
       {/* Giant SHALISTONE watermark */}
       <motion.div
         style={{ y: wiseScrollY, x: wiseX, opacity: fade }}
@@ -128,42 +185,22 @@ export const Hero = () => {
         </span>
       </motion.div>
 
-      {/* ——— Figures group: main model + child ——— */}
-      {/* Main figure (right-center) */}
+      {/* ——— Hero figures: one cutout holding both the big kid and the little one ——— */}
       <motion.div
         style={{ y: figScrollY }}
-        className="absolute bottom-0 z-20 pointer-events-none
-          left-[50%] -translate-x-1/2 h-[44vh] w-[130vw] max-w-none
+        className="absolute bottom-0 left-1/2 z-20 -translate-x-1/2 pointer-events-none
+          h-[46vh] w-auto
           sm:h-[58vh]
-          md:left-[55%] md:-translate-x-1/2 md:h-[90vh] md:w-[min(90vw,620px)]"
+          md:left-[54%] md:h-[80vh]
+          lg:h-[84vh]"
       >
-        <motion.div style={{ x: figX, y: figY }} className="relative h-full w-full will-change-transform">
-          <div className="absolute inset-x-[26%] bottom-[2%] h-[6%] rounded-[50%] bg-black/20 blur-2xl" />
+        <motion.div style={{ x: figX, y: figY }} className="relative h-full w-auto will-change-transform">
+          {/* Ground shadow sits under the subject, which spans 34%–66% of the PNG width */}
+          <div className="absolute inset-x-[33%] bottom-[1.5%] h-[5%] rounded-[50%] bg-black/20 blur-2xl" />
           <img
-            ref={figureRef}
-            src={figureSrc}
-            alt="Shalistone kids collection"
-            className="relative h-full w-full object-contain object-bottom"
-            onError={() => figureSrc !== FIGURE_FALLBACK && setFigureSrc(FIGURE_FALLBACK)}
-          />
-        </motion.div>
-      </motion.div>
-
-      {/* Child figure (standing beside the main model) */}
-      <motion.div
-        style={{ y: figScrollY, opacity: fade }}
-        className="absolute bottom-0 z-[21] pointer-events-none hidden md:block
-          left-[30%] -translate-x-1/2"
-      >
-        <motion.div
-          style={{ x: childX, y: childY }}
-          className="relative will-change-transform"
-        >
-          <div className="absolute inset-x-[18%] bottom-[1%] h-[5%] rounded-[50%] bg-black/15 blur-lg" />
-          <img
-            src="/child3.png"
-            alt="Shalistone kids"
-            className="h-[40vh] md:h-[55vh] w-auto object-contain object-bottom drop-shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
+            src={HERO_FIGURE}
+            alt="Shalistone kids and mens matching sets"
+            className="relative h-full w-auto max-w-none object-contain object-bottom"
           />
         </motion.div>
       </motion.div>
@@ -322,6 +359,10 @@ export const Hero = () => {
         @keyframes heroSlideUp {
           from { transform: translateY(105%); }
           to { transform: translateY(0); }
+        }
+        @keyframes heroFloat {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-12px) rotate(6deg); }
         }
         @keyframes heroFade {
           from { opacity: 0; transform: translateY(14px); }

@@ -31,10 +31,10 @@ export const Instagram = () => {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ delay: i * 0.1 }}
-            className="aspect-square bg-neutral-100 rounded-xl overflow-hidden cursor-pointer group shadow-sm"
+            className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-neutral-100 shadow-sm"
           >
             <img src={img} alt="Instagram" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="pointer-events-none absolute inset-0 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100" />
           </motion.div>
         ))}
       </div>

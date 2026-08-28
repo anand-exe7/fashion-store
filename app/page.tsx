@@ -8,11 +8,13 @@ import { CategoryGrid } from '@/components/home/CategoryGrid';
 import { ShoppableLook } from '@/components/home/ShoppableLook';
 
 import { BestSellers } from '@/components/home/BestSellers';
+import { KidsCorner } from '@/components/home/KidsCorner';
 import { Features } from '@/components/home/Features';
 import { LovedByThousands } from '@/components/home/LovedByThousands';
 import { Instagram } from '@/components/home/Instagram';
 import { Newsletter } from '@/components/home/Newsletter';
 import { Footer } from '@/components/layout/Footer';
+import { IntroLoader } from '@/components/ui/IntroLoader';
 import { fetchProducts } from '@/lib/db';
 import { Suspense } from 'react';
 
@@ -60,6 +62,7 @@ async function AsyncProducts() {
 export default async function Home() {
   return (
     <div className="min-h-screen bg-[#F5F2EB] text-neutral-900 font-sans selection:bg-black selection:text-white overflow-x-hidden cursor-default">
+      <IntroLoader />
       <ScrollProgress />
       <Navbar />
       <Hero />
@@ -73,6 +76,7 @@ export default async function Home() {
         <AsyncProducts />
       </Suspense>
 
+      <KidsCorner />
       <Features />
       <LovedByThousands />
       <Instagram />

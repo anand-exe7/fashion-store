@@ -1,6 +1,6 @@
 export default function Loading() {
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#E5E0D5] overflow-hidden font-sans animate-[curtainFadeOut_0.8s_cubic-bezier(0.76,0,0.24,1)_2.2s_forwards]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#EFE9DD] overflow-hidden font-sans animate-[curtainFadeOut_0.8s_cubic-bezier(0.76,0,0.24,1)_2.2s_forwards]">
       {/* Logo + brand */}
       <div className="flex flex-col items-center gap-5 animate-[logoEnter_0.8s_ease-out_0.2s_both]">
         <img
