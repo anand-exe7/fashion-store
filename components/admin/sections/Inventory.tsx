@@ -65,7 +65,21 @@ export default function Inventory() {
   const [form, setForm] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
-  const attention = useMemo(() => products.filter((p) => statusOf(p) !== 'ok'), [products]);
+  const attention = useMemo(() => {
+    const alerts: { product: Product, variant: any }[] = [];
+    products.forEach(p => {
+      if (p.variants && p.variants.some(v => v.size && v.size !== 'Default')) {
+        p.variants.forEach(v => {
+          if (v.size && v.size !== 'Default' && v.stock <= (p.lowStock || 6)) {
+            alerts.push({ product: p, variant: v });
+          }
+        });
+      } else {
+        if (p.stock <= p.lowStock) alerts.push({ product: p, variant: null });
+      }
+    });
+    return alerts;
+  }, [products]);
 
   useEffect(() => {
     if (attention.length > 0) {
@@ -118,7 +132,7 @@ export default function Inventory() {
       {attention.length > 0 && (
         <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <AlertTriangle className="h-5 w-5 shrink-0" />
-          <span><b>{attention.filter((p) => p.stock <= 0).length}</b> out of stock · <b>{attention.filter((p) => statusOf(p) === 'low').length}</b> running low — restock soon.</span>
+          <span><b>{attention.filter((a) => (a.variant ? a.variant.stock : a.product.stock) <= 0).length}</b> variants out of stock · <b>{attention.filter((a) => (a.variant ? a.variant.stock : a.product.stock) > 0).length}</b> running low — restock soon.</span>
         </div>
       )}
 
@@ -214,16 +228,27 @@ export default function Inventory() {
           {attention.length === 0 ? (
             <p className="py-6 text-center text-sm text-neutral-400">All products are well stocked. 🎉</p>
           ) : (
-            <div className="max-h-72 space-y-2 overflow-y-auto">
-              {attention.map((p) => (
-                <div key={p.id} className={`flex items-center justify-between rounded-xl border px-4 py-3 ${statusOf(p) === 'out' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
-                  <div>
-                    <p className="text-sm font-semibold text-neutral-900">{p.name}</p>
-                    <p className="text-xs text-neutral-500">{p.category} · {p.stock} Total Units left</p>
+            <div className="max-h-72 space-y-2 overflow-y-auto pr-2">
+              {attention.map((a, i) => {
+                const p = a.product;
+                const v = a.variant;
+                const stockVal = v ? v.stock : p.stock;
+                const isOut = stockVal <= 0;
+                return (
+                  <div key={`${p.id}-${i}`} className={`flex items-center justify-between rounded-xl border px-4 py-3 ${isOut ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900">{p.name}</p>
+                      <p className="text-xs text-neutral-500">
+                        {p.category} {v ? `· ${v.colorName || ''} (${v.size})` : ''} · 
+                        <span className={`ml-1 font-bold ${isOut ? 'text-red-600' : 'text-amber-600'}`}>
+                          {stockVal} Unit{stockVal === 1 ? '' : 's'} left
+                        </span>
+                      </p>
+                    </div>
+                    <button onClick={() => { setAlertOpen(false); setForm({ open: true, product: p }); }} className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-neutral-800">Edit</button>
                   </div>
-                  <button onClick={() => setForm({ open: true, product: p })} className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-neutral-800">Edit Variants</button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
           <button onClick={() => setAlertOpen(false)} className="mt-5 w-full rounded-xl border border-black/[0.1] py-2.5 text-sm font-bold text-neutral-700 hover:bg-black/[0.03]">Dismiss</button>

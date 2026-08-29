@@ -41,6 +41,7 @@ export interface Product {
   isNew?: boolean;
   discountLabel?: string;
   department?: 'Men' | 'Women' | 'Kids' | 'Unisex';
+  stock: number;
   isAvailable: boolean;
   images: ProductImage[];
   variants: ProductVariant[];
@@ -174,6 +175,7 @@ export const fetchProducts = async (): Promise<Product[]> => {
     isNew: p.is_new,
     discountLabel: p.discount_label,
     department: p.department,
+    stock: (variants || []).filter((v: any) => v.product_id === p.id).reduce((sum: number, v: any) => sum + (v.stock || 0), 0),
     isAvailable: p.is_available,
     images: (images || [])
       .filter((i: any) => i.product_id === p.id)
@@ -225,6 +227,7 @@ export const fetchProductById = async (id: string): Promise<Product | null> => {
     image: p.image,
     isNew: p.is_new,
     discountLabel: p.discount_label,
+    stock: (variants || []).reduce((sum: number, v: any) => sum + (v.stock || 0), 0),
     isAvailable: p.is_available,
     images: (images || []).map((i: any) => ({
       id: i.id,

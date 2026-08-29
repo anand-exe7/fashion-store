@@ -27,8 +27,9 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         const prod = await fetchProductById(id);
         if (prod) {
           setProduct(prod);
-          const sizes = Array.from(new Set(prod.variants?.map(v => v.size || 'Default') || []));
-          const colors = Array.from(new Set(prod.variants?.map(v => v.colorName || 'Default') || []));
+          const activeVars = prod.variants?.filter(v => v.isAvailable !== false) || [];
+          const sizes = Array.from(new Set(activeVars.map(v => v.size || 'Default')));
+          const colors = Array.from(new Set(activeVars.map(v => v.colorName || 'Default')));
           if (sizes.length > 0) setSelectedSize(sizes[0]);
           if (colors.length > 0) setSelectedColor(colors[0]);
         }
@@ -79,9 +80,38 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const title = product.name.toUpperCase();
   const letterVariants = { hidden: { opacity: 0, y: 50 }, visible: { opacity: 1, y: 0 } };
 
-  // Generate unique sizes and colors
-  const availableSizes = Array.from(new Set(product.variants?.map(v => v.size || 'Default') || []));
-  const availableColors = Array.from(new Set(product.variants?.map(v => v.colorName || 'Default') || []));
+  const currentVariant = product.variants?.find(v => (v.size || 'Default') === selectedSize && (v.colorName || 'Default') === selectedColor);
+  const currentStock = currentVariant ? currentVariant.stock : product.stock;
+  const isOutOfStock = currentStock <= 0;
+
+  // Filter out disabled variants
+  const activeVariants = product.variants?.filter(v => v.isAvailable !== false) || [];
+
+  // Generate unique sizes and colors globally for the product
+  const availableSizes = Array.from(new Set(activeVariants.map(v => v.size || 'Default')));
+  const availableColors = Array.from(new Set(activeVariants.map(v => v.colorName || 'Default')));
+  
+  // Get sizes specific to the currently selected color
+  const sizesForCurrentColor = activeVariants.filter(v => (v.colorName || 'Default') === selectedColor);
+  const uniqueSizesForCurrentColor = Array.from(new Set(sizesForCurrentColor.map(v => v.size || 'Default')));
+  const getStockForVariant = (size: string, color: string) => {
+    const v = activeVariants.find(v => (v.size || 'Default') === size && (v.colorName || 'Default') === color);
+    return v ? v.stock : 0;
+  };
+  
+  const getTotalStockForColor = (color: string) => {
+    return activeVariants.filter(v => (v.colorName || 'Default') === color).reduce((sum, v) => sum + v.stock, 0);
+  };
+
+  const handleColorSelect = (color: string) => {
+    setSelectedColor(color);
+    if (getStockForVariant(selectedSize, color) <= 0) {
+      const availableSizeForColor = activeVariants.find(v => (v.colorName || 'Default') === color && v.stock > 0);
+      if (availableSizeForColor) {
+        setSelectedSize(availableSizeForColor.size || 'Default');
+      }
+    }
+  };
 
   const handleAddToCart = () => {
     // Basic Add To Cart Mock for user local cart usage later
@@ -182,15 +212,25 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                       <span className="text-[10px] uppercase tracking-widest text-neutral-900">{selectedColor}</span>
                     </div>
                     <div className="flex gap-4">
-                      {availableColors.map(color => (
-                        <button 
-                          key={color} 
-                          onClick={() => setSelectedColor(color)}
-                          className={`px-4 py-2 text-xs font-bold uppercase rounded-full border ${selectedColor === color ? 'border-black bg-black text-white' : 'border-black/20 text-black hover:border-black'}`}
-                        >
-                          {color}
-                        </button>
-                      ))}
+                      {availableColors.map(color => {
+                        const isColorOutOfStock = getTotalStockForColor(color) <= 0;
+                        return (
+                          <button 
+                            key={color} 
+                            onClick={() => !isColorOutOfStock && handleColorSelect(color)}
+                            disabled={isColorOutOfStock}
+                            className={`px-4 py-2 text-xs font-bold uppercase rounded-full border transition-all ${
+                              isColorOutOfStock 
+                                ? 'border-black/10 text-neutral-400 bg-neutral-100 cursor-not-allowed line-through'
+                                : selectedColor === color 
+                                  ? 'border-black bg-black text-white' 
+                                  : 'border-black/20 text-black hover:border-black'
+                            }`}
+                          >
+                            {color}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -201,15 +241,31 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                       <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Size</span>
                     </div>
                     <div className="grid grid-cols-5 gap-2">
-                      {availableSizes.map(size => (
-                        <button 
-                          key={size} 
-                          onClick={() => setSelectedSize(size)}
-                          className={`py-3 text-[10px] font-bold tracking-widest transition-all rounded-md border ${selectedSize === size ? 'bg-black text-white border-black shadow-md' : 'bg-white border-black/10 text-neutral-900 hover:border-black/30 shadow-sm'}`}
-                        >
-                          {size}
-                        </button>
-                      ))}
+                      {uniqueSizesForCurrentColor.map(size => {
+                        const isSizeOutOfStock = getStockForVariant(size, selectedColor) <= 0;
+                        
+                        return (
+                          <button 
+                            key={size} 
+                            onClick={() => !isSizeOutOfStock && setSelectedSize(size)}
+                            disabled={isSizeOutOfStock}
+                            className={`relative py-3 text-[10px] font-bold tracking-widest transition-all rounded-md border ${
+                              isSizeOutOfStock
+                                ? 'bg-neutral-100 border-black/5 text-neutral-400 cursor-not-allowed'
+                                : selectedSize === size 
+                                  ? 'bg-black text-white border-black shadow-md' 
+                                  : 'bg-white border-black/10 text-neutral-900 hover:border-black/30 shadow-sm'
+                            }`}
+                          >
+                            {size}
+                            {isSizeOutOfStock && (
+                              <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                                <div className="w-full h-[1px] bg-neutral-300 transform -rotate-45" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -223,10 +279,11 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                     </div>
                     <button 
                       onClick={handleAddToCart}
-                      className="flex-1 bg-black text-white rounded-full flex items-center justify-between px-6 text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 transition-all group shadow-xl hover:shadow-2xl"
+                      disabled={isOutOfStock}
+                      className={`flex-1 rounded-full flex items-center justify-between px-6 text-[10px] font-bold tracking-[0.2em] uppercase transition-all group shadow-xl ${isOutOfStock ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed' : 'bg-black text-white hover:bg-neutral-800 hover:shadow-2xl'}`}
                     >
-                      <span>Add to Cart</span>
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      <span>{isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
+                      {!isOutOfStock && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
                     </button>
                   </div>
                 </div>

@@ -7,7 +7,8 @@ const itemVariants: any = {
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 50, damping: 15 } }
 };
 
-export const ProductCard = ({ id, title, category, price, isNew, discount, image }: any) => {
+export const ProductCard = ({ id, title, category, price, isNew, discount, image, stock }: any) => {
+  const isOutOfStock = stock <= 0;
   const cardRef = useRef<HTMLDivElement>(null);
   const rotateXRaw = useMotionValue(0);
   const rotateYRaw = useMotionValue(0);
@@ -47,21 +48,22 @@ export const ProductCard = ({ id, title, category, price, isNew, discount, image
            transition={{ duration: 0.7, ease: "easeOut" }}
            src={image}
            alt={title}
-           className="w-full h-full object-cover"
+           className={`w-full h-full object-cover ${isOutOfStock ? 'opacity-40 grayscale-[0.5]' : ''}`}
          />
          {/* Overlay gradient */}
          <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
          
          {/* Badges */}
-         <div className="absolute top-4 left-4 flex gap-2 z-10">
-           {isNew && <span className="px-3 py-1.5 bg-white/95 text-[10px] font-bold uppercase tracking-widest rounded-md text-black shadow-lg">New</span>}
-           {discount && <span className="px-3 py-1.5 bg-red-500/95 text-white text-[10px] font-bold uppercase tracking-widest rounded-md shadow-lg">{discount}</span>}
+         <div className="absolute top-4 left-4 flex gap-2 z-10 flex-wrap">
+           {isOutOfStock && <span className="px-3 py-1.5 bg-neutral-900/90 text-white text-[10px] font-bold uppercase tracking-widest rounded-md shadow-lg">Out of Stock</span>}
+           {isNew && !isOutOfStock && <span className="px-3 py-1.5 bg-white/95 text-[10px] font-bold uppercase tracking-widest rounded-md text-black shadow-lg">New</span>}
+           {discount && !isOutOfStock && <span className="px-3 py-1.5 bg-red-500/95 text-white text-[10px] font-bold uppercase tracking-widest rounded-md shadow-lg">{discount}</span>}
          </div>
          
          {/* View product slide up */}
          <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out z-10">
            <span className="block w-full bg-white/95 text-black py-3 rounded-xl text-xs font-bold uppercase tracking-widest shadow-xl text-center hover:bg-black hover:text-white transition-colors">
-             View Product
+             {isOutOfStock ? 'View Details' : 'View Product'}
            </span>
          </div>
       </motion.div>

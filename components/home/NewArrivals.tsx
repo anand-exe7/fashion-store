@@ -25,6 +25,7 @@ export const NewArrivals = ({ products }: { products?: any[] }) => {
     category: p.category,
     price: p.price.toLocaleString(),
     isNew: p.isNew,
+    stock: p.stock,
     discount: p.discountLabel,
     image: p.images?.[0]?.url || 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=800'
   }));
