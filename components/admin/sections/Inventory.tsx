@@ -1,12 +1,14 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Plus, Minus, Trash2, Bell, AlertTriangle, Pencil, ChevronDown, ImagePlus, Eye, EyeOff } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Bell, AlertTriangle, Pencil, ChevronDown, ImagePlus, Eye, EyeOff, ArrowUp, ArrowDown, X, Sparkles } from 'lucide-react';
 import {
   useAdminData,
   adjustStock,
   updateProduct,
   addProduct,
   deleteProduct,
+  fetchSuggestionIds,
+  updateSuggestions,
   showToast,
   inr,
   type Product,
@@ -278,6 +280,7 @@ function StockBadge({ status }: { status: 'ok' | 'low' | 'out' }) {
 }
 
 const DEFAULT_DEPARTMENTS = ['Kids', 'Mens'];
+const MAX_SUGGESTIONS = 4;
 
 function ProductForm({ state, onClose }: { state: { open: boolean; product: Product | null }; onClose: () => void }) {
   const editing = state.product;
@@ -295,6 +298,8 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
   const [uploading, setUploading] = useState(false);
   const [isNew, setIsNew] = useState(false);
   const [discountLabel, setDiscountLabel] = useState('');
+  const [suggestionIds, setSuggestionIds] = useState<string[]>([]);
+  const [suggestionQuery, setSuggestionQuery] = useState('');
 
   const departments = useMemo(() => {
     const fromProducts = products.map((p) => p.category).filter(Boolean);
@@ -320,8 +325,15 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
         allImages.unshift(editing.image);
       }
       setImages(allImages);
-      
+
       setVariants(editing?.variants ? [...editing.variants] : [{ size: '', stock: 0 }]);
+
+      setSuggestionQuery('');
+      if (editing?.id) {
+        fetchSuggestionIds(editing.id).then(setSuggestionIds).catch(() => setSuggestionIds([]));
+      } else {
+        setSuggestionIds([]);
+      }
     }
   }, [state.open, editing]);
 
@@ -336,6 +348,19 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
     const v = [...variants];
     v[idx].isAvailable = v[idx].isAvailable === false ? true : false;
     setVariants(v);
+  };
+
+  const addSuggestion = (id: string) => {
+    if (suggestionIds.includes(id) || suggestionIds.length >= MAX_SUGGESTIONS) return;
+    setSuggestionIds([...suggestionIds, id]);
+  };
+  const removeSuggestion = (id: string) => setSuggestionIds(suggestionIds.filter((s) => s !== id));
+  const moveSuggestion = (idx: number, dir: -1 | 1) => {
+    const target = idx + dir;
+    if (target < 0 || target >= suggestionIds.length) return;
+    const next = [...suggestionIds];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    setSuggestionIds(next);
   };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -398,9 +423,12 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
       
       if (editing) {
         await updateProduct(editing.id, payload);
+        await updateSuggestions(editing.id, suggestionIds);
         showToast("Product updated successfully!");
       } else {
-        await addProduct({ id: 'P' + Math.random().toString(36).slice(2, 7).toUpperCase(), ...payload } as Product);
+        const newId = 'P' + Math.random().toString(36).slice(2, 7).toUpperCase();
+        await addProduct({ id: newId, ...payload } as Product);
+        if (suggestionIds.length > 0) await updateSuggestions(newId, suggestionIds);
         showToast("Product added to catalog!");
       }
       onClose();
@@ -569,7 +597,150 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
             </button>
           </div>
         </div>
+
+        {/* Suggested Products ("Complete the Look") */}
+        <div className="p-5 sm:p-6 bg-white border-t border-black/[0.06]">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-neutral-400" />
+              <div>
+                <h3 className="text-sm font-extrabold tracking-tight text-neutral-900">Suggested Products ({suggestionIds.length}/{MAX_SUGGESTIONS})</h3>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-neutral-400 mt-1">Shown under &ldquo;Complete The Look&rdquo; on this product&apos;s page</p>
+              </div>
+            </div>
+          </div>
+
+          {!editing ? (
+            <div className="py-6 border-2 border-dashed border-black/[0.08] rounded-2xl flex items-center justify-center bg-neutral-50/50">
+              <span className="text-xs font-medium text-neutral-500">Save this product first to add suggestions.</span>
+            </div>
+          ) : (
+            <SuggestionPicker
+              products={products}
+              currentId={editing.id}
+              selectedIds={suggestionIds}
+              query={suggestionQuery}
+              onQueryChange={setSuggestionQuery}
+              onAdd={addSuggestion}
+              onRemove={removeSuggestion}
+              onMove={moveSuggestion}
+            />
+          )}
+        </div>
       </div>
     </Modal>
+  );
+}
+
+function SuggestionPicker({
+  products,
+  currentId,
+  selectedIds,
+  query,
+  onQueryChange,
+  onAdd,
+  onRemove,
+  onMove,
+}: {
+  products: Product[];
+  currentId: string;
+  selectedIds: string[];
+  query: string;
+  onQueryChange: (q: string) => void;
+  onAdd: (id: string) => void;
+  onRemove: (id: string) => void;
+  onMove: (idx: number, dir: -1 | 1) => void;
+}) {
+  const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+  const selected = selectedIds.map((id) => byId.get(id)).filter((p): p is Product => !!p);
+  const atMax = selectedIds.length >= MAX_SUGGESTIONS;
+
+  const available = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return products.filter(
+      (p) =>
+        p.id !== currentId &&
+        !selectedIds.includes(p.id) &&
+        (!q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)),
+    );
+  }, [products, currentId, selectedIds, query]);
+
+  return (
+    <div className="space-y-3">
+      <div className="relative max-w-sm">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+        <input
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          placeholder="Search products to suggest…"
+          className="w-full rounded-xl border border-black/[0.09] bg-white py-2.5 pl-10 pr-3 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Available */}
+        <div className="rounded-xl border border-black/[0.08] bg-neutral-50">
+          <div className="px-3 py-2 border-b border-black/[0.06] text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+            Available
+          </div>
+          <div className="max-h-64 overflow-y-auto divide-y divide-black/[0.05]">
+            {available.length === 0 ? (
+              <p className="px-3 py-6 text-center text-xs text-neutral-400">No matching products.</p>
+            ) : (
+              available.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => onAdd(p.id)}
+                  disabled={atMax}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ProductImg product={p} className="h-10 w-10 shrink-0 rounded-lg" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold text-neutral-900">{p.name}</p>
+                    <p className="truncate text-[10px] text-neutral-500">{p.category}</p>
+                  </div>
+                  <Plus className="h-4 w-4 shrink-0 text-neutral-400" />
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Selected */}
+        <div className="rounded-xl border border-black/[0.08] bg-white">
+          <div className="px-3 py-2 border-b border-black/[0.06] flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Selected</span>
+            {atMax && <span className="text-[10px] font-bold text-amber-600">Max {MAX_SUGGESTIONS} reached</span>}
+          </div>
+          <div className="max-h-64 overflow-y-auto divide-y divide-black/[0.05]">
+            {selected.length === 0 ? (
+              <p className="px-3 py-6 text-center text-xs text-neutral-400">No suggestions selected yet.</p>
+            ) : (
+              selected.map((p, i) => (
+                <div key={p.id} className="flex items-center gap-2 px-3 py-2">
+                  <ProductImg product={p} className="h-10 w-10 shrink-0 rounded-lg" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold text-neutral-900">{p.name}</p>
+                    <p className="truncate text-[10px] text-neutral-500">{p.category}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <button type="button" onClick={() => onMove(i, -1)} disabled={i === 0} className="grid h-7 w-7 place-items-center rounded-md text-neutral-400 hover:bg-black/[0.05] hover:text-neutral-800 disabled:opacity-30" aria-label="Move up">
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => onMove(i, 1)} disabled={i === selected.length - 1} className="grid h-7 w-7 place-items-center rounded-md text-neutral-400 hover:bg-black/[0.05] hover:text-neutral-800 disabled:opacity-30" aria-label="Move down">
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => onRemove(p.id)} className="grid h-7 w-7 place-items-center rounded-md text-neutral-400 hover:bg-red-50 hover:text-red-600" aria-label="Remove">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

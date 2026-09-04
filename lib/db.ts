@@ -307,6 +307,52 @@ export const deleteProduct = async (id: string) => {
   if (error) throw error;
 };
 
+// ============================
+// PRODUCT SUGGESTIONS ("Complete the Look")
+// ============================
+
+// Ids only — used to seed the admin picker without loading full product rows.
+export const fetchSuggestionIds = async (productId: string): Promise<string[]> => {
+  const { data, error } = await supabase
+    .from('product_suggestions')
+    .select('suggested_id')
+    .eq('product_id', productId)
+    .order('sort_order');
+  if (error) {
+    console.error('fetchSuggestionIds error:', error);
+    return [];
+  }
+  return (data || []).map((r: any) => r.suggested_id);
+};
+
+// Full product rows, in curated order — used on the product detail page.
+export const fetchSuggestions = async (productId: string): Promise<Product[]> => {
+  const ids = await fetchSuggestionIds(productId);
+  if (ids.length === 0) return [];
+
+  const all = await fetchProducts();
+  const byId = new Map(all.map((p) => [p.id, p]));
+  return ids.map((id) => byId.get(id)).filter((p): p is Product => !!p);
+};
+
+// Replaces the full suggestion list for a product, in the given order (max enforced by caller).
+export const updateSuggestions = async (productId: string, suggestedIds: string[]) => {
+  const { error: delError } = await supabase.from('product_suggestions').delete().eq('product_id', productId);
+  if (delError) throw delError;
+
+  const ids = suggestedIds.filter((id) => id !== productId);
+  if (ids.length === 0) return;
+
+  const { error: insError } = await supabase.from('product_suggestions').insert(
+    ids.map((suggested_id, i) => ({
+      product_id: productId,
+      suggested_id,
+      sort_order: i,
+    }))
+  );
+  if (insError) throw insError;
+};
+
 export const updateProductVariant = async (variantId: string, patch: Partial<ProductVariant>) => {
   const payload: any = {};
   if (patch.stock !== undefined) payload.stock = patch.stock;

@@ -278,6 +278,14 @@ export async function updateProduct(id: string, patch: Partial<Product>) {
   refreshAll();
 }
 
+export async function fetchSuggestionIds(productId: string) {
+  return db.fetchSuggestionIds(productId);
+}
+
+export async function updateSuggestions(productId: string, suggestedIds: string[]) {
+  await db.updateSuggestions(productId, suggestedIds);
+}
+
 export async function deleteProduct(id: string) {
   globalState = { ...globalState, products: globalState.products.filter(p => p.id !== id) };
   notify();

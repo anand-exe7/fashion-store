@@ -7,11 +7,12 @@ DROP FUNCTION IF EXISTS handle_new_user() CASCADE;
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 
 -- Drop all our tables
-DROP TABLE IF EXISTS delivery_tiers CASCADE;  
+DROP TABLE IF EXISTS delivery_tiers CASCADE;
 DROP TABLE IF EXISTS delivery_regions   CASCADE;
 DROP TABLE IF EXISTS order_items CASCADE;
 DROP TABLE IF EXISTS orders CASCADE;
 DROP TABLE IF EXISTS coupons CASCADE;
+DROP TABLE IF EXISTS product_suggestions CASCADE;
 DROP TABLE IF EXISTS product_variants CASCADE;
 DROP TABLE IF EXISTS product_images CASCADE;
 DROP TABLE IF EXISTS products CASCADE;
@@ -170,6 +171,20 @@ CREATE TABLE IF NOT EXISTS delivery_tiers (
 );
 
 -- ==========================================
+-- 6a. PRODUCT SUGGESTIONS ("Complete the Look")
+-- ==========================================
+CREATE TABLE IF NOT EXISTS product_suggestions (
+  product_id    TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  suggested_id  TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  sort_order    INTEGER DEFAULT 0,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (product_id, suggested_id),
+  CHECK (product_id <> suggested_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_suggestions_product ON product_suggestions(product_id, sort_order);
+
+-- ==========================================
 -- 7. RLS POLICIES
 -- ==========================================
 ALTER TABLE profiles        ENABLE ROW LEVEL SECURITY;
@@ -182,6 +197,7 @@ ALTER TABLE orders          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE delivery_regions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE delivery_tiers  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_suggestions ENABLE ROW LEVEL SECURITY;
 
 -- Public storefront reads
 CREATE POLICY "Public read categories"     ON categories      FOR SELECT USING (TRUE);
@@ -191,6 +207,7 @@ CREATE POLICY "Public read variants"       ON product_variants FOR SELECT USING 
 CREATE POLICY "Public read active coupons" ON coupons         FOR SELECT USING (is_active = TRUE);
 CREATE POLICY "Public read active regions" ON delivery_regions FOR SELECT USING (is_active = TRUE);
 CREATE POLICY "Public read delivery tiers" ON delivery_tiers  FOR SELECT USING (TRUE);
+CREATE POLICY "Public read suggestions"    ON product_suggestions FOR SELECT USING (TRUE);
 
 -- Public can read orders (secured by unguessable IDs)
 CREATE POLICY "Public read orders"         ON orders          FOR SELECT USING (TRUE);
@@ -211,3 +228,4 @@ CREATE POLICY "Admin all orders"      ON orders           FOR ALL USING (auth.ro
 CREATE POLICY "Admin all order items" ON order_items      FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Admins full manage regions" ON delivery_regions FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Admins full manage tiers" ON delivery_tiers   FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Admin manage suggestions" ON product_suggestions FOR ALL USING (auth.role() = 'authenticated');

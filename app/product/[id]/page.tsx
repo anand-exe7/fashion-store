@@ -5,7 +5,7 @@ import { motion, useScroll } from 'framer-motion';
 import { useState, useRef, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Minus, Plus, ArrowRight, ChevronDown } from 'lucide-react';
-import { fetchProductById, fetchProducts, Product } from '@/lib/db';
+import { fetchProductById, fetchProducts, fetchSuggestions, Product } from '@/lib/db';
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
@@ -33,8 +33,19 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           if (sizes.length > 0) setSelectedSize(sizes[0]);
           if (colors.length > 0) setSelectedColor(colors[0]);
         }
-        const all = await fetchProducts();
-        setRelated(all.filter(p => p.id !== id).slice(0, 4));
+        const curated = await fetchSuggestions(id);
+        if (curated.length > 0) {
+          setRelated(curated.slice(0, 4));
+        } else {
+          // No admin-curated suggestions yet — fall back to same-category picks.
+          const all = await fetchProducts();
+          const pool = all.filter(p => p.id !== id);
+          const sameCategory = prod ? pool.filter(p => p.category === prod.category) : [];
+          const fallback = (sameCategory.length > 0 ? sameCategory : pool)
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 4);
+          setRelated(fallback);
+        }
       } finally {
         setLoading(false);
       }
