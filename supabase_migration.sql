@@ -43,14 +43,18 @@ CREATE TABLE IF NOT EXISTS departments (
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Insert default departments (age ranges in months; Unisex has none — it
--- matches every age purely via the product's explicit department tag)
+-- Insert default departments (age ranges in months). Gender departments
+-- (Men/Women/Unisex) have NO age range: they match purely via the product's
+-- explicit department tag. Giving Men and Women an age range would force them
+-- into the interval-overlap matcher, and since both cover the same "adult"
+-- span they'd become indistinguishable — every Men's product would also show
+-- under Women and vice versa. Only the age-based departments carry ranges.
 INSERT INTO departments (name, is_active, age_min_months, age_max_months) VALUES
 ('Toddlers', TRUE, 0, 36),
 ('Kids', TRUE, 36, 120),
 ('Teens', TRUE, 120, 216),
-('Men', TRUE, 216, NULL),
-('Women', TRUE, 216, NULL),
+('Men', TRUE, NULL, NULL),
+('Women', TRUE, NULL, NULL),
 ('Unisex', TRUE, NULL, NULL)
 ON CONFLICT (name) DO NOTHING;
 
@@ -121,8 +125,8 @@ CREATE INDEX IF NOT EXISTS idx_products_age ON products (age_min_months, age_max
 -- ==========================================
 -- 3c. AGE ROLL-UP TRIGGER
 -- Rolls a product's variant age ranges up into its own age_min/age_max.
--- MIN/MAX skip NULLs on their own, so a product with no aged variants at all
--- correctly resolves back to NULL/NULL rather than getting stuck.
+-- A product with no aged variants at all resolves back to NULL/NULL rather
+-- than getting stuck at a stale value.
 -- ==========================================
 CREATE OR REPLACE FUNCTION sync_product_age_range() RETURNS TRIGGER AS $$
 DECLARE
@@ -132,14 +136,20 @@ BEGIN
      SET age_min_months = sub.lo,
          age_max_months = sub.hi
     FROM (
-      -- MIN skips NULLs (fine — "no lower bound" is effectively 0 to the
-      -- matcher). For MAX we intentionally OVERRIDE it: if any variant has a
-      -- NULL upper bound, the whole product is unbounded above — a single
-      -- "18Y and up" variant must not be silently capped by a sibling variant
-      -- that had a To value. bool_or catches any NULL upper bound and flips
-      -- the roll-up to NULL, matching how the JS filter reads NULL (Infinity).
+      -- Both bounds are handled symmetrically. If any variant has a NULL lower
+      -- bound (a genuine "up to 3M" newborn variant), the whole product is
+      -- unbounded BELOW — a plain MIN() would silently skip that NULL and lift
+      -- the floor to a sibling variant's value, dropping newborn products out
+      -- of age-based searches. Likewise a NULL upper bound ("18Y and up") makes
+      -- the product unbounded ABOVE. bool_or catches either half-open case and
+      -- flips that side to NULL, matching how the JS filter reads NULL as 0 /
+      -- Infinity. An all-NULL variant carries no age info and is ignored.
       SELECT
-        MIN(age_min_months) AS lo,
+        CASE
+          WHEN COUNT(age_min_months) + COUNT(age_max_months) = 0 THEN NULL
+          WHEN bool_or(age_min_months IS NULL AND age_max_months IS NOT NULL) THEN NULL
+          ELSE MIN(age_min_months)
+        END AS lo,
         CASE
           WHEN COUNT(age_min_months) + COUNT(age_max_months) = 0 THEN NULL
           WHEN bool_or(age_max_months IS NULL AND age_min_months IS NOT NULL) THEN NULL

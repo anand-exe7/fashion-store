@@ -386,14 +386,31 @@ export async function updateDepartment(name: string, isActive: boolean) {
   refreshAll();
 }
 
-export async function updateDepartmentAgeRange(name: string, ageMinMonths: number | null, ageMaxMonths: number | null) {
+// Per-department debounce timers. The From/To age inputs are controlled and
+// fire onChange on every keystroke; persisting (a Supabase write + a full
+// refreshAll of orders/products/coupons/taxonomy) on each one caused input lag
+// and network spam. We update local state synchronously so the inputs stay
+// snappy, then debounce the write. Keyed by name so editing two departments
+// doesn't cancel each other.
+const ageRangeSaveTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+export function updateDepartmentAgeRange(name: string, ageMinMonths: number | null, ageMaxMonths: number | null) {
   globalState = {
     ...globalState,
     departments: globalState.departments.map(d => d.name === name ? { ...d, ageMinMonths, ageMaxMonths } : d),
   };
   notify();
-  await db.updateDepartmentAgeRange(name, ageMinMonths, ageMaxMonths);
-  refreshAll();
+
+  if (ageRangeSaveTimers[name]) clearTimeout(ageRangeSaveTimers[name]);
+  ageRangeSaveTimers[name] = setTimeout(async () => {
+    delete ageRangeSaveTimers[name];
+    try {
+      await db.updateDepartmentAgeRange(name, ageMinMonths, ageMaxMonths);
+      refreshAll();
+    } catch (err) {
+      console.error(`Failed to save age range for ${name}:`, err);
+      showToast(`Couldn't save age range for ${name}.`);
+    }
+  }, 500);
 }
 
 export async function deleteCategory(name: string) {

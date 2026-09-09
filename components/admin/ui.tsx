@@ -1,5 +1,5 @@
 'use client';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useId, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -192,7 +192,10 @@ export function AgeRangeInput({
   onChange: (minMonths: number | null, maxMonths: number | null) => void;
 }) {
   const [unit, setUnit] = useState<'years' | 'months'>(() => naturalUnit(minMonths, maxMonths));
-  const listId = `age-suggest-${unit}`;
+  // useId keeps the datalist id unique per instance — Categories renders one
+  // AgeRangeInput per department, and a shared static id produced duplicate
+  // <datalist> ids in the DOM.
+  const listId = `age-suggest${useId()}`;
   const limits = AGE_LIMITS[unit];
   const unitSize = unit === 'years' ? 12 : 1;
 

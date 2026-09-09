@@ -150,7 +150,14 @@ export function formatAgeRange(minMonths?: number | null, maxMonths?: number | n
     const m = isUpper ? months - 1 : months;
     return m < 12 ? `${Math.max(m, 0)}M` : `${Math.floor(m / 12)}Y`;
   };
-  if (minMonths != null && maxMonths != null) return `${bound(minMonths, false)}–${bound(maxMonths, true)}`;
+  if (minMonths != null && maxMonths != null) {
+    const lo = bound(minMonths, false);
+    const hi = bound(maxMonths, true);
+    // A single-unit range (e.g. a size for exactly 2-year-olds, stored as
+    // 24–36 months half-open) collapses to identical bounds — show "2Y",
+    // not "2Y–2Y".
+    return lo === hi ? lo : `${lo}–${hi}`;
+  }
   if (minMonths != null) return `${bound(minMonths, false)}+`;
   return `Up to ${bound(maxMonths!, true)}`;
 }
@@ -382,17 +389,27 @@ export const upsertProduct = async (product: Partial<Product>, images?: string[]
   }
 };
 
-// One-shot lazy probe: is age_min_months present on product_variants? Cached
-// for the life of the module so admin saves don't pay for it every time.
-let ageColumnsSupportedCache: Promise<boolean> | undefined;
-function ageColumnsSupported(): Promise<boolean> {
-  if (!ageColumnsSupportedCache) {
-    ageColumnsSupportedCache = (async () => {
-      const { error } = await supabase.from('product_variants').select('age_min_months').limit(1);
-      return !error;
-    })();
+// One-shot lazy probe: is age_min_months present on product_variants? Only a
+// DEFINITIVE answer is cached for the life of the module — either the column
+// exists, or Postgres reports it as genuinely undefined (SQLSTATE 42703). A
+// transient failure (network, auth, timeout) must NOT be cached: doing so used
+// to permanently wedge age saving on a single blip during first load. On an
+// ambiguous error we assume the column exists (this feature ships the 0002
+// migration) and retry the probe on the next save — if the schema really is
+// unmigrated, the guarded write below still fails loudly before any delete.
+let ageColumnsSupportedCache: boolean | undefined;
+async function ageColumnsSupported(): Promise<boolean> {
+  if (ageColumnsSupportedCache !== undefined) return ageColumnsSupportedCache;
+  try {
+    const { error } = await supabase.from('product_variants').select('age_min_months').limit(1);
+    if (!error) return (ageColumnsSupportedCache = true);
+    if (error.code === '42703') return (ageColumnsSupportedCache = false); // column truly absent
+    console.warn('age-column probe failed (transient?), will retry next save:', error);
+    return true; // don't cache — retry next time
+  } catch (err) {
+    console.warn('age-column probe threw (transient?), will retry next save:', err);
+    return true; // don't cache — retry next time
   }
-  return ageColumnsSupportedCache;
 }
 
 export const deleteProduct = async (id: string) => {

@@ -29,6 +29,21 @@ const variantLabel = (v: ProductVariant) => {
   return size || color || 'Default';
 };
 
+// Only variants the admin hasn't disabled count toward what a cashier can sell.
+const sellableVariants = (p: Product) => (p.variants || []).filter((v) => v.isAvailable !== false);
+// Total stock across all sellable variants — NOT just the first variant, which
+// is what product.stock happens to carry.
+const totalStock = (p: Product) => sellableVariants(p).reduce((sum, v) => sum + (v.stock || 0), 0);
+// A product with no variants is a legacy/simple product billed at its base
+// price with untracked stock — always sellable. Otherwise it's sellable only
+// when at least one available variant still has stock.
+const isSellable = (p: Product) => sellableVariants(p).length === 0 || totalStock(p) > 0;
+const stockLabel = (p: Product) => {
+  if (sellableVariants(p).length === 0) return 'Base price';
+  const n = totalStock(p);
+  return n > 0 ? `${n} in stock` : 'Out of stock';
+};
+
 export default function Billing({ go }: { go?: (k: string) => void }) {
   const { products, coupons } = useAdminData();
   const [source, setSource] = useState<Source>('offline');
@@ -91,6 +106,18 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
         size: size || undefined,
         color: color || undefined,
       };
+      const blank = prev.find((l) => !l.name.trim());
+      if (blank) return prev.map((l) => (l.key === blank.key ? { ...filled, key: blank.key } : l));
+      return [...prev, filled];
+    });
+  };
+
+  // Legacy / simple products with no variants: bill at the base price. No
+  // variantId, so addOrder leaves inventory untouched (there's nothing to
+  // decrement) — matching how free-form lines behave.
+  const addCatalogProduct = (product: Product) => {
+    setLines((prev) => {
+      const filled: Line = { key: keySeq++, name: product.name, price: product.price, qty: 1, productId: product.id };
       const blank = prev.find((l) => !l.name.trim());
       if (blank) return prev.map((l) => (l.key === blank.key ? { ...filled, key: blank.key } : l));
       return [...prev, filled];
@@ -400,13 +427,13 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
               <button
                 key={p.id}
                 onClick={() => setCatalogProduct(p)}
-                disabled={p.stock <= 0}
+                disabled={!isSellable(p)}
                 className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-neutral-900">{p.name}</p>
                   <p className="truncate text-xs text-neutral-400">
-                    {p.category} · {p.stock > 0 ? `${p.stock} in stock` : 'Out of stock'}
+                    {p.category} · {stockLabel(p)}
                   </p>
                 </div>
                 <span className="shrink-0 text-sm font-bold text-neutral-900">{inr(p.price)}</span>
@@ -421,10 +448,21 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
             >
               ← Back to products
             </button>
-            {(catalogProduct.variants || []).filter((v) => v.isAvailable !== false).length === 0 ? (
-              <p className="px-3 py-6 text-center text-xs text-neutral-400">
-                No variants defined for this product. Add one from the Inventory section.
-              </p>
+            {sellableVariants(catalogProduct).length === 0 ? (
+              <button
+                onClick={() => {
+                  addCatalogProduct(catalogProduct);
+                  setCatalogOpen(false);
+                  setCatalogProduct(null);
+                }}
+                className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left hover:bg-black/[0.03]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-neutral-900">{catalogProduct.name}</p>
+                  <p className="truncate text-xs text-neutral-400">No variants · bill at base price</p>
+                </div>
+                <span className="shrink-0 text-sm font-bold text-neutral-900">{inr(catalogProduct.price)}</span>
+              </button>
             ) : (
               <div className="divide-y divide-black/[0.05]">
                 {(catalogProduct.variants || [])
