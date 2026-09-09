@@ -10,6 +10,8 @@ import {
   inr,
   type Source,
   type OrderItem,
+  type Product,
+  type ProductVariant,
 } from '@/lib/store';
 import { Card, Modal, ModalHeader, Toast, Field, inputCls, inputBase } from '../ui';
 
@@ -19,6 +21,13 @@ interface Line extends OrderItem {
 
 let keySeq = 1;
 const newLine = (): Line => ({ key: keySeq++, name: '', price: 0, qty: 1 });
+
+const variantLabel = (v: ProductVariant) => {
+  const size = (v.size || '').trim();
+  const color = (v.colorName || '').trim();
+  if (size && color) return `${size} / ${color}`;
+  return size || color || 'Default';
+};
 
 export default function Billing({ go }: { go?: (k: string) => void }) {
   const { products, coupons } = useAdminData();
@@ -32,6 +41,7 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
   const [delivery, setDelivery] = useState('');
   const [received, setReceived] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [catalogProduct, setCatalogProduct] = useState<Product | null>(null);
   const [toast, setToast] = useState('');
 
   const validLines = lines.filter((l) => l.name.trim() && l.price > 0);
@@ -62,13 +72,28 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
   const setLine = (key: number, patch: Partial<Line>) =>
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
-  const addCatalog = (name: string, price: number) => {
+  const addCatalogVariant = (product: Product, variant: ProductVariant) => {
+    const price = variant.price || product.price;
+    const size = (variant.size || '').trim();
+    const color = (variant.colorName || '').trim();
+    const label = size || color ? `${product.name} (${variantLabel(variant)})` : product.name;
     setLines((prev) => {
-      const existing = prev.find((l) => l.name.trim().toLowerCase() === name.toLowerCase());
+      // Merge onto an existing line for the exact same variant.
+      const existing = prev.find((l) => l.variantId && l.variantId === variant.id);
       if (existing) return prev.map((l) => (l.key === existing.key ? { ...l, qty: l.qty + 1 } : l));
+      const filled: Line = {
+        key: keySeq++,
+        name: label,
+        price,
+        qty: 1,
+        productId: product.id,
+        variantId: variant.id,
+        size: size || undefined,
+        color: color || undefined,
+      };
       const blank = prev.find((l) => !l.name.trim());
-      if (blank) return prev.map((l) => (l.key === blank.key ? { ...l, name, price, qty: 1 } : l));
-      return [...prev, { key: keySeq++, name, price, qty: 1 }];
+      if (blank) return prev.map((l) => (l.key === blank.key ? { ...filled, key: blank.key } : l));
+      return [...prev, filled];
     });
   };
 
@@ -93,7 +118,15 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
       customer: customer.trim() || 'Walk-in Customer',
       phone: phone.trim(),
       source,
-      items: validLines.map(({ name, price, qty }) => ({ name: name.trim(), price, qty })),
+      items: validLines.map(({ name, price, qty, productId, variantId, size, color }) => ({
+        name: name.trim(),
+        price,
+        qty,
+        productId,
+        variantId,
+        size,
+        color,
+      })),
       subtotal,
       couponCode: couponEval?.ok ? couponEval.coupon.code : null,
       discount,
@@ -345,30 +378,87 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
         </div>
       </div>
 
-      {/* Catalog picker */}
-      <Modal open={catalogOpen} onClose={() => setCatalogOpen(false)} size="md">
-        <ModalHeader title="Product Catalog" onClose={() => setCatalogOpen(false)} />
-        <div className="divide-y divide-black/[0.05] p-2">
-          {products.map((p) => (
+      {/* Catalog picker — two-step: product, then variant */}
+      <Modal
+        open={catalogOpen}
+        onClose={() => {
+          setCatalogOpen(false);
+          setCatalogProduct(null);
+        }}
+        size="md"
+      >
+        <ModalHeader
+          title={catalogProduct ? `Choose Variant — ${catalogProduct.name}` : 'Product Catalog'}
+          onClose={() => {
+            setCatalogOpen(false);
+            setCatalogProduct(null);
+          }}
+        />
+        {!catalogProduct ? (
+          <div className="divide-y divide-black/[0.05] p-2">
+            {products.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setCatalogProduct(p)}
+                disabled={p.stock <= 0}
+                className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-neutral-900">{p.name}</p>
+                  <p className="truncate text-xs text-neutral-400">
+                    {p.category} · {p.stock > 0 ? `${p.stock} in stock` : 'Out of stock'}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-bold text-neutral-900">{inr(p.price)}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="p-2">
             <button
-              key={p.id}
-              onClick={() => {
-                addCatalog(p.name, p.price);
-                setCatalogOpen(false);
-              }}
-              disabled={p.stock <= 0}
-              className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => setCatalogProduct(null)}
+              className="mb-2 rounded-lg px-3 py-1.5 text-xs font-bold text-neutral-500 hover:bg-black/[0.03]"
             >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-neutral-900">{p.name}</p>
-                <p className="truncate text-xs text-neutral-400">
-                  {p.category} · {p.stock > 0 ? `${p.stock} in stock` : 'Out of stock'}
-                </p>
-              </div>
-              <span className="shrink-0 text-sm font-bold text-neutral-900">{inr(p.price)}</span>
+              ← Back to products
             </button>
-          ))}
-        </div>
+            {(catalogProduct.variants || []).filter((v) => v.isAvailable !== false).length === 0 ? (
+              <p className="px-3 py-6 text-center text-xs text-neutral-400">
+                No variants defined for this product. Add one from the Inventory section.
+              </p>
+            ) : (
+              <div className="divide-y divide-black/[0.05]">
+                {(catalogProduct.variants || [])
+                  .filter((v) => v.isAvailable !== false)
+                  .map((v) => {
+                    const price = v.price || catalogProduct.price;
+                    const outOfStock = v.stock <= 0;
+                    return (
+                      <button
+                        key={v.id || `${v.size}-${v.colorName}`}
+                        onClick={() => {
+                          addCatalogVariant(catalogProduct, v);
+                          setCatalogOpen(false);
+                          setCatalogProduct(null);
+                        }}
+                        disabled={outOfStock}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-neutral-900">
+                            {variantLabel(v)}
+                          </p>
+                          <p className="truncate text-xs text-neutral-400">
+                            {outOfStock ? 'Out of stock' : `${v.stock} in stock`}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm font-bold text-neutral-900">{inr(price)}</span>
+                      </button>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
 
       <Toast show={!!toast} message={toast} />

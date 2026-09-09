@@ -1,5 +1,5 @@
 'use client';
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -154,3 +154,108 @@ export const inputBase =
 // quirk lets w-full silently win over a later w-* utility. Use `inputBase` instead
 // when a fixed/flex width is needed.
 export const inputCls = `w-full ${inputBase}`;
+
+// Two number inputs (From/To) plus a Years/Months toggle. Values are always
+// carried in months — the toggle only changes how they're displayed/typed,
+// so "2" + "Months" and "2" + "Years" both round-trip losslessly.
+//
+// The number inputs are backed by a <datalist> so clicking them pops a picker
+// with the store's standard age steps for the active unit — but you can still
+// type any value in range, which is why we didn't use a hard <select>.
+//
+// Range per unit:
+//   Months: 0–24 (covers newborn/babywear sizes; beyond 24M use Years)
+//   Years:  0–99
+// Values typed above the max are clamped down (so a "18" typed in months
+// mode becomes 18, not 12, but "50" in months becomes 24).
+const AGE_LIMITS = {
+  years:  { min: 0, max: 99, suggestions: [2, 3, 4, 6, 8, 10, 12, 14, 16, 18] },
+  months: { min: 0, max: 24, suggestions: [3, 6, 9, 12, 18, 24] },
+} as const;
+
+// Pick the unit that's the most natural fit for the stored values:
+// if every value is a clean multiple of 12, prefer Years (0, 12, 24, 36 → 0Y, 1Y, 2Y, 3Y).
+// Otherwise, Months (so 6M / 18M don't get rounded).
+function naturalUnit(minMonths?: number | null, maxMonths?: number | null): 'years' | 'months' {
+  const vals = [minMonths, maxMonths].filter((v): v is number => v != null);
+  if (vals.length === 0) return 'years';
+  return vals.every((v) => v % 12 === 0) ? 'years' : 'months';
+}
+
+export function AgeRangeInput({
+  minMonths,
+  maxMonths,
+  onChange,
+}: {
+  minMonths?: number | null;
+  maxMonths?: number | null;
+  onChange: (minMonths: number | null, maxMonths: number | null) => void;
+}) {
+  const [unit, setUnit] = useState<'years' | 'months'>(() => naturalUnit(minMonths, maxMonths));
+  const listId = `age-suggest-${unit}`;
+  const limits = AGE_LIMITS[unit];
+  const unitSize = unit === 'years' ? 12 : 1;
+
+  // Ranges are stored HALF-OPEN in months ([min, max), max excluded), but the
+  // user thinks INCLUSIVE ("0–2Y" means ages 0, 1, 2). So on the max only,
+  // we add one unit going in and subtract one unit coming out — the user
+  // types "2" for max, we store 36 months, we display "2" back.
+  const toDisplayMin = (m?: number | null) => (m == null ? '' : String(m / unitSize));
+  const toDisplayMax = (m?: number | null) => (m == null ? '' : String(m / unitSize - 1));
+
+  const parse = (raw: string): number | null => {
+    if (raw.trim() === '') return null;
+    const n = Number(raw);
+    if (Number.isNaN(n)) return null;
+    return Math.min(Math.max(n, limits.min), limits.max);
+  };
+  const toStoredMin = (raw: string): number | null => {
+    const n = parse(raw);
+    return n == null ? null : n * unitSize;
+  };
+  const toStoredMax = (raw: string): number | null => {
+    const n = parse(raw);
+    return n == null ? null : (n + 1) * unitSize;
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <datalist id={listId}>
+        {limits.suggestions.map((v) => <option key={v} value={v} />)}
+      </datalist>
+      <input
+        type="number"
+        min={limits.min}
+        max={limits.max}
+        list={listId}
+        className={`${inputBase} !w-16 !px-2 !py-1.5 text-xs`}
+        placeholder="From"
+        value={toDisplayMin(minMonths)}
+        onChange={(e) => onChange(toStoredMin(e.target.value), maxMonths ?? null)}
+      />
+      <span className="text-xs text-neutral-400">–</span>
+      <input
+        type="number"
+        min={limits.min}
+        max={limits.max}
+        list={listId}
+        className={`${inputBase} !w-16 !px-2 !py-1.5 text-xs`}
+        placeholder="To"
+        value={toDisplayMax(maxMonths)}
+        onChange={(e) => onChange(minMonths ?? null, toStoredMax(e.target.value))}
+      />
+      <div className="flex overflow-hidden rounded-md border border-black/[0.1]">
+        {(['years', 'months'] as const).map((u) => (
+          <button
+            key={u}
+            type="button"
+            onClick={() => setUnit(u)}
+            className={`px-1.5 py-1 text-[9px] font-bold uppercase transition-colors ${unit === u ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-500 hover:bg-neutral-50'}`}
+          >
+            {u === 'years' ? 'Yr' : 'Mo'}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

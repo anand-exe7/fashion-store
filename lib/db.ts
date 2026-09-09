@@ -24,6 +24,8 @@ export interface ProductVariant {
   weightGrams: number;
   stock: number;
   sku?: string;
+  ageMinMonths?: number | null;
+  ageMaxMonths?: number | null;
   isAvailable: boolean;
   sortOrder: number;
 }
@@ -40,7 +42,9 @@ export interface Product {
   image?: string; // Legacy
   isNew?: boolean;
   discountLabel?: string;
-  department?: 'Men' | 'Women' | 'Kids' | 'Unisex';
+  department?: string;
+  ageMinMonths?: number | null;
+  ageMaxMonths?: number | null;
   stock: number;
   isAvailable: boolean;
   images: ProductImage[];
@@ -113,6 +117,42 @@ export interface Category {
 export interface Department {
   name: string;
   isActive: boolean;
+  ageMinMonths?: number | null;
+  ageMaxMonths?: number | null;
+}
+
+// A department with no age range matches purely by the product's explicit
+// `department` tag (Men/Women/Unisex-style). A department WITH an age range
+// (Toddlers/Kids/Teens-style) matches by comparing its range against the
+// product's own resolved age range — no product is ever tagged "Kids"
+// directly for this to work. If the product has no age data yet, we fall
+// back to the tag so existing untouched products don't vanish from filters.
+export function productMatchesDepartment(product: Product, department: Department): boolean {
+  const deptHasRange = department.ageMinMonths != null || department.ageMaxMonths != null;
+  if (!deptHasRange) return product.department === department.name;
+
+  const productHasRange = product.ageMinMonths != null || product.ageMaxMonths != null;
+  if (!productHasRange) return product.department === department.name;
+
+  const productMin = product.ageMinMonths ?? 0;
+  const productMax = product.ageMaxMonths ?? Infinity;
+  const deptMin = department.ageMinMonths ?? 0;
+  const deptMax = department.ageMaxMonths ?? Infinity;
+  return productMin < deptMax && productMax > deptMin;
+}
+
+// Formats a months-based age range for display, e.g. (36, 120) -> "3–9Y".
+// The upper bound is stored exclusive, so it's shifted down by one unit
+// before display (120 exclusive months -> "9Y" inclusive, not "10Y").
+export function formatAgeRange(minMonths?: number | null, maxMonths?: number | null): string {
+  if (minMonths == null && maxMonths == null) return '';
+  const bound = (months: number, isUpper: boolean) => {
+    const m = isUpper ? months - 1 : months;
+    return m < 12 ? `${Math.max(m, 0)}M` : `${Math.floor(m / 12)}Y`;
+  };
+  if (minMonths != null && maxMonths != null) return `${bound(minMonths, false)}–${bound(maxMonths, true)}`;
+  if (minMonths != null) return `${bound(minMonths, false)}+`;
+  return `Up to ${bound(maxMonths!, true)}`;
 }
 
 export const fetchCategories = async (): Promise<Category[]> => {
@@ -130,7 +170,12 @@ export const fetchDepartments = async (): Promise<Department[]> => {
     console.error("fetchDepartments error (table might not exist):", error);
     return [];
   }
-  return (data || []).map(d => ({ name: d.name, isActive: d.is_active }));
+  return (data || []).map(d => ({
+    name: d.name,
+    isActive: d.is_active,
+    ageMinMonths: d.age_min_months,
+    ageMaxMonths: d.age_max_months,
+  }));
 };
 
 export const updateCategory = async (name: string, isActive: boolean) => {
@@ -140,6 +185,14 @@ export const updateCategory = async (name: string, isActive: boolean) => {
 
 export const updateDepartment = async (name: string, isActive: boolean) => {
   const { error } = await supabase.from('departments').update({ is_active: isActive }).eq('name', name);
+  if (error) throw error;
+};
+
+export const updateDepartmentAgeRange = async (name: string, ageMinMonths: number | null, ageMaxMonths: number | null) => {
+  const { error } = await supabase
+    .from('departments')
+    .update({ age_min_months: ageMinMonths, age_max_months: ageMaxMonths })
+    .eq('name', name);
   if (error) throw error;
 };
 
@@ -175,6 +228,8 @@ export const fetchProducts = async (): Promise<Product[]> => {
     isNew: p.is_new,
     discountLabel: p.discount_label,
     department: p.department,
+    ageMinMonths: p.age_min_months,
+    ageMaxMonths: p.age_max_months,
     stock: (variants || []).filter((v: any) => v.product_id === p.id).reduce((sum: number, v: any) => sum + (v.stock || 0), 0),
     isAvailable: p.is_available,
     images: (images || [])
@@ -199,6 +254,8 @@ export const fetchProducts = async (): Promise<Product[]> => {
         weightGrams: v.weight_grams,
         stock: v.stock,
         sku: v.sku,
+        ageMinMonths: v.age_min_months,
+        ageMaxMonths: v.age_max_months,
         isAvailable: v.is_available,
         sortOrder: v.sort_order,
       })),
@@ -227,6 +284,9 @@ export const fetchProductById = async (id: string): Promise<Product | null> => {
     image: p.image,
     isNew: p.is_new,
     discountLabel: p.discount_label,
+    department: p.department,
+    ageMinMonths: p.age_min_months,
+    ageMaxMonths: p.age_max_months,
     stock: (variants || []).reduce((sum: number, v: any) => sum + (v.stock || 0), 0),
     isAvailable: p.is_available,
     images: (images || []).map((i: any) => ({
@@ -247,6 +307,8 @@ export const fetchProductById = async (id: string): Promise<Product | null> => {
       weightGrams: v.weight_grams,
       stock: v.stock,
       sku: v.sku,
+      ageMinMonths: v.age_min_months,
+      ageMaxMonths: v.age_max_months,
       isAvailable: v.is_available,
       sortOrder: v.sort_order,
     })),
@@ -269,6 +331,7 @@ export const upsertProduct = async (product: Partial<Product>, images?: string[]
     image: product.image,
     is_new: product.isNew,
     discount_label: product.discountLabel,
+    department: product.department,
     is_available: product.isAvailable ?? true,
   });
   if (error) throw error;
@@ -286,9 +349,17 @@ export const upsertProduct = async (product: Partial<Product>, images?: string[]
   }
 
   if (variants && variants.length > 0 && product.id) {
-    await supabase.from('product_variants').delete().eq('product_id', product.id);
-    await supabase.from('product_variants').insert(
-      variants.map((v, i) => ({
+    // The 0002 migration adds age_min_months / age_max_months. Detect once per
+    // page load whether the DB has those columns, so we don't try to write
+    // them into an unmigrated schema — that used to leave the product with
+    // zero variants after the DELETE succeeded and the INSERT failed.
+    const hasAgeCols = await ageColumnsSupported();
+    if (!hasAgeCols && variants.some(v => v.ageMinMonths != null || v.ageMaxMonths != null)) {
+      throw new Error('Age range set on a variant, but the age_groups migration (0002) has not been applied to this database. Run supabase/migrations/0002_age_groups.sql, then retry.');
+    }
+
+    const rows = variants.map((v, i) => {
+      const row: Record<string, unknown> = {
         product_id: product.id,
         size: v.size || 'Default',
         color_name: v.colorName || null,
@@ -296,11 +367,33 @@ export const upsertProduct = async (product: Partial<Product>, images?: string[]
         weight_grams: v.weightGrams || product.weightGrams || 0,
         stock: v.stock || 0,
         is_available: v.isAvailable !== false,
-        sort_order: i
-      }))
-    );
+        sort_order: i,
+      };
+      if (hasAgeCols) {
+        row.age_min_months = v.ageMinMonths ?? null;
+        row.age_max_months = v.ageMaxMonths ?? null;
+      }
+      return row;
+    });
+
+    await supabase.from('product_variants').delete().eq('product_id', product.id);
+    const { error: insertError } = await supabase.from('product_variants').insert(rows);
+    if (insertError) throw insertError;
   }
 };
+
+// One-shot lazy probe: is age_min_months present on product_variants? Cached
+// for the life of the module so admin saves don't pay for it every time.
+let ageColumnsSupportedCache: Promise<boolean> | undefined;
+function ageColumnsSupported(): Promise<boolean> {
+  if (!ageColumnsSupportedCache) {
+    ageColumnsSupportedCache = (async () => {
+      const { error } = await supabase.from('product_variants').select('age_min_months').limit(1);
+      return !error;
+    })();
+  }
+  return ageColumnsSupportedCache;
+}
 
 export const deleteProduct = async (id: string) => {
   const { error } = await supabase.from('products').delete().eq('id', id);
@@ -353,11 +446,34 @@ export const updateSuggestions = async (productId: string, suggestedIds: string[
   if (insError) throw insError;
 };
 
+// Non-atomic decrement — read current stock, subtract qty, clamp at 0. Good
+// enough for a single POS operator; if two clients ever decrement the same
+// variant at the exact same moment they can double-consume. Move to a
+// Postgres RPC (`update ... set stock = greatest(0, stock - $1)`) if that
+// becomes a real concern.
+export const decrementVariantStock = async (variantId: string, qty: number) => {
+  if (qty <= 0) return;
+  const { data, error: readErr } = await supabase
+    .from('product_variants')
+    .select('stock')
+    .eq('id', variantId)
+    .single();
+  if (readErr || !data) throw readErr || new Error('Variant not found');
+  const next = Math.max(0, (data.stock || 0) - qty);
+  const { error: writeErr } = await supabase
+    .from('product_variants')
+    .update({ stock: next })
+    .eq('id', variantId);
+  if (writeErr) throw writeErr;
+};
+
 export const updateProductVariant = async (variantId: string, patch: Partial<ProductVariant>) => {
   const payload: any = {};
   if (patch.stock !== undefined) payload.stock = patch.stock;
   if (patch.price !== undefined) payload.price = patch.price;
   if (patch.weightGrams !== undefined) payload.weight_grams = patch.weightGrams;
+  if (patch.ageMinMonths !== undefined) payload.age_min_months = patch.ageMinMonths;
+  if (patch.ageMaxMonths !== undefined) payload.age_max_months = patch.ageMaxMonths;
   if (patch.isAvailable !== undefined) payload.is_available = patch.isAvailable;
 
   const { error } = await supabase.from('product_variants').update(payload).eq('id', variantId);

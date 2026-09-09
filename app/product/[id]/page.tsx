@@ -5,7 +5,7 @@ import { motion, useScroll } from 'framer-motion';
 import { useState, useRef, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Minus, Plus, ArrowRight, ChevronDown } from 'lucide-react';
-import { fetchProductById, fetchProducts, fetchSuggestions, Product } from '@/lib/db';
+import { fetchProductById, fetchProducts, fetchSuggestions, formatAgeRange, Product } from '@/lib/db';
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
@@ -114,6 +114,14 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     return activeVariants.filter(v => (v.colorName || 'Default') === color).reduce((sum, v) => sum + v.stock, 0);
   };
 
+  const getAgeRangeForSize = (size: string) => {
+    const v = activeVariants.find(v => (v.size || 'Default') === size && (v.colorName || 'Default') === selectedColor)
+      || activeVariants.find(v => (v.size || 'Default') === size);
+    return v ? formatAgeRange(v.ageMinMonths, v.ageMaxMonths) : '';
+  };
+
+  const productAgeRange = formatAgeRange(product.ageMinMonths, product.ageMaxMonths);
+
   const handleColorSelect = (color: string) => {
     setSelectedColor(color);
     if (getStockForVariant(selectedSize, color) <= 0) {
@@ -213,7 +221,14 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
               </motion.div>
               
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}>
-                <p className="text-4xl md:text-5xl font-bold mb-8 text-emerald-600 tracking-tighter">₹{product.price.toLocaleString()}</p>
+                <div className="flex items-center gap-3 mb-8">
+                  <p className="text-4xl md:text-5xl font-bold text-emerald-600 tracking-tighter">₹{product.price.toLocaleString()}</p>
+                  {productAgeRange && (
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 border border-black/10 rounded-full px-3 py-1.5">
+                      Ages {productAgeRange}
+                    </span>
+                  )}
+                </div>
                 <p className="text-neutral-600 text-sm leading-relaxed mb-10 max-w-md">{product.description || "Premium exclusive collection piece."}</p>
                 
                 {availableColors.length > 0 && (
@@ -254,21 +269,23 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                     <div className="grid grid-cols-5 gap-2">
                       {uniqueSizesForCurrentColor.map(size => {
                         const isSizeOutOfStock = getStockForVariant(size, selectedColor) <= 0;
-                        
+                        const sizeAgeRange = getAgeRangeForSize(size);
+
                         return (
-                          <button 
-                            key={size} 
+                          <button
+                            key={size}
                             onClick={() => !isSizeOutOfStock && setSelectedSize(size)}
                             disabled={isSizeOutOfStock}
-                            className={`relative py-3 text-[10px] font-bold tracking-widest transition-all rounded-md border ${
+                            className={`relative py-3 text-[10px] font-bold tracking-widest transition-all rounded-md border flex flex-col items-center gap-0.5 ${
                               isSizeOutOfStock
                                 ? 'bg-neutral-100 border-black/5 text-neutral-400 cursor-not-allowed'
-                                : selectedSize === size 
-                                  ? 'bg-black text-white border-black shadow-md' 
+                                : selectedSize === size
+                                  ? 'bg-black text-white border-black shadow-md'
                                   : 'bg-white border-black/10 text-neutral-900 hover:border-black/30 shadow-sm'
                             }`}
                           >
                             {size}
+                            {sizeAgeRange && <span className="text-[8px] font-medium normal-case tracking-normal opacity-70">{sizeAgeRange}</span>}
                             {isSizeOutOfStock && (
                               <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
                                 <div className="w-full h-[1px] bg-neutral-300 transform -rotate-45" />

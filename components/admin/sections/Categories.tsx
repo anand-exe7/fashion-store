@@ -1,8 +1,9 @@
 'use client';
 import { useState } from 'react';
 import { Plus, Search, Tags, Layers, Trash2 } from 'lucide-react';
-import { useAdminData, updateCategory, deleteCategory, updateDepartment, showToast } from '@/lib/store';
-import { Card, Modal, ModalHeader, Field, inputCls } from '../ui';
+import { useAdminData, updateCategory, deleteCategory, updateDepartment, updateDepartmentAgeRange, showToast } from '@/lib/store';
+import { Card, Modal, ModalHeader, Field, inputCls, AgeRangeInput } from '../ui';
+import { formatAgeRange } from '@/lib/db';
 import { createClient } from '@/lib/supabase/client';
 
 export default function Categories() {
@@ -70,23 +71,35 @@ export default function Categories() {
           ) : (
             <div className="flex flex-col gap-3">
               {filteredDepts.map(d => (
-                <Card key={d.name} className="flex items-center justify-between p-4 bg-white">
-                  <div>
-                    <p className="font-bold text-neutral-900">{d.name}</p>
-                    <p className="text-[10px] uppercase font-bold text-neutral-400 mt-0.5">Global Department</p>
-                  </div>
-                  <label className="flex items-center cursor-pointer">
-                    <div className="relative">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only" 
-                        checked={d.isActive} 
-                        onChange={() => updateDepartment(d.name, !d.isActive)} 
-                      />
-                      <div className={`block h-6 w-10 rounded-full transition-colors ${d.isActive ? 'bg-emerald-500' : 'bg-neutral-300'}`}></div>
-                      <div className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-transform ${d.isActive ? 'translate-x-4' : ''}`}></div>
+                <Card key={d.name} className="flex flex-col gap-3 p-4 bg-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-neutral-900">{d.name}</p>
+                      <p className="text-[10px] uppercase font-bold text-neutral-400 mt-0.5">
+                        {d.ageMinMonths != null || d.ageMaxMonths != null ? formatAgeRange(d.ageMinMonths, d.ageMaxMonths) : 'No age range · matched by tag'}
+                      </p>
                     </div>
-                  </label>
+                    <label className="flex items-center cursor-pointer shrink-0">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={d.isActive}
+                          onChange={() => updateDepartment(d.name, !d.isActive)}
+                        />
+                        <div className={`block h-6 w-10 rounded-full transition-colors ${d.isActive ? 'bg-emerald-500' : 'bg-neutral-300'}`}></div>
+                        <div className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-transform ${d.isActive ? 'translate-x-4' : ''}`}></div>
+                      </div>
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-black/[0.05] pt-3">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Age Range</span>
+                    <AgeRangeInput
+                      minMonths={d.ageMinMonths}
+                      maxMonths={d.ageMaxMonths}
+                      onChange={(min, max) => updateDepartmentAgeRange(d.name, min, max)}
+                    />
+                  </div>
                 </Card>
               ))}
             </div>

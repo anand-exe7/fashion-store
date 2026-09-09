@@ -36,14 +36,22 @@ CREATE TABLE IF NOT EXISTS profiles (
 -- 2. DEPARTMENTS & CATEGORIES
 -- ==========================================
 CREATE TABLE IF NOT EXISTS departments (
-  name        TEXT PRIMARY KEY,
-  is_active   BOOLEAN DEFAULT TRUE,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
+  name           TEXT PRIMARY KEY,
+  is_active      BOOLEAN DEFAULT TRUE,
+  age_min_months INTEGER, -- lower age bound in months, NULL = no lower bound
+  age_max_months INTEGER, -- upper age bound in months (exclusive), NULL = no upper bound
+  created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Insert default departments
-INSERT INTO departments (name, is_active) VALUES 
-('Men', TRUE), ('Women', TRUE), ('Kids', TRUE), ('Unisex', TRUE) 
+-- Insert default departments (age ranges in months; Unisex has none — it
+-- matches every age purely via the product's explicit department tag)
+INSERT INTO departments (name, is_active, age_min_months, age_max_months) VALUES
+('Toddlers', TRUE, 0, 36),
+('Kids', TRUE, 36, 120),
+('Teens', TRUE, 120, 216),
+('Men', TRUE, 216, NULL),
+('Women', TRUE, 216, NULL),
+('Unisex', TRUE, NULL, NULL)
 ON CONFLICT (name) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -65,7 +73,9 @@ CREATE TABLE IF NOT EXISTS products (
   image         TEXT, -- primary image URL (legacy, keep for now)
   is_new        BOOLEAN DEFAULT FALSE,
   discount_label TEXT,
-  department    TEXT CHECK (department IN ('Men', 'Women', 'Kids', 'Unisex')) DEFAULT 'Unisex',
+  department    TEXT DEFAULT 'Unisex',
+  age_min_months INTEGER, -- resolved from variants by trg_variant_age; NULL = no age data yet
+  age_max_months INTEGER,
   is_available  BOOLEAN DEFAULT TRUE,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
@@ -99,10 +109,55 @@ CREATE TABLE IF NOT EXISTS product_variants (
   weight_grams INTEGER NOT NULL DEFAULT 0,
   stock        INTEGER DEFAULT 0,
   sku          TEXT,
+  age_min_months INTEGER, -- typed directly by the admin per size/variant
+  age_max_months INTEGER,
   is_available BOOLEAN DEFAULT TRUE,
   sort_order   INTEGER DEFAULT 0,
   UNIQUE(product_id, size, color_name)
 );
+
+CREATE INDEX IF NOT EXISTS idx_products_age ON products (age_min_months, age_max_months);
+
+-- ==========================================
+-- 3c. AGE ROLL-UP TRIGGER
+-- Rolls a product's variant age ranges up into its own age_min/age_max.
+-- MIN/MAX skip NULLs on their own, so a product with no aged variants at all
+-- correctly resolves back to NULL/NULL rather than getting stuck.
+-- ==========================================
+CREATE OR REPLACE FUNCTION sync_product_age_range() RETURNS TRIGGER AS $$
+DECLARE
+  pid TEXT := COALESCE(NEW.product_id, OLD.product_id);
+BEGIN
+  UPDATE products p
+     SET age_min_months = sub.lo,
+         age_max_months = sub.hi
+    FROM (
+      -- MIN skips NULLs (fine — "no lower bound" is effectively 0 to the
+      -- matcher). For MAX we intentionally OVERRIDE it: if any variant has a
+      -- NULL upper bound, the whole product is unbounded above — a single
+      -- "18Y and up" variant must not be silently capped by a sibling variant
+      -- that had a To value. bool_or catches any NULL upper bound and flips
+      -- the roll-up to NULL, matching how the JS filter reads NULL (Infinity).
+      SELECT
+        MIN(age_min_months) AS lo,
+        CASE
+          WHEN COUNT(age_min_months) + COUNT(age_max_months) = 0 THEN NULL
+          WHEN bool_or(age_max_months IS NULL AND age_min_months IS NOT NULL) THEN NULL
+          ELSE MAX(age_max_months)
+        END AS hi
+      FROM product_variants
+      WHERE product_id = pid
+    ) sub
+   WHERE p.id = pid;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_variant_age ON product_variants;
+CREATE TRIGGER trg_variant_age
+AFTER INSERT OR DELETE OR UPDATE OF age_min_months, age_max_months
+ON product_variants
+FOR EACH ROW EXECUTE FUNCTION sync_product_age_range();
 
 -- ==========================================
 -- 4. COUPONS

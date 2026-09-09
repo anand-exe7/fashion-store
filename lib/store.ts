@@ -15,6 +15,10 @@ export interface OrderItem {
   name: string;
   price: number;
   qty: number;
+  productId?: string;
+  variantId?: string;
+  size?: string;
+  color?: string;
 }
 
 export interface Order {
@@ -40,6 +44,8 @@ export interface ProductVariant {
   price?: number;
   weightGrams?: number;
   stock: number;
+  ageMinMonths?: number | null;
+  ageMaxMonths?: number | null;
   isAvailable?: boolean;
 }
 
@@ -47,7 +53,9 @@ export interface Product {
   id: string;
   name: string;
   category: string;
-  department?: 'Men' | 'Women' | 'Kids' | 'Unisex';
+  department?: string;
+  ageMinMonths?: number | null;
+  ageMaxMonths?: number | null;
   description?: string;
   details?: string;
   benefits?: string[];
@@ -116,7 +124,14 @@ async function refreshAll() {
       customer: o.customerName || 'Walk-in Customer',
       phone: o.customerPhone || '',
       source: o.source as Source,
-      items: o.items.map(i => ({ name: i.name, price: i.price, qty: i.quantity })),
+      items: o.items.map(i => ({
+        name: i.name,
+        price: i.price,
+        qty: i.quantity,
+        productId: i.productId,
+        size: i.size,
+        color: i.color,
+      })),
       subtotal: o.subtotal,
       couponCode: o.couponCode || null,
       discount: o.discount,
@@ -133,7 +148,9 @@ async function refreshAll() {
         id: p.id,
         name: p.name,
         category: p.category,
-        department: p.department as 'Men' | 'Women' | 'Kids' | 'Unisex' | undefined,
+        department: p.department,
+        ageMinMonths: p.ageMinMonths,
+        ageMaxMonths: p.ageMaxMonths,
         description: p.description || '',
         price: p.price,
         weightGrams: p.weightGrams || 500,
@@ -148,6 +165,8 @@ async function refreshAll() {
           price: v.price,
           weightGrams: v.weightGrams,
           stock: v.stock || 0,
+          ageMinMonths: v.ageMinMonths,
+          ageMaxMonths: v.ageMaxMonths,
           isAvailable: v.isAvailable
         })) || [],
         isNew: p.isNew,
@@ -216,9 +235,25 @@ export async function addOrder(order: Order) {
     items: order.items.map(i => ({
       name: i.name,
       price: i.price,
-      quantity: i.qty
+      quantity: i.qty,
+      productId: i.productId,
+      size: i.size,
+      color: i.color,
     }))
   });
+
+  // Decrement stock for any lines tied to a specific variant. Free-form
+  // lines (no variantId) are miscellaneous charges and don't touch inventory.
+  for (const item of order.items) {
+    if (item.variantId && item.qty > 0) {
+      try {
+        await db.decrementVariantStock(item.variantId, item.qty);
+      } catch (err) {
+        console.error(`Failed to decrement stock for variant ${item.variantId}:`, err);
+      }
+    }
+  }
+
   refreshAll();
 }
 
@@ -236,6 +271,7 @@ export async function addProduct(p: Product) {
     id: p.id,
     name: p.name,
     category: p.category,
+    department: p.department,
     price: p.price,
     weightGrams: p.weightGrams,
     image: p.image,
@@ -267,6 +303,7 @@ export async function updateProduct(id: string, patch: Partial<Product>) {
     id,
     name: updated.name,
     category: updated.category,
+    department: updated.department,
     price: updated.price,
     weightGrams: updated.weightGrams,
     description: updated.description,
@@ -346,6 +383,16 @@ export async function updateDepartment(name: string, isActive: boolean) {
   globalState = { ...globalState, departments: globalState.departments.map(d => d.name === name ? { ...d, isActive } : d) };
   notify();
   await db.updateDepartment(name, isActive);
+  refreshAll();
+}
+
+export async function updateDepartmentAgeRange(name: string, ageMinMonths: number | null, ageMaxMonths: number | null) {
+  globalState = {
+    ...globalState,
+    departments: globalState.departments.map(d => d.name === name ? { ...d, ageMinMonths, ageMaxMonths } : d),
+  };
+  notify();
+  await db.updateDepartmentAgeRange(name, ageMinMonths, ageMaxMonths);
   refreshAll();
 }
 

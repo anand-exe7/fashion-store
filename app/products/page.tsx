@@ -3,16 +3,16 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { fetchProducts, fetchCategories, fetchDepartments, Product } from '@/lib/db';
+import { fetchProducts, fetchCategories, fetchDepartments, formatAgeRange, productMatchesDepartment, Product, Department } from '@/lib/db';
 
 export default function ProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>(['All']);
-  const [departments, setDepartments] = useState<string[]>(['All']);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
     Promise.all([
       fetchProducts(),
@@ -20,31 +20,34 @@ export default function ProductsPage() {
       fetchDepartments()
     ]).then(([prodData, catData, deptData]) => {
       setProducts(prodData);
-      
+
       const activeCats = catData.filter(c => c.isActive).map(c => c.name);
       setCategories(['All', ...activeCats]);
-      
-      const activeDepts = deptData.filter(d => d.isActive).map(d => d.name);
-      setDepartments(['All', ...activeDepts]);
-      
+
+      setDepartments(deptData.filter(d => d.isActive));
+
       setLoading(false);
     }).catch(async (err) => {
       console.error("Failed to load taxonomy, falling back to products only.", err);
       // Fallback: just load products and use defaults
       const prodData = await fetchProducts().catch(() => []);
       setProducts(prodData);
-      
+
       const allCats = Array.from(new Set(prodData.map(p => p.category)));
       setCategories(['All', ...allCats]);
-      setDepartments(['All', 'Men', 'Women', 'Kids', 'Unisex']);
+      setDepartments([
+        { name: 'Men', isActive: true }, { name: 'Women', isActive: true },
+        { name: 'Kids', isActive: true }, { name: 'Unisex', isActive: true },
+      ]);
       setLoading(false);
     });
   }, []);
-  
+
   const filteredProducts = products.filter(p => {
     const categoryMatch = categoryFilter === 'All' || p.category === categoryFilter;
-    // For legacy products without a department, we treat them as matching 'All' or 'Unisex'
-    const deptMatch = departmentFilter === 'All' || p.department === departmentFilter || (!p.department && departmentFilter === 'Unisex');
+    if (departmentFilter === 'All') return categoryMatch;
+    const dept = departments.find(d => d.name === departmentFilter);
+    const deptMatch = dept ? productMatchesDepartment(p, dept) : (p.department === departmentFilter || (!p.department && departmentFilter === 'Unisex'));
     return categoryMatch && deptMatch;
   });
   return (
@@ -74,15 +77,19 @@ export default function ProductsPage() {
         <div className="flex flex-col items-center gap-6 mb-16">
           <div className="flex flex-wrap justify-center gap-3">
             <span className="text-[10px] uppercase tracking-widest text-neutral-400 py-2 mr-2 hidden md:block">Department</span>
-            {departments.map(dept => (
-              <button
-                key={dept}
-                onClick={() => setDepartmentFilter(dept)}
-                className={`px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all rounded-full border ${departmentFilter === dept ? 'bg-black text-white border-black shadow-md' : 'bg-transparent text-neutral-600 border-black/10 hover:border-black/30 bg-white/50'}`}
-              >
-                {dept}
-              </button>
-            ))}
+            {['All', ...departments.map(d => d.name)].map(name => {
+              const dept = departments.find(d => d.name === name);
+              const ageLabel = dept ? formatAgeRange(dept.ageMinMonths, dept.ageMaxMonths) : '';
+              return (
+                <button
+                  key={name}
+                  onClick={() => setDepartmentFilter(name)}
+                  className={`px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-all rounded-full border ${departmentFilter === name ? 'bg-black text-white border-black shadow-md' : 'bg-transparent text-neutral-600 border-black/10 hover:border-black/30 bg-white/50'}`}
+                >
+                  {name}{ageLabel ? ` · ${ageLabel}` : ''}
+                </button>
+              );
+            })}
           </div>
           
           <div className="flex flex-wrap justify-center gap-3">
@@ -136,6 +143,7 @@ export default function ProductsPage() {
                       <h3 className="text-sm font-semibold tracking-wide text-[#3c3c3a]">{prod.name}</h3>
                       <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-1">
                         {prod.department ? `${prod.department} • ` : ''}{prod.category}
+                        {formatAgeRange(prod.ageMinMonths, prod.ageMaxMonths) ? ` • ${formatAgeRange(prod.ageMinMonths, prod.ageMaxMonths)}` : ''}
                       </p>
                     </div>
                     <p className="text-sm font-medium tracking-tight">₹{prod.price.toLocaleString()}</p>

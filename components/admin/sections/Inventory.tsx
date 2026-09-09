@@ -13,7 +13,8 @@ import {
   inr,
   type Product,
 } from '@/lib/store';
-import { Card, Modal, ModalHeader, EmptyState, Field, inputCls } from '../ui';
+import { Card, Modal, ModalHeader, EmptyState, Field, inputCls, AgeRangeInput } from '../ui';
+import { formatAgeRange } from '@/lib/db';
 
 function playAlert() {
   try {
@@ -57,10 +58,10 @@ function ProductImg({ product, className }: { product: Product; className?: stri
 }
 
 export default function Inventory() {
-  const { products } = useAdminData();
+  const { products, departments } = useAdminData();
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState('all');
-  const [dept, setDept] = useState<'all' | 'Men' | 'Women' | 'Kids' | 'Unisex'>('all');
+  const [dept, setDept] = useState<string>('all');
   const [status, setStatus] = useState<'all' | 'low' | 'out'>('all');
   const [sort, setSort] = useState<'name' | 'stock-asc' | 'stock-desc' | 'price'>('name');
   const [alertOpen, setAlertOpen] = useState(false);
@@ -152,12 +153,9 @@ export default function Inventory() {
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
           </div>
           <div className="relative">
-            <select value={dept} onChange={(e) => setDept(e.target.value as any)} className="appearance-none rounded-lg border border-black/[0.09] bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-neutral-700 outline-none focus:border-neutral-400">
+            <select value={dept} onChange={(e) => setDept(e.target.value)} className="appearance-none rounded-lg border border-black/[0.09] bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-neutral-700 outline-none focus:border-neutral-400">
               <option value="all">All Depts</option>
-              <option value="Men">Men</option>
-              <option value="Women">Women</option>
-              <option value="Kids">Kids</option>
-              <option value="Unisex">Unisex</option>
+              {departments.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
             </select>
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
           </div>
@@ -279,15 +277,14 @@ function StockBadge({ status }: { status: 'ok' | 'low' | 'out' }) {
   return <span className={`rounded-md px-2 py-1 text-[9px] font-bold uppercase shadow-sm ${map[status]}`}>{label}</span>;
 }
 
-const DEFAULT_DEPARTMENTS = ['Kids', 'Mens'];
 const MAX_SUGGESTIONS = 4;
 
 function ProductForm({ state, onClose }: { state: { open: boolean; product: Product | null }; onClose: () => void }) {
   const editing = state.product;
-  const { products, categories = [] } = useAdminData();
+  const { products, categories = [], departments } = useAdminData();
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
-  const [department, setDepartment] = useState<'Men' | 'Women' | 'Kids' | 'Unisex'>('Unisex');
+  const [department, setDepartment] = useState<string>('');
   const [price, setPrice] = useState('');
   const [weight, setWeight] = useState('');
   const [stock, setStock] = useState('');
@@ -301,17 +298,12 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
   const [suggestionIds, setSuggestionIds] = useState<string[]>([]);
   const [suggestionQuery, setSuggestionQuery] = useState('');
 
-  const departments = useMemo(() => {
-    const fromProducts = products.map((p) => p.category).filter(Boolean);
-    return Array.from(new Set([...DEFAULT_DEPARTMENTS, ...fromProducts])).sort();
-  }, [products]);
-
   // load values when the modal opens for a product
   useEffect(() => {
     if (state.open) {
       setName(editing?.name ?? '');
       setCategory(editing?.category ?? '');
-      setDepartment(editing?.department ?? 'Unisex');
+      setDepartment(editing?.department ?? (departments.find(d => d.name === 'Unisex')?.name ?? departments[0]?.name ?? ''));
       setDescription(editing?.description ?? '');
       setPrice(editing ? String(editing.price) : '');
       setWeight(editing ? String(editing.weightGrams || '') : '');
@@ -340,9 +332,11 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
   const addVariant = () => setVariants([...variants, { size: '', stock: 0, weightGrams: '', isAvailable: true }]);
   const removeVariant = (idx: number) => setVariants(variants.filter((_, i) => i !== idx));
   const updateVariant = (idx: number, field: string, val: any) => {
-    const v = [...variants];
-    v[idx] = { ...v[idx], [field]: val };
-    setVariants(v);
+    setVariants(prev => {
+      const v = [...prev];
+      v[idx] = { ...v[idx], [field]: val };
+      return v;
+    });
   };
   const toggleVariantStatus = (idx: number) => {
     const v = [...variants];
@@ -494,11 +488,9 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
                   </select>
                 </Field>
                 <Field label="Department">
-                  <select className={inputCls} value={department} onChange={(e) => setDepartment(e.target.value as any)}>
-                    <option value="Men">Men</option>
-                    <option value="Women">Women</option>
-                    <option value="Kids">Kids</option>
-                    <option value="Unisex">Unisex</option>
+                  <select className={inputCls} value={department} onChange={(e) => setDepartment(e.target.value)}>
+                    {departments.length === 0 && <option value="">No departments configured</option>}
+                    {departments.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
                   </select>
                 </Field>
               </div>
@@ -541,24 +533,30 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
           
           <div className="space-y-2">
             {variants.length > 0 && (
-              <div className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr_100px] gap-3 px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-neutral-400">
+              <div className="grid grid-cols-[1.3fr_1.3fr_0.8fr_0.8fr_0.8fr_1.6fr_100px] gap-3 px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-neutral-400">
                 <span>Size</span>
                 <span>Color</span>
                 <span>Price (+₹)</span>
                 <span>Weight (g)</span>
                 <span>Stock</span>
+                <span>Age Range (opt.)</span>
                 <span className="text-center">Actions</span>
               </div>
             )}
-            
+
             {variants.map((v, i) => (
-              <div key={i} className={`grid grid-cols-[1.5fr_1.5fr_1fr_1fr_1fr_100px] gap-3 items-center bg-white p-2 rounded-xl border ${v.isAvailable === false ? 'border-neutral-200 opacity-50 grayscale' : 'border-black/[0.08] shadow-sm'} transition-all`}>
+              <div key={i} className={`grid grid-cols-[1.3fr_1.3fr_0.8fr_0.8fr_0.8fr_1.6fr_100px] gap-3 items-center bg-white p-2 rounded-xl border ${v.isAvailable === false ? 'border-neutral-200 opacity-50 grayscale' : 'border-black/[0.08] shadow-sm'} transition-all`}>
                 <input className={`${inputCls} !shadow-none`} placeholder="e.g. M" value={v.size} onChange={e => updateVariant(i, 'size', e.target.value)} disabled={v.isAvailable === false} />
                 <input className={`${inputCls} !shadow-none`} placeholder="e.g. Blue" value={v.colorName || ''} onChange={e => updateVariant(i, 'colorName', e.target.value)} disabled={v.isAvailable === false} />
                 <input className={`${inputCls} !shadow-none font-mono text-xs`} placeholder="Base" type="number" value={v.price || ''} onChange={e => updateVariant(i, 'price', Number(e.target.value) || undefined)} disabled={v.isAvailable === false} />
                 <input className={`${inputCls} !shadow-none font-mono text-xs`} placeholder="Base" type="number" value={v.weightGrams || ''} onChange={e => updateVariant(i, 'weightGrams', Number(e.target.value) || undefined)} disabled={v.isAvailable === false} />
                 <input className={`${inputCls} !shadow-none font-mono text-xs`} placeholder="0" type="number" value={v.stock || ''} onChange={e => updateVariant(i, 'stock', Number(e.target.value) || 0)} disabled={v.isAvailable === false} />
-                
+                <AgeRangeInput
+                  minMonths={v.ageMinMonths}
+                  maxMonths={v.ageMaxMonths}
+                  onChange={(min, max) => { updateVariant(i, 'ageMinMonths', min); updateVariant(i, 'ageMaxMonths', max); }}
+                />
+
                 <div className="flex items-center justify-center gap-1.5">
                   <button 
                     type="button" 
@@ -590,7 +588,22 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
               </div>
             )}
           </div>
-          
+
+          {(() => {
+            const mins = variants.map(v => v.ageMinMonths).filter((m): m is number => m != null);
+            const maxes = variants.map(v => v.ageMaxMonths).filter((m): m is number => m != null);
+            if (mins.length === 0 && maxes.length === 0) return null;
+            const resolved = formatAgeRange(
+              mins.length ? Math.min(...mins) : null,
+              maxes.length ? Math.max(...maxes) : null,
+            );
+            return (
+              <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                Resolved age range: <span className="text-neutral-900">{resolved}</span> — computed from the rows above, saved automatically.
+              </p>
+            );
+          })()}
+
           <div className="mt-8 pt-4 border-t border-black/[0.06] flex justify-end">
             <button disabled={uploading} onClick={save} className="w-full sm:w-auto px-10 rounded-xl bg-neutral-900 py-3.5 text-sm font-extrabold tracking-wide text-white shadow-lg shadow-black/10 transition-all hover:bg-neutral-800 hover:shadow-xl active:scale-[0.98] disabled:opacity-50">
               {uploading ? 'Uploading...' : editing ? 'Save Changes' : 'Add to Catalog'}
