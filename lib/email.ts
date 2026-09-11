@@ -4,21 +4,30 @@ import { adminSupabase } from './supabase/admin';
 // Initialize Resend with the API key from environment variables (fallback for build time)
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build');
 
+// The "from" address must belong to a domain verified in Resend. Configurable via
+// RESEND_FROM_EMAIL so it can be changed (e.g. to onboarding@resend.dev for testing,
+// or a different verified domain) without a code change.
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'orders@mail.shalistone.com';
+
 export async function sendOrderConfirmationEmail(orderId: string, toEmail: string) {
   if (!process.env.RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY is not set. Skipping email send.');
-    return;
+    console.warn('[Resend] RESEND_API_KEY is not set. Skipping email send.');
+    return { success: false, error: 'RESEND_API_KEY is not set' };
   }
 
-  const { data: order } = await adminSupabase
-    .from('orders')
-    .select('*, order_items(*)')
-    .eq('id', orderId)
-    .single();
+  try {
+    const { data: order, error: orderError } = await adminSupabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('id', orderId)
+      .single();
 
-  if (!order) return;
+    if (orderError || !order) {
+      console.error('[Resend] Order not found for email confirmation:', orderId, orderError);
+      return { success: false, error: orderError || 'Order not found' };
+    }
 
-  const htmlContent = `
+    const htmlContent = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
       <h2 style="text-align: center; text-transform: uppercase; letter-spacing: 2px;">Order Confirmed</h2>
       <p>Hi ${order.customer_name || 'there'},</p>
@@ -64,10 +73,25 @@ export async function sendOrderConfirmationEmail(orderId: string, toEmail: strin
     </div>
   `;
 
-  await resend.emails.send({
-    from: 'onboarding@resend.dev', // Must use this for unverified Resend domains!
-    to: toEmail,
-    subject: `Your Order ${order.id} is Confirmed!`,
-    html: htmlContent,
-  });
+    console.log(`[Resend] Sending confirmation email for order ${order.id} to ${toEmail} from ${FROM_EMAIL}...`);
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: toEmail,
+      subject: `Your Order ${order.id} is Confirmed!`,
+      html: htmlContent,
+    });
+
+    if (error) {
+      console.error('[Resend Error] Failed to send email:', JSON.stringify(error, null, 2));
+      return { success: false, error };
+    }
+
+    console.log('[Resend Success] Email sent successfully:', data);
+    return { success: true, data };
+  } catch (err: any) {
+    console.error('[Resend Exception] Unexpected error sending email:', err);
+    return { success: false, error: err };
+  }
 }
+
