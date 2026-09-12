@@ -7,7 +7,7 @@ import { CartDrawer } from '../ui/CartDrawer';
 const LINKS = [
   { label: 'Home', href: '/' },
   { label: 'Products', href: '/products' },
-  { label: 'New Arrivals', href: '/products' },
+  { label: 'New Arrivals', href: '/new-arrivals' },
 ];
 
 export const Navbar = () => {

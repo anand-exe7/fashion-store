@@ -62,11 +62,13 @@ export default function Inventory() {
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState('all');
   const [dept, setDept] = useState<string>('all');
-  const [status, setStatus] = useState<'all' | 'low' | 'out'>('all');
+  const [status, setStatus] = useState<'all' | 'new' | 'low' | 'out'>('all');
   const [sort, setSort] = useState<'name' | 'stock-asc' | 'stock-desc' | 'price'>('name');
   const [alertOpen, setAlertOpen] = useState(false);
   const [form, setForm] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
   const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const newArrivalsCount = useMemo(() => products.filter((p) => p.isNew).length, [products]);
 
   const attention = useMemo(() => {
     const alerts: { product: Product, variant: any }[] = [];
@@ -97,11 +99,17 @@ export default function Inventory() {
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = products.filter(
-      (p) =>
-        (cat === 'all' || p.category === cat) &&
-        (dept === 'all' || p.department === dept || (!p.department && dept === 'Unisex')) &&
-        (status === 'all' || statusOf(p) === status) &&
-        (!q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)),
+      (p) => {
+        const catMatch = cat === 'all' ? true : cat === 'new-arrivals' ? !!p.isNew : p.category === cat;
+        const deptMatch = dept === 'all' || p.department === dept || (!p.department && dept === 'Unisex');
+        const statusMatch = status === 'all' 
+          ? true 
+          : status === 'new' 
+            ? !!p.isNew 
+            : statusOf(p) === status;
+        const queryMatch = !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
+        return catMatch && deptMatch && statusMatch && queryMatch;
+      }
     );
     return [...filtered].sort((a, b) => {
       if (sort === 'stock-asc') return a.stock - b.stock;
@@ -141,14 +149,40 @@ export default function Inventory() {
 
       <Card className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-2">
-          {(['all', 'low', 'out'] as const).map((s) => (
-            <button key={s} onClick={() => setStatus(s)} className={`rounded-full px-3.5 py-1.5 text-xs font-bold capitalize transition-colors ${status === s ? 'bg-neutral-900 text-white' : 'bg-black/[0.04] text-neutral-600 hover:bg-black/[0.07]'}`}>
-              {s === 'all' ? 'All' : s === 'low' ? 'Low Stock' : 'Out of Stock'}
-            </button>
-          ))}
+          <button 
+            onClick={() => setStatus('all')} 
+            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${status === 'all' ? 'bg-neutral-900 text-white' : 'bg-black/[0.04] text-neutral-600 hover:bg-black/[0.07]'}`}
+          >
+            All
+          </button>
+          <button 
+            onClick={() => setStatus('new')} 
+            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
+              status === 'new' 
+                ? 'bg-amber-400 text-black shadow-xs ring-1 ring-amber-500' 
+                : 'bg-amber-50 text-amber-900 border border-amber-200/80 hover:bg-amber-100'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-700" />
+            <span>New Arrivals ({newArrivalsCount})</span>
+          </button>
+          <button 
+            onClick={() => setStatus('low')} 
+            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${status === 'low' ? 'bg-neutral-900 text-white' : 'bg-black/[0.04] text-neutral-600 hover:bg-black/[0.07]'}`}
+          >
+            Low Stock
+          </button>
+          <button 
+            onClick={() => setStatus('out')} 
+            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${status === 'out' ? 'bg-neutral-900 text-white' : 'bg-black/[0.04] text-neutral-600 hover:bg-black/[0.07]'}`}
+          >
+            Out of Stock
+          </button>
           <div className="relative">
             <select value={cat} onChange={(e) => setCat(e.target.value)} className="appearance-none rounded-lg border border-black/[0.09] bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-neutral-700 outline-none focus:border-neutral-400">
-              {categories.map((c) => <option key={c} value={c}>{c === 'all' ? 'All Categories' : c}</option>)}
+              <option value="all">All Categories</option>
+              <option value="new-arrivals">✨ New Arrivals ({newArrivalsCount})</option>
+              {categories.filter(c => c !== 'all').map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
           </div>
@@ -186,7 +220,15 @@ export default function Inventory() {
               <div key={p.id} className={`overflow-hidden rounded-2xl border ${cardCls}`}>
                 <div className="relative aspect-[3/4] w-full overflow-hidden bg-black/[0.04]">
                   <ProductImg product={p} className="h-full w-full" />
-                  <span className="absolute left-3 top-3"><StockBadge status={st} /></span>
+                  <div className="absolute left-3 top-3 flex flex-col gap-1 z-10">
+                    <StockBadge status={st} />
+                    {p.isNew && (
+                      <span className="rounded-md bg-neutral-900/90 text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1">
+                        <Sparkles className="h-2.5 w-2.5 text-amber-300" />
+                        New
+                      </span>
+                    )}
+                  </div>
                   <div className="absolute right-3 top-3 flex gap-1.5">
                     <button onClick={() => setForm({ open: true, product: p })} className="grid h-8 w-8 place-items-center rounded-lg bg-white/90 text-neutral-700 shadow-sm hover:text-black" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
                     <button onClick={() => setConfirmId(p.id)} className="grid h-8 w-8 place-items-center rounded-lg bg-white/90 text-red-500 shadow-sm hover:bg-white" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
