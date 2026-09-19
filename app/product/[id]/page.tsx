@@ -20,6 +20,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const [quantity, setQuantity] = useState(1);
   const [activeAccordion, setActiveAccordion] = useState<string | null>('details');
   const [related, setRelated] = useState<Product[]>([]);
+  const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -88,7 +89,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     );
   }
 
-  const title = product.name.toUpperCase();
+  const title = (product.name || 'Untitled Product').toUpperCase();
   const letterVariants = { hidden: { opacity: 0, y: 50 }, visible: { opacity: 1, y: 0 } };
 
   const currentVariant = product.variants?.find(v => (v.size || 'Default') === selectedSize && (v.colorName || 'Default') === selectedColor);
@@ -165,8 +166,9 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       <Navbar />
       <main ref={containerRef} className="pt-24 md:pt-32 pb-16 md:pb-24 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12">
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-16">
-          <div className="w-full lg:w-[55%] flex flex-col-reverse md:flex-row gap-4 h-[60vh] md:h-[75vh] lg:sticky lg:top-32">
-            <div className="flex md:flex-col gap-4 overflow-x-auto md:overflow-visible w-full md:w-24 flex-shrink-0 hide-scrollbar z-10">
+          <div className="w-full lg:w-[55%] flex flex-col gap-12">
+            <div className="flex flex-col-reverse md:flex-row gap-4">
+              <div className="flex md:flex-col gap-4 overflow-x-auto md:overflow-visible w-full md:w-24 flex-shrink-0 hide-scrollbar z-10">
               {images.map((img, idx) => (
                 <button 
                   key={idx} 
@@ -187,7 +189,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
               ))}
             </div>
             
-            <div className="relative w-full h-full bg-white/40 rounded-2xl overflow-hidden border border-black/5 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
+            <div className="relative w-full aspect-[3/4] bg-white/40 rounded-2xl overflow-hidden border border-black/5 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
               {images.length > 0 ? (
                 <motion.img 
                   key={activeImage}
@@ -205,8 +207,9 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
               )}
             </div>
           </div>
+        </div>
 
-          <div className="w-full lg:w-[45%] relative">
+        <div className="w-full lg:w-[45%] relative">
             <div className="sticky top-32 flex flex-col pb-12">
               <motion.div initial="hidden" animate="visible" transition={{ staggerChildren: 0.04, delayChildren: 0.2 }} className="mb-4 overflow-hidden flex flex-wrap">
                 {title.split(" ").map((word, i) => (
@@ -222,7 +225,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
               
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}>
                 <div className="flex items-center gap-3 mb-8">
-                  <p className="text-4xl md:text-5xl font-bold text-emerald-600 tracking-tighter">₹{product.price.toLocaleString()}</p>
+                  <p className="text-4xl md:text-5xl font-bold text-emerald-600 tracking-tighter">₹{(product.price || 0).toLocaleString()}</p>
                   {productAgeRange && (
                     <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 border border-black/10 rounded-full px-3 py-1.5">
                       Ages {productAgeRange}
@@ -327,8 +330,8 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 
                 <div className="border-t border-black/10 divide-y divide-black/10 w-full max-w-sm">
                   {[
-                    { id: 'details', title: 'Product Details', content: product.details || product.description || 'Premium materials and craftsmanship.' },
-                    { id: 'benefits', title: 'Benefits', content: product.benefits?.join(', ') || 'High quality design.' }
+                    { id: 'details', title: 'Product Details', content: <p className="pt-4 text-xs text-neutral-500 leading-relaxed whitespace-pre-wrap">{product.details || product.description || 'Premium materials and craftsmanship.'}</p> },
+                    { id: 'benefits', title: 'Benefits', content: <p className="pt-4 text-xs text-neutral-500 leading-relaxed whitespace-pre-wrap">{product.benefits?.join(', ') || 'High quality design.'}</p> }
                   ].map(item => (
                     <div key={item.id} className="py-5">
                       <button onClick={() => setActiveAccordion(activeAccordion === item.id ? null : item.id)} className="flex justify-between items-center w-full text-left group">
@@ -336,7 +339,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                         <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform duration-300 ${activeAccordion === item.id ? 'rotate-180 text-black' : ''}`} />
                       </button>
                       <motion.div initial={false} animate={{ height: activeAccordion === item.id ? 'auto' : 0, opacity: activeAccordion === item.id ? 1 : 0 }} className="overflow-hidden">
-                        <p className="pt-4 text-xs text-neutral-500 leading-relaxed whitespace-pre-wrap">{item.content}</p>
+                        {item.content}
                       </motion.div>
                     </div>
                   ))}
@@ -344,6 +347,98 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
               </motion.div>
             </div>
           </div>
+        </div>
+
+        {/* Size Chart Section (Full Width Below) */}
+        <div className="w-full mt-8 lg:mt-12 bg-white/40 rounded-2xl border border-black/5 shadow-[0_20px_50px_rgba(0,0,0,0.05)] overflow-hidden">
+          <button 
+            onClick={() => setIsSizeGuideOpen(!isSizeGuideOpen)}
+            className="w-full p-6 md:p-8 flex justify-between items-center bg-white/60 hover:bg-white/80 transition-colors"
+          >
+            <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-900">Size Guide</h3>
+            <ChevronDown className={`w-5 h-5 text-neutral-500 transition-transform duration-300 ${isSizeGuideOpen ? 'rotate-180 text-black' : ''}`} />
+          </button>
+          
+          <motion.div 
+            initial={false} 
+            animate={{ height: isSizeGuideOpen ? 'auto' : 0, opacity: isSizeGuideOpen ? 1 : 0 }} 
+            className="overflow-hidden"
+          >
+            <div className="p-6 md:p-8 pt-0 flex flex-col sm:flex-row gap-6 sm:gap-8">
+              <div className="flex-1 space-y-3">
+                <h5 className="text-[10px] font-bold uppercase tracking-widest text-neutral-900">Shirt / T-Shirt</h5>
+                  <div className="overflow-x-auto rounded-md border border-black/10">
+                    <table className="w-full text-center text-[10px] whitespace-nowrap">
+                      <thead className="bg-[#EADFCD] text-black border-b border-black/10">
+                        <tr>
+                          <th className="px-3 py-2.5 font-bold uppercase tracking-widest border-r border-black/10">Age (Size)</th>
+                          <th className="px-3 py-2.5 font-bold uppercase tracking-widest border-r border-black/10">Chest</th>
+                          <th className="px-3 py-2.5 font-bold uppercase tracking-widest">Height</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-black/10">
+                        {[
+                          ['0-3 Months', '20cm', '28cm'],
+                          ['3-6 Months', '22cm', '31cm'],
+                          ['6-12 Months', '24cm', '34cm'],
+                          ['1-2 Years', '25.5cm', '38cm'],
+                          ['2-3 Years', '26.5cm', '43cm'],
+                          ['3-4 Years', '28cm', '45.5cm'],
+                          ['5-6 Years', '30cm', '50cm'],
+                          ['7-8 Years', '32cm', '52cm'],
+                          ['9-10 Years', '34cm', '59cm'],
+                          ['11-12 Years', '36cm', '61cm'],
+                          ['13-14 Years', '38cm', '64cm'],
+                          ['15-16 Years', '40cm', '66cm']
+                        ].map((row, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-[#FCFAF6]' : 'bg-[#F2ECE0]'}>
+                            <td className="px-3 py-2 border-r border-black/10 text-neutral-700">{row[0]}</td>
+                            <td className="px-3 py-2 border-r border-black/10 text-neutral-700">{row[1]}</td>
+                            <td className="px-3 py-2 text-neutral-700">{row[2]}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex-1 space-y-3">
+                  <h5 className="text-[10px] font-bold uppercase tracking-widest text-neutral-900">Pant - Waist & Height</h5>
+                  <div className="overflow-x-auto rounded-md border border-black/10">
+                    <table className="w-full text-center text-[10px] whitespace-nowrap">
+                      <thead className="bg-[#EADFCD] text-black border-b border-black/10">
+                        <tr>
+                          <th className="px-3 py-2.5 font-bold uppercase tracking-widest border-r border-black/10">Age (Size)</th>
+                          <th className="px-3 py-2.5 font-bold uppercase tracking-widest border-r border-black/10">Pant - Waist</th>
+                          <th className="px-3 py-2.5 font-bold uppercase tracking-widest">Height</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-black/10">
+                        {[
+                          ['0-6 Months', '20cm', '42cm'],
+                          ['6-12 Months', '22cm', '46cm'],
+                          ['1-2 Years', '24cm', '50cm'],
+                          ['2-3 Years', '26cm', '56cm'],
+                          ['4-5 Years', '28cm', '60cm'],
+                          ['6-7 Years', '30cm', '66cm'],
+                          ['8-9 Years', '32cm', '70cm'],
+                          ['10-11 Years', '34cm', '76cm'],
+                          ['12-13 Years', '36cm', '86cm'],
+                          ['14-15 Years', '38cm', '94cm'],
+                          ['16 Years', '40cm', '96-100cm']
+                        ].map((row, i) => (
+                          <tr key={i} className={i % 2 === 0 ? 'bg-[#FCFAF6]' : 'bg-[#F2ECE0]'}>
+                            <td className="px-3 py-2 border-r border-black/10 text-neutral-700">{row[0]}</td>
+                            <td className="px-3 py-2 border-r border-black/10 text-neutral-700">{row[1]}</td>
+                            <td className="px-3 py-2 text-neutral-700">{row[2]}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+            </div>
+          </motion.div>
         </div>
       </main>
 
@@ -371,7 +466,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                   </div>
                 </div>
                 <h3 className="text-sm font-bold tracking-tight">{prod.name}</h3>
-                <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-2">₹{prod.price.toLocaleString()}</p>
+                <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-2">₹{(prod.price || 0).toLocaleString()}</p>
               </motion.div>
             ))}
           </div>

@@ -9,25 +9,25 @@ const DEFAULT_CATEGORIES = [
       title: "Infants (0–2)",
       desc: "Soft onesies & rompers",
       bgColor: "bg-[#D5EAD8]",
-      image: "https://images.unsplash.com/photo-1519689680058-324335c77eba?q=80&w=800&auto=format&fit=crop"
+      image: "/child2.png"
     },
     {
       title: "Toddlers (3–5)",
       desc: "Playful sets & combos",
       bgColor: "bg-[#FCD3E1]",
-      image: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?q=80&w=800&auto=format&fit=crop"
+      image: "/child3.png"
     },
     {
       title: "Kids (6–12)",
       desc: "Cool & comfy everyday",
       bgColor: "bg-[#D3EAFC]",
-      image: "https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?q=80&w=800&auto=format&fit=crop"
+      image: "/child-cutout.png"
     },
     {
       title: "Teens (13–16)",
       desc: "Trendy fits, their style",
       bgColor: "bg-[#FCEFD3]",
-      image: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?q=80&w=800&auto=format&fit=crop"
+      image: "/hero-figure-2.png"
     }
   ];
 

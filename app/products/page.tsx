@@ -26,17 +26,37 @@ import {
 } from '@/lib/db';
 
 const CATEGORY_DEFAULT_IMAGES: Record<string, string> = {
-  All: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=600&auto=format&fit=crop',
-  Hoodies: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=600&auto=format&fit=crop',
-  Outerwear: 'https://images.unsplash.com/photo-1576871337622-98d48d1cf531?q=80&w=600&auto=format&fit=crop',
-  Knitwear: 'https://images.unsplash.com/photo-1622519407650-3df9883f76a5?q=80&w=600&auto=format&fit=crop',
-  Bottoms: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?q=80&w=600&auto=format&fit=crop',
-  Shirts: 'https://images.unsplash.com/photo-1603252109303-2751441dd157?q=80&w=600&auto=format&fit=crop',
-  Tops: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=600&auto=format&fit=crop',
-  Accessories: 'https://images.unsplash.com/photo-1544816155-12df9643f363?q=80&w=600&auto=format&fit=crop',
-  Dresses: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?q=80&w=600&auto=format&fit=crop',
-  Footwear: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=600&auto=format&fit=crop',
+  All: '/categories/cat_1.jpg',
+  'Over Sized T-Shirts': '/categories/cat_1.jpg',
+  Hoodies: '/categories/cat_2.jpg',
+  'Baggy Pants': '/categories/cat_3.jpg',
+  'Sweat Pants': '/categories/cat_4.jpg',
+  'Party Wear Shirts': '/categories/cat_5.jpg',
+  'Casual Shirts': '/categories/cat_6.jpg',
+  'Formal Pants': '/categories/cat_7.jpg',
+  'Casual T-Shirts': '/categories/cat_8.jpg',
+  'Cargo Pants': '/categories/cat_9.jpg',
+  Shorts: '/categories/cat_10.jpg',
+  'Sweat T-Shirts': '/categories/cat_11.jpg',
+  Jackets: '/categories/cat_12.jpg',
+  Accessories: '/categories/cat_13.jpg',
 };
+
+const HARDCODED_MENS_CATEGORIES = [
+  "Over Sized T-Shirts",
+  "Hoodies",
+  "Baggy Pants",
+  "Sweat Pants",
+  "Party Wear Shirts",
+  "Casual Shirts",
+  "Formal Pants",
+  "Casual T-Shirts",
+  "Cargo Pants",
+  "Shorts",
+  "Sweat T-Shirts",
+  "Jackets",
+  "Accessories"
+];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -93,8 +113,7 @@ function ProductsContent() {
     ]).then(([prodData, catData, deptData]) => {
       setProducts(prodData);
 
-      const activeCats = catData.filter(c => c.isActive).map(c => c.name);
-      setCategories(['All', ...activeCats]);
+      setCategories(['All', ...HARDCODED_MENS_CATEGORIES]);
 
       setDepartments(deptData.filter(d => d.isActive));
       setLoading(false);
@@ -103,8 +122,7 @@ function ProductsContent() {
       const prodData = await fetchProducts().catch(() => []);
       setProducts(prodData);
 
-      const allCats = Array.from(new Set(prodData.map(p => p.category)));
-      setCategories(['All', ...allCats]);
+      setCategories(['All', ...HARDCODED_MENS_CATEGORIES]);
       setDepartments([
         { name: 'Men', isActive: true }, 
         { name: 'Women', isActive: true },
@@ -178,9 +196,12 @@ function ProductsContent() {
 
   // Dynamic image lookup for category bubbles
   const getCategoryPhoto = (catName: string): string => {
-    if (catName === 'All') {
-      const firstHeroImg = products[0]?.images?.find(i => i.isPrimary)?.url || products[0]?.images?.[0]?.url;
-      return firstHeroImg || CATEGORY_DEFAULT_IMAGES.All;
+    // Force use of the explicitly defined catalogue image if one exists
+    if (CATEGORY_DEFAULT_IMAGES[catName] && CATEGORY_DEFAULT_IMAGES[catName].startsWith('/categories/')) {
+      return CATEGORY_DEFAULT_IMAGES[catName];
+    }
+    if (catName === 'All' && CATEGORY_DEFAULT_IMAGES.All) {
+      return CATEGORY_DEFAULT_IMAGES.All;
     }
     const match = products.find(p => p.category?.toLowerCase() === catName.toLowerCase());
     const matchImg = match?.images?.find(i => i.isPrimary)?.url || match?.images?.[0]?.url || match?.image;
@@ -265,7 +286,7 @@ function ProductsContent() {
   return (
     <div className="min-h-screen bg-[#F5F2EB] text-neutral-900 font-sans selection:bg-black selection:text-white">
       <Navbar />
-      
+
       <main className="pt-24 sm:pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 md:px-12">
         
         {/* Header Title */}

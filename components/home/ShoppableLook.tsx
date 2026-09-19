@@ -4,12 +4,12 @@ import { RevealText } from '../ui/RevealText';
 
 const LOOKS = {
   left: {
-    src: 'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?q=80&w=900&auto=format&fit=crop',
+    src: '/child3.png',
     label: 'Collection 01',
     caption: 'Play-Ready Sets',
   },
   right: {
-    src: 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?q=80&w=900&auto=format&fit=crop',
+    src: '/child2.png',
     label: 'Collection 02',
     caption: 'Comfort First',
   },
