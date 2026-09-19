@@ -272,15 +272,15 @@ export async function addProduct(p: Product) {
     name: p.name,
     category: p.category,
     department: p.department,
+    description: p.description,
     price: p.price,
     weightGrams: p.weightGrams,
+    stock: p.stock,
     image: p.image,
     isNew: p.isNew,
     discountLabel: p.discountLabel || undefined,
     isAvailable: true
-  }, p.images, p.variants);
-  // Note: we can't easily insert default variant here using db.upsertProduct without changing db.ts, 
-  // but refreshing will pull any changes. For full fidelity we would insert a variant here.
+  }, p.images, p.variants || []);
   refreshAll();
 }
 

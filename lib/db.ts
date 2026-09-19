@@ -237,6 +237,7 @@ export const fetchProducts = async (): Promise<Product[]> => {
     department: p.department,
     ageMinMonths: p.age_min_months,
     ageMaxMonths: p.age_max_months,
+    weightGrams: p.weight_grams,
     stock: (variants || []).filter((v: any) => v.product_id === p.id).reduce((sum: number, v: any) => sum + (v.stock || 0), 0),
     isAvailable: p.is_available,
     images: (images || [])
@@ -294,6 +295,7 @@ export const fetchProductById = async (id: string): Promise<Product | null> => {
     department: p.department,
     ageMinMonths: p.age_min_months,
     ageMaxMonths: p.age_max_months,
+    weightGrams: p.weight_grams,
     stock: (variants || []).reduce((sum: number, v: any) => sum + (v.stock || 0), 0),
     isAvailable: p.is_available,
     images: (images || []).map((i: any) => ({
@@ -355,7 +357,7 @@ export const upsertProduct = async (product: Partial<Product>, images?: string[]
     );
   }
 
-  if (variants && variants.length > 0 && product.id) {
+  if (variants !== undefined && product.id) {
     // The 0002 migration adds age_min_months / age_max_months. Detect once per
     // page load whether the DB has those columns, so we don't try to write
     // them into an unmigrated schema — that used to leave the product with
@@ -365,14 +367,31 @@ export const upsertProduct = async (product: Partial<Product>, images?: string[]
       throw new Error('Age range set on a variant, but the age_groups migration (0002) has not been applied to this database. Run supabase/migrations/0002_age_groups.sql, then retry.');
     }
 
-    const rows = variants.map((v, i) => {
+    const effectiveVariants = variants.length > 0 ? variants : [{
+      size: 'Default',
+      colorName: null,
+      colorHex: null,
+      price: product.price ?? 0,
+      weightGrams: product.weightGrams ?? 0,
+      stock: product.stock ?? 0,
+      isAvailable: product.isAvailable !== false,
+    }];
+
+    const rows = effectiveVariants.map((v, i) => {
       const row: Record<string, unknown> = {
         product_id: product.id,
         size: v.size || 'Default',
         color_name: v.colorName || null,
-        price: v.price || null,
-        weight_grams: v.weightGrams || product.weightGrams || 0,
-        stock: v.stock || 0,
+        color_hex: v.colorHex || null,
+        price: (v.price !== undefined && v.price !== null && !isNaN(Number(v.price)))
+          ? Number(v.price)
+          : (Number(product.price) || 0),
+        weight_grams: (v.weightGrams !== undefined && v.weightGrams !== null && !isNaN(Number(v.weightGrams)))
+          ? Number(v.weightGrams)
+          : (Number(product.weightGrams) || 0),
+        stock: (v.stock !== undefined && v.stock !== null && !isNaN(Number(v.stock)))
+          ? Number(v.stock)
+          : 0,
         is_available: v.isAvailable !== false,
         sort_order: i,
       };

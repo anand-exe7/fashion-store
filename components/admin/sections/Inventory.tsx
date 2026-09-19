@@ -436,7 +436,19 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
     setUploading(true);
     
     try {
-      const validVariants = variants.filter(v => v.size.trim());
+      const validVariants = variants.filter(v => v.size && v.size.trim());
+
+      const seen = new Set<string>();
+      for (const v of validVariants) {
+        const key = `${v.size.trim().toLowerCase()}__${(v.colorName || '').trim().toLowerCase()}`;
+        if (seen.has(key)) {
+          showToast(`Duplicate variant: size "${v.size}"${v.colorName ? ` and color "${v.colorName}"` : ''} already exists.`);
+          setUploading(false);
+          return;
+        }
+        seen.add(key);
+      }
+
       const totalStock = validVariants.length > 0 
         ? validVariants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
         : (Number(stock) || 0);
@@ -454,7 +466,7 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
         discountLabel: discountLabel.trim() || null,
         image: images[0] || undefined,
         images: images.length > 0 ? images : undefined,
-        variants: validVariants.length > 0 ? validVariants : undefined,
+        variants: validVariants,
       };
       
       if (editing) {
@@ -470,7 +482,7 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
       onClose();
     } catch (e: any) {
       console.error(e);
-      showToast("An error occurred while saving.");
+      showToast(e?.message || "An error occurred while saving.");
     } finally {
       setUploading(false);
     }

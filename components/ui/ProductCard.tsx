@@ -46,7 +46,7 @@ export const ProductCard = ({ id, title, category, price, isNew, discount, image
          <motion.img
            whileHover={{ scale: 1.05 }}
            transition={{ duration: 0.7, ease: "easeOut" }}
-           src={image}
+           src={image || undefined}
            alt={title}
            className={`w-full h-full object-cover ${isOutOfStock ? 'opacity-40 grayscale-[0.5]' : ''}`}
          />
