@@ -24,10 +24,16 @@ export const Footer = () => {
         <div>
            <h4 className="font-semibold mb-8 text-lg">Company</h4>
            <ul className="space-y-4 text-sm text-neutral-400 font-medium">
-             {['About Us', 'Careers', 'Sustainability', 'Press', 'Contact'].map(link => (
+             {['About Us', 'Careers'].map(link => (
                 <li key={link}><a href="#" className="hover:text-white transition-colors">{link}</a></li>
              ))}
            </ul>
+           
+           <h4 className="font-semibold mt-8 mb-4 text-sm text-white">Visit Us</h4>
+           <address className="text-sm text-neutral-400 font-medium not-italic leading-relaxed">
+             No.69.1/2, 1st floor, 1st Main Rd, Ramachandrapuram,<br />
+             Bengaluru, Karnataka 560021
+           </address>
         </div>
         <div className="col-span-2 md:col-span-1">
            <h4 className="font-semibold mb-8 text-lg">Stay Connected</h4>

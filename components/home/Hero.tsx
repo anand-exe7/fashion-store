@@ -7,7 +7,7 @@ const HEADLINE_FONT = "'Arial Black', 'Arial Bold', 'Helvetica Neue', Gadget, sa
 
 // Single duo cutout (big brother + little one). The subject sits dead-centre in the
 // PNG with ~34% transparent margin each side, so plain centring lines it up correctly.
-const HERO_FIGURE = '/new_cutout_2.png';
+const HERO_FIGURE = '/bg_final.png';
 
 const NEXT_BG = '#F5F2EB';
 
@@ -177,7 +177,7 @@ export const Hero = () => {
         className="absolute bottom-0 left-1/2 z-20 -translate-x-1/2 pointer-events-none
           h-[46vh] w-auto
           sm:h-[58vh]
-          md:left-[54%] md:h-[80vh]
+          md:h-[80vh]
           lg:h-[84vh]"
       >
         <motion.div style={{ x: figX, y: figY }} className="relative h-full w-auto will-change-transform">
@@ -196,9 +196,9 @@ export const Hero = () => {
       <motion.div
         style={{ x: headX, y: headScrollY, opacity: fade }}
         className="absolute z-[25] pointer-events-none
-          left-0 right-0 top-[8vh] px-[6vw] text-center
-          sm:top-[14vh]
-          md:left-[4vw] md:right-auto md:top-[18vh] md:max-w-[34vw] md:px-0 md:text-left"
+          left-0 right-0 top-[14vh] px-[6vw] text-center
+          sm:top-[16vh]
+          md:left-[4vw] md:right-auto md:top-[22vh] md:max-w-[34vw] md:px-0 md:text-left"
       >
         <h1
           className="uppercase text-[#141414]"

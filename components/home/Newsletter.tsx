@@ -27,8 +27,8 @@ export const Newsletter = () => {
                 <circle cx="12" cy="10" r="2.5" />
               </svg>
               <div className="text-sm font-bold leading-relaxed tracking-wide text-black">
-                123 FASHION AVENUE
-                <span className="block font-medium text-neutral-500">NEW YORK, NY 10012</span>
+                NO.69.1/2, 1ST FL, 1ST MAIN RD
+                <span className="block font-medium text-neutral-500">RAMACHANDRAPURAM, BENGALURU 560021</span>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -44,7 +44,7 @@ export const Newsletter = () => {
           </div>
 
           <a
-            href="https://www.google.com/maps/dir/?api=1&destination=Washington+Square+Park+New+York"
+            href="https://www.google.com/maps/dir/?api=1&destination=No.69.1%2F2%2C+1st+Main+Rd%2C+Ramachandrapuram%2C+Bengaluru%2C+Karnataka+560021"
             target="_blank"
             rel="noreferrer"
             className="group inline-flex w-fit items-center gap-2 rounded-full bg-black px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-neutral-800"
@@ -58,54 +58,20 @@ export const Newsletter = () => {
 
         {/* Right: brand-styled abstract map (no raw Google chrome to clash with the theme) */}
         <div className="relative h-[280px] w-full overflow-hidden sm:h-[360px] md:h-auto md:w-[62%] md:min-h-[520px]">
-          <svg
-            viewBox="0 0 600 520"
-            preserveAspectRatio="xMidYMid slice"
-            className="absolute inset-0 h-full w-full"
-            aria-hidden="true"
-          >
-            <rect width="600" height="520" fill="#EDE6D6" />
-            {/* park block */}
-            <rect x="60" y="70" width="200" height="170" rx="18" fill="#E1D8C2" />
-            <rect x="340" y="270" width="210" height="180" rx="18" fill="#E1D8C2" />
-            {/* streets */}
-            <g stroke="#D8CDB4" strokeWidth="10">
-              <line x1="0" y1="260" x2="600" y2="260" />
-              <line x1="0" y1="400" x2="600" y2="400" />
-              <line x1="300" y1="0" x2="300" y2="520" />
-              <line x1="150" y1="0" x2="150" y2="520" />
-              <line x1="450" y1="0" x2="450" y2="520" />
-            </g>
-            <g stroke="#D8CDB4" strokeWidth="4">
-              <line x1="0" y1="130" x2="600" y2="130" />
-              <line x1="0" y1="335" x2="600" y2="335" />
-              <line x1="75" y1="0" x2="75" y2="520" />
-              <line x1="225" y1="0" x2="225" y2="520" />
-              <line x1="375" y1="0" x2="375" y2="520" />
-              <line x1="525" y1="0" x2="525" y2="520" />
-            </g>
-            {/* dashed route to the pin */}
-            <path d="M60 400 Q 220 380 300 260" fill="none" stroke="#141414" strokeWidth="2.5" strokeDasharray="2 8" strokeLinecap="round" opacity="0.35" />
-          </svg>
-
-          {/* soft edge so the graphic reads as a framed card, not a flat cutout */}
-          <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" />
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/10 to-transparent" />
-
-          {/* Pin marker */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%+10px)]">
-            <span className="grid h-11 w-11 place-items-center rounded-full bg-black text-white shadow-[0_10px_25px_rgba(0,0,0,0.3)] ring-4 ring-white/70">
-              <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z" />
-                <circle cx="12" cy="10" r="2.5" />
-              </svg>
-            </span>
-            <span className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 bg-black" />
-          </div>
+          <iframe
+            width="100%"
+            height="100%"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ border: 0 }}
+            loading="lazy"
+            allowFullScreen
+            referrerPolicy="no-referrer-when-downgrade"
+            src="https://maps.google.com/maps?q=No.69.1/2,+1st+Main+Rd,+Ramachandrapuram,+Bengaluru,+Karnataka+560021&t=&z=15&ie=UTF8&iwloc=&output=embed"
+          ></iframe>
 
           {/* Open in Google Maps — real navigation, kept subtle */}
           <a
-            href="https://www.google.com/maps/dir/?api=1&destination=Washington+Square+Park+New+York"
+            href="https://www.google.com/maps/dir/?api=1&destination=No.69.1%2F2%2C+1st+Main+Rd%2C+Ramachandrapuram%2C+Bengaluru%2C+Karnataka+560021"
             target="_blank"
             rel="noreferrer"
             className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-black/10 bg-white/90 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-neutral-700 shadow-sm transition-colors hover:bg-white sm:right-5 sm:top-5"
