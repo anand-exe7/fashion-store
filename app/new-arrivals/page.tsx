@@ -154,22 +154,22 @@ function NewArrivalsContent() {
     <div className="min-h-screen bg-[#F5F2EB] text-neutral-900 font-sans selection:bg-black selection:text-white">
       <Navbar />
       
-      <main className="pt-24 sm:pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 md:px-12">
+      <main className="pt-20 sm:pt-28 md:pt-32 pb-20 sm:pb-24 max-w-7xl mx-auto px-3 sm:px-6 md:px-12">
         
         {/* Editorial Header */}
-        <div className="flex flex-col items-center text-center mb-8 sm:mb-12">
+        <div className="flex flex-col items-center text-center mb-6 sm:mb-12">
           <motion.div 
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-black/5 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.25em] text-neutral-700 mb-2.5"
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 border border-black/5 text-[10px] sm:text-[11px] uppercase tracking-[0.25em] font-bold text-neutral-600 mb-2 shadow-2xs"
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Latest Drops · {newArrivals.length} Featured Pieces</span>
+            <Sparkles className="w-3 h-3 text-neutral-800" />
+            <span>Limited Drops & Fresh Cuts</span>
           </motion.div>
           <motion.h1 
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tighter uppercase leading-[0.88] text-neutral-900 mb-2.5"
+            className="text-3xl sm:text-6xl md:text-7xl font-bold tracking-tighter uppercase leading-[0.9] text-neutral-900 mb-2"
           >
             New <span className="font-serif italic lowercase font-normal text-black">Arrivals</span>
           </motion.h1>
@@ -184,49 +184,51 @@ function NewArrivalsContent() {
         </div>
 
         {/* Clean Sticky Header (Zero Category / Sorting Clutter) */}
-        <div className="sticky top-16 z-30 bg-[#F5F2EB]/95 backdrop-blur-md pt-2.5 pb-3 mb-8 border-b border-black/[0.06] transition-all">
-          <div className="flex items-center justify-between gap-3">
+        <div className="sticky top-14 sm:top-16 z-30 bg-[#F5F2EB]/95 backdrop-blur-md pt-2 pb-2.5 sm:py-3 mb-6 sm:mb-8 border-b border-black/[0.06] transition-all">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
             
-            {/* Department Segmented Tabs */}
-            <div className="inline-flex items-center gap-1 p-1 bg-black/[0.04] rounded-full max-w-full overflow-x-auto no-scrollbar">
-              {['All', ...departments.map(d => d.name)].map(name => {
-                const isSelected = departmentFilter === name;
-                const deptObj = departments.find(d => d.name === name);
-                const ageLabel = deptObj ? formatAgeRange(deptObj.ageMinMonths, deptObj.ageMaxMonths) : '';
+            {/* Department Segmented Tabs with smooth touch scrolling */}
+            <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar py-0.5 touch-pan-x" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="inline-flex items-center gap-1 p-1 bg-black/[0.04] rounded-full">
+                {['All', ...departments.map(d => d.name)].map(name => {
+                  const isSelected = departmentFilter === name;
+                  const deptObj = departments.find(d => d.name === name);
+                  const ageLabel = deptObj ? formatAgeRange(deptObj.ageMinMonths, deptObj.ageMaxMonths) : '';
 
-                return (
-                  <button
-                    key={name}
-                    onClick={() => handleDepartmentChange(name)}
-                    className={`relative px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
-                      isSelected 
-                        ? 'text-white' 
-                        : 'text-neutral-500 hover:text-black'
-                    }`}
-                  >
-                    {isSelected && (
-                      <motion.div
-                        layoutId="activeNewArrivalDeptTab"
-                        className="absolute inset-0 bg-neutral-900 rounded-full shadow-sm"
-                        transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                      />
-                    )}
-                    <span className="relative z-10">{name}</span>
-                    {ageLabel && (
-                      <span className={`relative z-10 ml-1 text-[8px] sm:text-[9px] px-1 py-0.2 rounded-md ${
-                        isSelected ? 'bg-white/20 text-white' : 'bg-black/5 text-neutral-400'
-                      }`}>
-                        {ageLabel}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={name}
+                      onClick={() => handleDepartmentChange(name)}
+                      className={`relative px-3 sm:px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                        isSelected 
+                          ? 'text-white' 
+                          : 'text-neutral-500 hover:text-black'
+                      }`}
+                    >
+                      {isSelected && (
+                        <motion.div
+                          layoutId="activeNewArrivalDeptTab"
+                          className="absolute inset-0 bg-neutral-900 rounded-full shadow-sm"
+                          transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                        />
+                      )}
+                      <span className="relative z-10">{name}</span>
+                      {ageLabel && (
+                        <span className={`relative z-10 ml-1 text-[8px] sm:text-[9px] px-1 py-0.2 rounded-md ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-black/5 text-neutral-400'
+                        }`}>
+                          {ageLabel}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Right: Piece Count, Search & Reset */}
-            <div className="flex items-center gap-2 sm:gap-3 ml-auto shrink-0">
-              <span className="text-xs uppercase tracking-wider font-semibold text-neutral-400">
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+              <span className="hidden sm:inline text-xs uppercase tracking-wider font-semibold text-neutral-400">
                 {filteredNewArrivals.length} {filteredNewArrivals.length === 1 ? 'Piece' : 'Pieces'}
               </span>
 
@@ -240,23 +242,23 @@ function NewArrivalsContent() {
                       value={searchQuery}
                       onChange={(e) => handleSearchChange(e.target.value)}
                       placeholder="Search drops..."
-                      className="w-36 sm:w-52 pl-7 pr-7 py-1.5 bg-white border border-black/15 rounded-full text-xs text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-black transition-all shadow-2xs"
+                      className="w-28 sm:w-52 pl-6 pr-6 py-1.5 bg-white border border-black/15 rounded-full text-xs text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-black transition-all shadow-2xs"
                     />
-                    <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 pointer-events-none" />
+                    <Search className="w-3 h-3 text-neutral-400 absolute left-2 pointer-events-none" />
                     <button
                       onClick={() => {
                         handleSearchChange('');
                         setSearchOpen(false);
                       }}
-                      className="absolute right-2 text-neutral-400 hover:text-black p-0.5"
+                      className="absolute right-2 text-neutral-400 hover:text-black p-0.5 cursor-pointer"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="w-2.5 h-2.5" />
                     </button>
                   </div>
                 ) : (
                   <button
                     onClick={() => setSearchOpen(true)}
-                    className="p-2 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider text-neutral-600 hover:text-black bg-white/80 hover:bg-white border border-black/10 transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="p-1.5 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider text-neutral-600 hover:text-black bg-white/80 hover:bg-white border border-black/10 transition-all flex items-center gap-1.5 cursor-pointer"
                     aria-label="Open search"
                   >
                     <Search className="w-3.5 h-3.5" />
@@ -269,7 +271,8 @@ function NewArrivalsContent() {
               {hasActiveFilters && (
                 <button
                   onClick={handleResetFilters}
-                  className="flex items-center gap-1 text-xs uppercase tracking-wider font-semibold text-neutral-600 hover:text-black hover:underline px-2 py-1 cursor-pointer"
+                  className="flex items-center gap-1 text-xs uppercase tracking-wider font-semibold text-neutral-600 hover:text-black hover:underline px-1.5 py-1 cursor-pointer"
+                  aria-label="Reset filters"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span className="hidden sm:inline">Reset</span>

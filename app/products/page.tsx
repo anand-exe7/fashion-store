@@ -3,6 +3,7 @@
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { ProductCard } from '@/components/ui/ProductCard';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { useSearchParams, usePathname } from 'next/navigation';
@@ -26,7 +27,7 @@ import {
 } from '@/lib/db';
 
 const CATEGORY_DEFAULT_IMAGES: Record<string, string> = {
-  All: '/categories/cat_1.jpg',
+  All: '/categories/cat_all.jpg',
   'Over Sized T-Shirts': '/categories/cat_1.jpg',
   Hoodies: '/categories/cat_2.jpg',
   'Baggy Pants': '/categories/cat_3.jpg',
@@ -194,6 +195,61 @@ function ProductsContent() {
     syncQueryParams('All', 'All', '', 'featured');
   };
 
+// Intelligent category matching between display categories and products
+function productMatchesCategory(p: Product, catName: string): boolean {
+  if (!catName || catName === 'All') return true;
+  const c = catName.toLowerCase().trim();
+  const pCat = (p.category || '').toLowerCase().trim();
+  const pName = (p.name || '').toLowerCase().trim();
+  const pDesc = (p.description || '').toLowerCase().trim();
+
+  // Exact category match
+  if (pCat === c) return true;
+
+  // Curated category & substyle mappings
+  if (c === 'over sized t-shirts') {
+    return pCat === 't-shirts' && (pName.includes('oversize') || pDesc.includes('oversize'));
+  }
+  if (c === 'casual t-shirts') {
+    return pCat === 't-shirts' && !pName.includes('oversize');
+  }
+  if (c === 'hoodies') {
+    return pName.includes('hoodie') || pName.includes('hooded') || pCat.includes('hoodie');
+  }
+  if (c === 'party wear shirts') {
+    return pCat === 'shirts' && (pName.includes('party') || pName.includes('satin') || pDesc.includes('party'));
+  }
+  if (c === 'casual shirts') {
+    return pCat === 'shirts' && !pName.includes('party') && !pName.includes('satin');
+  }
+  if (c === 'baggy pants') {
+    return pName.includes('baggy') && (pCat.includes('pant') || pCat.includes('jean') || pName.includes('pant') || pName.includes('denim'));
+  }
+  if (c === 'formal pants') {
+    return pName.includes('formal') || pName.includes('trouser');
+  }
+  if (c === 'cargo pants') {
+    return pName.includes('cargo') && (pCat.includes('pant') || pCat.includes('jean') || pName.includes('pant') || pName.includes('jogger'));
+  }
+  if (c === 'sweat pants') {
+    return pName.includes('jogger') || pName.includes('sweat') || pCat.includes('sweat');
+  }
+  if (c === 'shorts') {
+    return pName.includes('short') || pCat.includes('short');
+  }
+  if (c === 'sweat t-shirts') {
+    return pName.includes('sweatshirt') || pName.includes('sweat t-shirt');
+  }
+  if (c === 'jackets') {
+    return pCat === 'jackets' || pName.includes('jacket');
+  }
+  if (c === 'accessories') {
+    return pCat === 'accessories' || pName.includes('accessory') || pName.includes('belt') || pName.includes('wallet') || pName.includes('watch');
+  }
+
+  return pCat.includes(c) || c.includes(pCat);
+}
+
   // Dynamic image lookup for category bubbles
   const getCategoryPhoto = (catName: string): string => {
     // Force use of the explicitly defined catalogue image if one exists
@@ -203,7 +259,7 @@ function ProductsContent() {
     if (catName === 'All' && CATEGORY_DEFAULT_IMAGES.All) {
       return CATEGORY_DEFAULT_IMAGES.All;
     }
-    const match = products.find(p => p.category?.toLowerCase() === catName.toLowerCase());
+    const match = products.find(p => productMatchesCategory(p, catName));
     const matchImg = match?.images?.find(i => i.isPrimary)?.url || match?.images?.[0]?.url || match?.image;
     return matchImg || CATEGORY_DEFAULT_IMAGES[catName] || CATEGORY_DEFAULT_IMAGES.All;
   };
@@ -227,7 +283,7 @@ function ProductsContent() {
     categories.forEach(cat => {
       if (cat !== 'All') {
         counts[cat] = departmentFilteredProducts.filter(
-          p => p.category?.toLowerCase() === cat.toLowerCase()
+          p => productMatchesCategory(p, cat)
         ).length;
       }
     });
@@ -248,7 +304,7 @@ function ProductsContent() {
 
       // Category filter
       if (categoryFilter !== 'All') {
-        if (p.category?.toLowerCase() !== categoryFilter.toLowerCase()) return false;
+        if (!productMatchesCategory(p, categoryFilter)) return false;
       }
 
       // Search query filter
@@ -287,31 +343,32 @@ function ProductsContent() {
     <div className="min-h-screen bg-[#F5F2EB] text-neutral-900 font-sans selection:bg-black selection:text-white">
       <Navbar />
 
-      <main className="pt-24 sm:pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 md:px-12">
+      <main className="pt-20 sm:pt-28 md:pt-32 pb-20 sm:pb-24 max-w-7xl mx-auto px-3 sm:px-6 md:px-12">
         
         {/* Header Title */}
-        <div className="flex flex-col items-center text-center mb-8 sm:mb-12">
+        <div className="flex flex-col items-center text-center mb-6 sm:mb-12">
           <motion.span 
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2"
+            className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-1.5 sm:mb-2"
           >
             Curated Wardrobe
           </motion.span>
           <motion.h1 
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tighter uppercase leading-[0.9] text-neutral-900"
+            className="text-3xl sm:text-6xl md:text-7xl font-bold tracking-tighter uppercase leading-[0.95] text-neutral-900"
           >
             All <span className="font-serif italic lowercase font-normal">Products</span>
           </motion.h1>
         </div>
 
         {/* 1. Visual Category Rail (Mobile Story Avatars) */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <div 
             ref={categoryRailRef}
-            className="-mx-4 px-4 sm:mx-0 sm:px-0 flex items-start gap-4 sm:gap-6 overflow-x-auto no-scrollbar scroll-smooth py-2"
+            className="-mx-3 px-3 sm:mx-0 sm:px-0 flex items-start gap-3 sm:gap-6 overflow-x-auto no-scrollbar scroll-smooth py-2 touch-pan-x"
+            style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {categories.map(cat => {
               const isSelected = categoryFilter.toLowerCase() === cat.toLowerCase();
@@ -327,24 +384,38 @@ function ProductsContent() {
                   className="flex flex-col items-center shrink-0 group cursor-pointer focus:outline-none"
                 >
                   {/* Circular visual avatar */}
-                  <div className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full p-0.5 transition-all duration-300 ${
+                  <div className={`relative w-14 h-14 sm:w-20 sm:h-20 rounded-full p-0.5 transition-all duration-300 ${
                     isSelected 
                       ? 'ring-2 ring-black ring-offset-2 ring-offset-[#F5F2EB] scale-105 shadow-md' 
                       : hasNoItems 
                         ? 'opacity-40 hover:opacity-80' 
                         : 'hover:scale-105'
                   }`}>
-                    <div className="w-full h-full rounded-full overflow-hidden bg-neutral-200 border border-black/10">
-                      <img 
-                        src={photo} 
-                        alt={cat} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out" 
-                      />
+                    <div className="relative w-full h-full rounded-full overflow-hidden bg-white border border-black/10 shadow-2xs">
+                      {/* Local catalogue photos are multi-MB source files rendered into an
+                          ~80px circle — optimise those via next/image. Remote/data URLs
+                          (product uploads) fall back to a plain <img> to avoid any
+                          remote-domain configuration. */}
+                      {photo.startsWith('/') ? (
+                        <Image
+                          src={photo}
+                          alt={cat}
+                          fill
+                          sizes="80px"
+                          className="object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
+                        />
+                      ) : (
+                        <img
+                          src={photo}
+                          alt={cat}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
+                        />
+                      )}
                     </div>
                   </div>
 
                   {/* Label & live item count */}
-                  <span className={`text-[11px] sm:text-xs uppercase tracking-wider mt-2 transition-colors whitespace-nowrap ${
+                  <span className={`text-[10px] sm:text-xs uppercase tracking-wider mt-1.5 sm:mt-2 transition-colors max-w-[70px] sm:max-w-none text-center truncate sm:whitespace-nowrap ${
                     isSelected 
                       ? 'font-bold text-black' 
                       : 'font-medium text-neutral-500 group-hover:text-black'
@@ -361,8 +432,8 @@ function ProductsContent() {
         </div>
 
         {/* 2. Sticky Filter & Sort Bar */}
-        <div className="sticky top-16 z-30 bg-[#F5F2EB]/95 backdrop-blur-md py-3.5 border-y border-black/10 mb-10 transition-all">
-          <div className="flex items-center justify-between gap-3">
+        <div className="sticky top-14 sm:top-16 z-30 bg-[#F5F2EB]/95 backdrop-blur-md py-2.5 sm:py-3.5 border-y border-black/10 mb-8 sm:mb-10 transition-all">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
             
             {/* Desktop / Tablet Department Tabs */}
             <div className="hidden sm:flex items-center gap-1 bg-black/[0.04] p-1 rounded-full overflow-x-auto no-scrollbar">
@@ -402,15 +473,15 @@ function ProductsContent() {
             </div>
 
             {/* Mobile Filter Button (Opens Bottom Drawer) */}
-            <div className="flex sm:hidden items-center gap-2">
+            <div className="flex sm:hidden items-center gap-1.5 shrink-0">
               <button
                 onClick={() => setMobileDrawerOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-black text-white text-xs font-semibold uppercase tracking-wider shadow-sm active:scale-95 transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black text-white text-[11px] font-semibold uppercase tracking-wider shadow-xs active:scale-95 transition-all cursor-pointer"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <SlidersHorizontal className="w-3 h-3" />
                 <span>Filters</span>
                 {activeFiltersCount > 0 && (
-                  <span className="w-4 h-4 rounded-full bg-white text-black text-[9px] font-bold flex items-center justify-center">
+                  <span className="w-3.5 h-3.5 rounded-full bg-white text-black text-[8px] font-bold flex items-center justify-center">
                     {activeFiltersCount}
                   </span>
                 )}
@@ -419,16 +490,16 @@ function ProductsContent() {
               {hasActiveFilters && (
                 <button
                   onClick={handleResetFilters}
-                  className="p-2 rounded-full bg-white border border-black/10 text-neutral-600 hover:text-black"
+                  className="p-1.5 rounded-full bg-white border border-black/10 text-neutral-600 hover:text-black cursor-pointer"
                   aria-label="Reset filters"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  <RotateCcw className="w-3 h-3" />
                 </button>
               )}
             </div>
 
             {/* Right Controls: Count, Search & Sort */}
-            <div className="flex items-center gap-2 sm:gap-4 ml-auto">
+            <div className="flex items-center gap-1.5 sm:gap-4 ml-auto shrink-0">
               
               {/* Product Count on Desktop */}
               <span className="hidden md:inline text-xs uppercase tracking-wider font-semibold text-neutral-400">
@@ -444,24 +515,24 @@ function ProductsContent() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => handleSearchChange(e.target.value)}
-                      placeholder="Search pieces..."
-                      className="w-36 sm:w-56 pl-7 pr-7 py-1.5 bg-white border border-black/15 rounded-full text-xs text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-black transition-all"
+                      placeholder="Search..."
+                      className="w-28 sm:w-56 pl-6 pr-6 py-1.5 bg-white border border-black/15 rounded-full text-xs text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-black transition-all shadow-2xs"
                     />
-                    <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 pointer-events-none" />
+                    <Search className="w-3 h-3 text-neutral-400 absolute left-2 pointer-events-none" />
                     <button
                       onClick={() => {
                         handleSearchChange('');
                         setSearchOpen(false);
                       }}
-                      className="absolute right-2.5 text-neutral-400 hover:text-black p-0.5"
+                      className="absolute right-2 text-neutral-400 hover:text-black p-0.5 cursor-pointer"
                     >
-                      <X className="w-3 h-3" />
+                      <X className="w-2.5 h-2.5" />
                     </button>
                   </div>
                 ) : (
                   <button
                     onClick={() => setSearchOpen(true)}
-                    className="p-2 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider text-neutral-600 hover:text-black bg-white/80 hover:bg-white border border-black/10 transition-all flex items-center gap-1.5"
+                    className="p-1.5 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider text-neutral-600 hover:text-black bg-white/80 hover:bg-white border border-black/10 transition-all flex items-center gap-1.5 cursor-pointer"
                     aria-label="Open search"
                   >
                     <Search className="w-3.5 h-3.5" />
@@ -476,21 +547,21 @@ function ProductsContent() {
                   value={sortBy}
                   onChange={(e) => handleSortChange(e.target.value)}
                   aria-label="Sort products by"
-                  className="appearance-none bg-white/80 hover:bg-white border border-black/10 hover:border-black/25 rounded-full pl-3.5 pr-7 py-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-800 focus:outline-none cursor-pointer transition-all"
+                  className="appearance-none bg-white/80 hover:bg-white border border-black/10 hover:border-black/25 rounded-full pl-2.5 pr-6 sm:pl-3.5 sm:pr-7 py-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-neutral-800 focus:outline-none cursor-pointer transition-all shadow-2xs"
                 >
                   <option value="featured">Featured</option>
                   <option value="price-asc">Price: Low to High</option>
                   <option value="price-desc">Price: High to Low</option>
                   <option value="newest">Newest First</option>
                 </select>
-                <ArrowUpDown className="w-3 h-3 text-neutral-400 absolute right-2.5 pointer-events-none" />
+                <ArrowUpDown className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-neutral-400 absolute right-2 pointer-events-none" />
               </div>
 
               {/* Desktop Reset Button */}
               {hasActiveFilters && (
                 <button
                   onClick={handleResetFilters}
-                  className="hidden sm:flex items-center gap-1 text-xs uppercase tracking-wider font-semibold text-neutral-600 hover:text-black hover:underline"
+                  className="hidden sm:flex items-center gap-1 text-xs uppercase tracking-wider font-semibold text-neutral-600 hover:text-black hover:underline cursor-pointer"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Reset</span>
@@ -538,7 +609,7 @@ function ProductsContent() {
                 variants={containerVariants}
                 initial="hidden"
                 animate="show"
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8"
+                className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 lg:gap-8"
               >
                 {filteredProducts.map((p) => {
                   const primaryImg = p.images?.find(i => i.isPrimary)?.url || p.images?.[0]?.url || p.image || '';

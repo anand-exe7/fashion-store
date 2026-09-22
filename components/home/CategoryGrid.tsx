@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { RevealText } from '../ui/RevealText';
 
@@ -9,25 +10,29 @@ const DEFAULT_CATEGORIES = [
       title: "Infants (0–2)",
       desc: "Soft onesies & rompers",
       bgColor: "bg-[#D5EAD8]",
-      image: "/child2.png"
+      image: "/looks/infant_onesie.jpg",
+      position: "object-[center_20%]"
     },
     {
       title: "Toddlers (3–5)",
       desc: "Playful sets & combos",
       bgColor: "bg-[#FCD3E1]",
-      image: "/child3.png"
+      image: "/looks/toddler_girl_grass.jpg",
+      position: "object-top"
     },
     {
       title: "Kids (6–12)",
       desc: "Cool & comfy everyday",
       bgColor: "bg-[#D3EAFC]",
-      image: "/child-cutout.png"
+      image: "/looks/look_6.jpg",
+      position: "object-top"
     },
     {
       title: "Teens (13–16)",
       desc: "Trendy fits, their style",
       bgColor: "bg-[#FCEFD3]",
-      image: "/hero-figure-2.png"
+      image: "/looks/look_cargo.jpg",
+      position: "object-[center_15%]"
     }
   ];
 
@@ -52,11 +57,15 @@ export const CategoryGrid = () => {
             onClick={() => window.location.href = '/products'}
             className="group relative aspect-[3/4] rounded-3xl overflow-hidden cursor-pointer shadow-sm hover:shadow-xl transition-all duration-500 flex flex-col justify-end"
           >
-            {/* Background image */}
-            <img
+            {/* Background image — optimised & fetched eagerly so it's ready as the
+                visitor scrolls down from the hero (first section below the fold). */}
+            <Image
               src={cat.image}
               alt={cat.title}
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1.2s] group-hover:scale-105 ease-out"
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              loading="eager"
+              className={`absolute inset-0 w-full h-full object-cover ${cat.position || 'object-center'} transition-transform duration-[1.2s] group-hover:scale-105 ease-out`}
             />
 
             {/* Floating label at the bottom */}
