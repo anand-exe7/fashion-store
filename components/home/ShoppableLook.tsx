@@ -1,15 +1,16 @@
 'use client';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { RevealText } from '../ui/RevealText';
 
 const LOOKS = {
   left: {
-    src: '/child3.png',
+    src: '/looks/look_6.jpg',
     label: 'Collection 01',
     caption: 'Play-Ready Sets',
   },
   right: {
-    src: '/child2.png',
+    src: '/looks/look_1.jpg',
     label: 'Collection 02',
     caption: 'Comfort First',
   },
@@ -35,9 +36,12 @@ const ImageCard = ({
     transition={{ duration: 0.8, delay }}
     className={`group relative aspect-[4/5] overflow-hidden rounded-2xl shadow-[0_20px_50px_rgba(60,50,40,0.14)] ring-1 ring-black/5 ${className}`}
   >
-    <img
+    <Image
       src={src}
       alt={caption}
+      fill
+      sizes="(max-width: 768px) 50vw, 33vw"
+      loading="eager"
       className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.4s] ease-out group-hover:scale-105"
     />
     <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />

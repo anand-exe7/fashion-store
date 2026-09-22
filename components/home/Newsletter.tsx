@@ -56,25 +56,65 @@ export const Newsletter = () => {
           </a>
         </div>
 
-        {/* Right: brand-styled abstract map (no raw Google chrome to clash with the theme) */}
-        <div className="relative h-[280px] w-full overflow-hidden sm:h-[360px] md:h-auto md:w-[62%] md:min-h-[520px]">
+        {/* Right: fixed, non-interactive map with a branded marker. The iframe is
+            locked (pointer-events-none) so it can never be dragged, zoomed, or hijack
+            the page scroll — the whole surface acts as one tap target that opens
+            directions in Google Maps. */}
+        <div className="group relative h-[280px] w-full overflow-hidden sm:h-[360px] md:h-auto md:w-[62%] md:min-h-[520px]">
           <iframe
+            title="Shalistone flagship store location"
             width="100%"
             height="100%"
-            className="absolute inset-0 h-full w-full object-cover"
+            className="pointer-events-none absolute inset-0 h-full w-full grayscale-[0.15] contrast-[1.05]"
             style={{ border: 0 }}
             loading="lazy"
-            allowFullScreen
             referrerPolicy="no-referrer-when-downgrade"
-            src="https://maps.google.com/maps?q=No.69.1/2,+1st+Main+Rd,+Ramachandrapuram,+Bengaluru,+Karnataka+560021&t=&z=15&ie=UTF8&iwloc=&output=embed"
+            src="https://maps.google.com/maps?q=No.69.1/2,+1st+Main+Rd,+Ramachandrapuram,+Bengaluru,+Karnataka+560021&t=&z=16&ie=UTF8&iwloc=&output=embed"
           ></iframe>
 
-          {/* Open in Google Maps — real navigation, kept subtle */}
+          {/* Soft brand tint so Google's raw chrome blends into the studio palette */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/15 via-transparent to-white/10" />
+
+          {/* Whole-surface tap target — opens turn-by-turn directions */}
           <a
             href="https://www.google.com/maps/dir/?api=1&destination=No.69.1%2F2%2C+1st+Main+Rd%2C+Ramachandrapuram%2C+Bengaluru%2C+Karnataka+560021"
             target="_blank"
             rel="noreferrer"
-            className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-black/10 bg-white/90 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-neutral-700 shadow-sm transition-colors hover:bg-white sm:right-5 sm:top-5"
+            aria-label="Open Shalistone flagship location in Google Maps"
+            className="absolute inset-0 z-10"
+          />
+
+          {/* Branded marker pinned dead-centre, with a pulsing ground ring. The tip
+              sits on the map's centre point (the geocoded store address). */}
+          <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-full">
+            {/* Pulsing ground ring at the pin's tip */}
+            <span className="absolute left-1/2 top-full h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/25 animate-ping" />
+            <span className="absolute left-1/2 top-full h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black shadow" />
+            {/* Teardrop pin */}
+            <svg
+              width="46"
+              height="56"
+              viewBox="0 0 46 56"
+              fill="none"
+              className="drop-shadow-[0_8px_14px_rgba(0,0,0,0.35)]"
+              style={{ animation: 'pinDrop 0.6s cubic-bezier(0.22,1,0.36,1) both' }}
+            >
+              <path
+                d="M23 2c-9.94 0-18 7.9-18 17.65 0 12.2 15.2 32.1 16.28 33.47a2.2 2.2 0 0 0 3.44 0C25.8 51.75 41 31.85 41 19.65 41 9.9 32.94 2 23 2Z"
+                fill="#111111"
+                stroke="#ffffff"
+                strokeWidth="3"
+              />
+              <circle cx="23" cy="19.5" r="6.5" fill="#ffffff" />
+            </svg>
+          </div>
+
+          {/* Open in Maps badge (real link, above the surface target) */}
+          <a
+            href="https://www.google.com/maps/dir/?api=1&destination=No.69.1%2F2%2C+1st+Main+Rd%2C+Ramachandrapuram%2C+Bengaluru%2C+Karnataka+560021"
+            target="_blank"
+            rel="noreferrer"
+            className="absolute right-4 top-4 z-30 flex items-center gap-1.5 rounded-full border border-black/10 bg-white/90 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-neutral-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-white sm:right-5 sm:top-5"
           >
             Open in Maps
             <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -83,7 +123,7 @@ export const Newsletter = () => {
           </a>
 
           {/* Glass pin card */}
-          <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex items-center gap-3 rounded-2xl border border-white/60 bg-white/90 p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.12)] sm:bottom-5 sm:left-5 sm:right-5 sm:p-4 md:left-6 md:right-auto md:max-w-xs">
+          <div className="pointer-events-none absolute bottom-4 left-4 right-4 z-30 flex items-center gap-3 rounded-2xl border border-white/60 bg-white/90 p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.12)] backdrop-blur-sm sm:bottom-5 sm:left-5 sm:right-5 sm:p-4 md:left-6 md:right-auto md:max-w-xs">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-black text-white">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z" />
@@ -97,6 +137,13 @@ export const Newsletter = () => {
               </p>
             </div>
           </div>
+
+          <style>{`
+            @keyframes pinDrop {
+              from { transform: translateY(-14px); opacity: 0; }
+              to { transform: translateY(0); opacity: 1; }
+            }
+          `}</style>
         </div>
       </motion.div>
     </section>

@@ -37,20 +37,20 @@ export const NewArrivals = ({ products }: { products?: any[] }) => {
   }
 
   return (
-    <section className="py-32 px-6 md:px-12 max-w-7xl mx-auto">
-      <div className="flex flex-col mb-20">
+    <section className="py-16 sm:py-24 md:py-32 px-3 sm:px-6 md:px-12 max-w-7xl mx-auto">
+      <div className="flex flex-col mb-10 sm:mb-20">
         <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2">Curated Selection</span>
-        <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 md:gap-0">
-          <RevealText as="h2" text="New\nArrivals" className="text-6xl md:text-8xl font-bold tracking-tighter uppercase leading-[0.85]" />
-          <a href="/products" className="text-[10px] font-bold uppercase tracking-widest underline underline-offset-8 hover:text-neutral-500 transition-colors">Discover All</a>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 md:gap-0">
+          <RevealText as="h2" text="New\nArrivals" className="text-4xl sm:text-6xl md:text-8xl font-bold tracking-tighter uppercase leading-[0.88]" />
+          <a href="/new-arrivals" className="text-[10px] font-bold uppercase tracking-widest underline underline-offset-8 hover:text-neutral-500 transition-colors">Discover All</a>
         </div>
       </div>
       <motion.div
         variants={containerVariants}
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, margin: "-100px" }}
-        className={`grid grid-cols-1 sm:grid-cols-2 ${cols} gap-10`}
+        viewport={{ once: true, margin: "-50px" }}
+        className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 md:gap-8"
       >
         {newProducts.map((p, i) => (
           <ProductCard key={i} {...p} />

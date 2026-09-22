@@ -3,8 +3,8 @@ import { motion, useMotionValue, useSpring } from 'framer-motion';
 import { useRef } from 'react';
 
 const itemVariants: any = {
-  hidden: { opacity: 0, y: 50 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 50, damping: 15 } }
+  hidden: { opacity: 0, y: 30 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 60, damping: 18 } }
 };
 
 export const ProductCard = ({ id, title, category, price, isNew, discount, image, stock }: any) => {
@@ -17,12 +17,14 @@ export const ProductCard = ({ id, title, category, price, isNew, discount, image
   const rotateY = useSpring(rotateYRaw, springConfig);
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    // Only apply 3D tilt on devices that support hover
+    if (typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches) return;
     const rect = cardRef.current?.getBoundingClientRect();
     if (!rect) return;
     const px = (e.clientX - rect.left) / rect.width - 0.5;
     const py = (e.clientY - rect.top) / rect.height - 0.5;
-    rotateYRaw.set(px * 10);
-    rotateXRaw.set(-py * 10);
+    rotateYRaw.set(px * 8);
+    rotateXRaw.set(-py * 8);
   };
 
   const handleMouseLeave = () => {
@@ -31,55 +33,75 @@ export const ProductCard = ({ id, title, category, price, isNew, discount, image
   };
 
   return (
-  <motion.div
-    variants={itemVariants}
-    className="group flex flex-col"
-  >
-    <a href={`/product/${id}`} className="block h-full cursor-pointer">
-      <motion.div
-        ref={cardRef}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        style={{ rotateX, rotateY, transformPerspective: 800 }}
-        className="relative aspect-[3/4] bg-neutral-100 mb-5 overflow-hidden rounded-2xl"
-      >
-         <motion.img
-           whileHover={{ scale: 1.05 }}
-           transition={{ duration: 0.7, ease: "easeOut" }}
-           src={image || undefined}
-           alt={title}
-           className={`w-full h-full object-cover ${isOutOfStock ? 'opacity-40 grayscale-[0.5]' : ''}`}
-         />
-         {/* Overlay gradient */}
-         <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-         
-         {/* Badges */}
-         <div className="absolute top-4 left-4 flex gap-2 z-10 flex-wrap">
-           {isOutOfStock && <span className="px-3 py-1.5 bg-neutral-900/90 text-white text-[10px] font-bold uppercase tracking-widest rounded-md shadow-lg">Out of Stock</span>}
-           {isNew && !isOutOfStock && <span className="px-3 py-1.5 bg-white/95 text-[10px] font-bold uppercase tracking-widest rounded-md text-black shadow-lg">New</span>}
-           {discount && !isOutOfStock && <span className="px-3 py-1.5 bg-red-500/95 text-white text-[10px] font-bold uppercase tracking-widest rounded-md shadow-lg">{discount}</span>}
-         </div>
-         
-         {/* View product slide up */}
-         <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out z-10">
-           <span className="block w-full bg-white/95 text-black py-3 rounded-xl text-xs font-bold uppercase tracking-widest shadow-xl text-center hover:bg-black hover:text-white transition-colors">
-             {isOutOfStock ? 'View Details' : 'View Product'}
-           </span>
-         </div>
-      </motion.div>
+    <motion.div
+      variants={itemVariants}
+      className="group flex flex-col w-full"
+    >
+      <a href={`/product/${id}`} className="block h-full cursor-pointer">
+        <motion.div
+          ref={cardRef}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          style={{ rotateX, rotateY, transformPerspective: 800 }}
+          className="relative aspect-[3/4] bg-neutral-100 mb-2.5 sm:mb-4 overflow-hidden rounded-xl sm:rounded-2xl border border-black/[0.04]"
+        >
+          <motion.img
+            whileHover={{ scale: 1.05 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            src={image || undefined}
+            alt={title}
+            className={`w-full h-full object-cover ${isOutOfStock ? 'opacity-40 grayscale-[0.5]' : ''}`}
+            loading="lazy"
+          />
+          {/* Subtle overlay gradient */}
+          <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+          
+          {/* Badges - scaled for mobile */}
+          <div className="absolute top-2 left-2 sm:top-3.5 sm:left-3.5 flex gap-1 sm:gap-1.5 z-10 flex-wrap">
+            {isOutOfStock && (
+              <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-neutral-900/90 text-white text-[8px] sm:text-[9px] font-bold uppercase tracking-wider rounded sm:rounded-md shadow-sm">
+                Out of Stock
+              </span>
+            )}
+            {isNew && !isOutOfStock && (
+              <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-white/95 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider rounded sm:rounded-md text-black shadow-sm">
+                New
+              </span>
+            )}
+            {discount && !isOutOfStock && (
+              <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-red-500/95 text-white text-[8px] sm:text-[9px] font-bold uppercase tracking-wider rounded sm:rounded-md shadow-sm">
+                {discount}
+              </span>
+            )}
+          </div>
+          
+          {/* View product slide up on desktop hover */}
+          <div className="hidden sm:block absolute bottom-0 left-0 right-0 p-3 sm:p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-10">
+            <span className="block w-full bg-white/95 text-black py-2.5 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider shadow-lg text-center hover:bg-black hover:text-white transition-colors">
+              {isOutOfStock ? 'View Details' : 'View Product'}
+            </span>
+          </div>
+        </motion.div>
 
-      <div className="flex justify-between items-start px-1">
-        <div>
-          <h3 className="text-sm font-semibold text-neutral-900 group-hover:text-black transition-colors">{title}</h3>
-          <p className="text-xs text-neutral-500 mt-1.5 font-medium">{category}</p>
+        <div className="flex justify-between items-start px-0.5 sm:px-1">
+          <div className="min-w-0 pr-1 flex-1">
+            <h3 className="text-xs sm:text-sm font-semibold text-neutral-900 group-hover:text-black transition-colors truncate">
+              {title}
+            </h3>
+            <p className="text-[10px] sm:text-xs text-neutral-500 mt-0.5 font-medium truncate">
+              {category}
+            </p>
+          </div>
+          <div className="hidden sm:flex gap-1.5 mt-1 shrink-0">
+            <div className="w-3 h-3 rounded-full bg-[#8fa4b8] border border-white shadow-2xs" />
+            <div className="w-3 h-3 rounded-full bg-neutral-800 border border-white shadow-2xs" />
+          </div>
         </div>
-        <div className="flex gap-1.5 mt-1">
-           <div className="w-3.5 h-3.5 rounded-full bg-[#8fa4b8] border-2 border-white shadow-sm cursor-pointer hover:scale-125 transition-transform origin-center"></div>
-           <div className="w-3.5 h-3.5 rounded-full bg-neutral-800 border-2 border-white shadow-sm cursor-pointer hover:scale-125 transition-transform origin-center"></div>
-        </div>
-      </div>
-      <p className="text-sm mt-2 font-bold px-1">₹{price}</p>
-    </a>
-  </motion.div>
+        <p className="text-xs sm:text-sm mt-1 sm:mt-1.5 font-bold px-0.5 sm:px-1 text-neutral-900">
+          ₹{price}
+        </p>
+      </a>
+    </motion.div>
   );
 };
+
