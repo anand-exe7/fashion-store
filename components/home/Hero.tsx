@@ -1,13 +1,16 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
+import Image from 'next/image';
 import { Magnetic } from '../ui/Magnetic';
-
-const HEADLINE_FONT = "'Arial Black', 'Arial Bold', 'Helvetica Neue', Gadget, sans-serif";
 
 // Single duo cutout (big brother + little one). The subject sits dead-centre in the
 // PNG with ~34% transparent margin each side, so plain centring lines it up correctly.
-const HERO_FIGURE = '/bg_final.png';
+// Statically imported so next/image can optimise it (WebP + resize) and ship a much
+// smaller LCP image than the ~1.3MB source PNG, with its dimensions known at build time.
+import heroFigure from '@/public/bg_final.png';
+
+const HEADLINE_FONT = "'Arial Black', 'Arial Bold', 'Helvetica Neue', Gadget, sans-serif";
 
 const NEXT_BG = '#F5F2EB';
 
@@ -154,13 +157,13 @@ export const Hero = () => {
       {/* Giant SHALISTONE watermark */}
       <motion.div
         style={{ y: wiseScrollY, x: wiseX, opacity: fade }}
-        className="absolute inset-x-0 bottom-[18%] md:bottom-[14%] z-10 flex justify-center pointer-events-none select-none"
+        className="absolute inset-x-0 bottom-[18%] md:bottom-[14%] z-10 flex justify-center pointer-events-none select-none overflow-hidden"
       >
         <span
           className="font-black leading-none whitespace-nowrap"
           style={{
             fontFamily: HEADLINE_FONT,
-            fontSize: 'clamp(3.2rem, 13vw, 11rem)',
+            fontSize: 'clamp(2.1rem, 12vw, 11rem)',
             letterSpacing: '-0.045em',
             color: '#d7c7a6',
             opacity: 0.7,
@@ -183,9 +186,12 @@ export const Hero = () => {
         <motion.div style={{ x: figX, y: figY }} className="relative h-full w-auto will-change-transform">
           {/* Ground shadow sits under the subject, which spans 34%–66% of the PNG width */}
           <div className="absolute inset-x-[33%] bottom-[1.5%] h-[5%] rounded-[50%] bg-black/20 blur-2xl" />
-          <img
-            src={HERO_FIGURE}
+          <Image
+            src={heroFigure}
             alt="Shalistone kids and mens matching sets"
+            sizes="(max-width: 768px) 85vw, 55vw"
+            loading="eager"
+            fetchPriority="high"
             className="relative h-full w-auto max-w-none object-contain object-bottom"
           />
         </motion.div>
@@ -196,7 +202,7 @@ export const Hero = () => {
       <motion.div
         style={{ x: headX, y: headScrollY, opacity: fade }}
         className="absolute z-[25] pointer-events-none
-          left-0 right-0 top-[14vh] px-[6vw] text-center
+          left-0 right-0 top-[11vh] px-4 text-center
           sm:top-[16vh]
           md:left-[4vw] md:right-auto md:top-[22vh] md:max-w-[34vw] md:px-0 md:text-left"
       >
@@ -205,8 +211,8 @@ export const Hero = () => {
           style={{
             fontFamily: HEADLINE_FONT,
             fontWeight: 900,
-            fontSize: 'clamp(1.9rem, 5.8vw, 3.8rem)',
-            lineHeight: 0.92,
+            fontSize: 'clamp(1.5rem, 5.5vw, 3.8rem)',
+            lineHeight: 0.95,
             letterSpacing: '-0.03em',
             textShadow: '0 1px 0 rgba(255,255,255,0.6)',
           }}
