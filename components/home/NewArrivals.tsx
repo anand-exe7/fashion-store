@@ -41,7 +41,7 @@ export const NewArrivals = ({ products }: { products?: any[] }) => {
       <div className="flex flex-col mb-10 sm:mb-20">
         <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-neutral-500 mb-2">Curated Selection</span>
         <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 md:gap-0">
-          <RevealText as="h2" text="New\nArrivals" className="text-4xl sm:text-6xl md:text-8xl font-bold tracking-tighter uppercase leading-[0.88]" />
+          <RevealText as="h2" text="New Arrivals" className="text-4xl sm:text-6xl md:text-8xl font-bold tracking-tighter uppercase leading-[0.88]" />
           <a href="/new-arrivals" className="text-[10px] font-bold uppercase tracking-widest underline underline-offset-8 hover:text-neutral-500 transition-colors">Discover All</a>
         </div>
       </div>
