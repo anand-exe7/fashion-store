@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
 import Image from 'next/image';
 import { Magnetic } from '../ui/Magnetic';
@@ -20,8 +20,6 @@ const settings = {
   headline: ['Little Stars,', 'Big Style —', 'Made for', 'Every Age'],
   subtext: 'Adorable outfits for kids aged 0–16. Designed to play, built to last.',
   rightCopy: 'Where comfort meets playful style for your little ones.',
-  featuredTitle: 'Kids Comfort Set',
-  featuredPrice: '₹899.00',
 };
 
 const Star = ({ c }: { c: string }) => (
@@ -64,7 +62,7 @@ const DOODLES = [
   { key: 'star-b', left: '66%', top: '15%', dur: 8, delay: 1.6, svg: <Star c="#c9d7e6" /> },
 ] as const;
 
-export const Hero = () => {
+export const Hero = ({ featured }: { featured?: ReactNode }) => {
   const { scrollY } = useScroll();
 
   const mouseX = useMotionValue(0);
@@ -272,40 +270,18 @@ export const Hero = () => {
         </div>
       </motion.div>
 
-      {/* Featured product card — desktop only */}
-      <motion.div
-        style={{ opacity: fade }}
-        className="absolute right-[4vw] top-[42vh] z-40 hidden lg:block"
-      >
-        <div
-          style={{ animation: 'heroFade 0.9s ease-out 0.85s both' }}
-          className="w-56 rounded-2xl border border-white/50 bg-white/80 p-3 shadow-[0_16px_40px_rgba(40,45,60,0.1)] backdrop-blur-sm"
+      {/* Featured product card — desktop only. Content is streamed in from the
+          server (see HeroFeatured) so a real product is shown, not a placeholder. */}
+      {featured && (
+        <motion.div
+          style={{ opacity: fade }}
+          className="absolute right-[4vw] top-[42vh] z-40 hidden lg:block"
         >
-          <div className="flex items-center gap-3">
-            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-neutral-200">
-              <img
-                src="https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?q=80&w=200&auto=format&fit=crop"
-                alt="Kids Outfit Set"
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-neutral-400">Featured</p>
-              <p className="truncate text-[12px] font-semibold text-neutral-900 mt-0.5">{settings.featuredTitle}</p>
-              <p className="text-[12px] font-bold text-neutral-900">{settings.featuredPrice}</p>
-            </div>
+          <div style={{ animation: 'heroFade 0.9s ease-out 0.85s both' }}>
+            {featured}
           </div>
-          <a
-            href="/products"
-            className="mt-2.5 flex items-center justify-center gap-2 rounded-full bg-black py-2 text-[9px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-neutral-800"
-          >
-            Shop the look
-            <svg width="9" height="9" viewBox="0 0 15 15" fill="none">
-              <path d="M8.146 3.146a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L11.293 8H2.5a.5.5 0 0 1 0-1h8.793L8.146 3.854a.5.5 0 0 1 0-.708Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
-            </svg>
-          </a>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
 
       {/* Mobile CTA — bottom center */}
       <motion.div

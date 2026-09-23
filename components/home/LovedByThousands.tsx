@@ -1,7 +1,7 @@
 'use client';
 import { motion, useMotionValue, useAnimationFrame, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import { Star, MessageSquarePlus, X, Check, Trash2, Sparkles, ShieldCheck } from 'lucide-react';
+import { Star, MessageSquarePlus, X, Check, Trash2, Sparkles } from 'lucide-react';
 import { RevealText } from '../ui/RevealText';
 
 const SPEED = 45; // px per second
@@ -125,7 +125,6 @@ export const LovedByThousands = () => {
       rating,
       product: product.trim() || 'Verified Purchase',
       isUserReview: true,
-      date: 'Saved in your cache',
     };
 
     const updated = [newReview, ...userReviews];
@@ -144,7 +143,7 @@ export const LovedByThousands = () => {
     setIsModalOpen(false);
 
     // Toast
-    setToastMessage('Your review has been saved in your browser cache and added to the showcase!');
+    setToastMessage('Thanks! Your review is now live in the showcase.');
     setTimeout(() => setToastMessage(null), 5000);
   };
 
@@ -157,7 +156,7 @@ export const LovedByThousands = () => {
     } catch (err) {
       console.warn('Failed to update cache:', err);
     }
-    setToastMessage('Review removed from your local cache.');
+    setToastMessage('Your review has been removed.');
     setTimeout(() => setToastMessage(null), 3000);
   };
 
@@ -201,43 +200,6 @@ export const LovedByThousands = () => {
           </button>
         </div>
 
-        {/* Active Cached Reviews Banner (if user has added any) */}
-        {userReviews.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="mx-auto mb-10 max-w-2xl rounded-2xl border border-amber-200/80 bg-amber-50/70 p-4 text-left shadow-sm backdrop-blur-sm"
-          >
-            <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
-              <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-900">
-                <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
-                Your Cached Reviews ({userReviews.length}) — Visible to you in this session
-              </span>
-              <span className="text-[10px] text-amber-700/80">Stored locally in cache</span>
-            </div>
-            <div className="mt-3 flex flex-col gap-2">
-              {userReviews.map((ur) => (
-                <div key={ur.id} className="flex items-center justify-between rounded-xl bg-white/90 p-3 shadow-xs">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-xs text-neutral-800">{ur.name}</span>
-                      <span className="text-[10px] text-amber-500">{'★'.repeat(ur.rating || 5)}</span>
-                      {ur.product && <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[9px] text-neutral-600">{ur.product}</span>}
-                    </div>
-                    <p className="mt-1 text-xs text-neutral-600 italic">“{ur.note}”</p>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteReview(ur.id)}
-                    title="Delete review from cache"
-                    className="p-1.5 text-neutral-400 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
       </motion.div>
 
       {/* Marquee Track */}
@@ -304,7 +266,7 @@ export const LovedByThousands = () => {
                       {r.name}
                     </p>
                     <p className="text-[9px] text-white/60">
-                      {r.isUserReview ? 'Stored in your cache' : 'Verified Purchase'}
+                      {r.isUserReview ? 'Posted by you' : 'Verified Purchase'}
                     </p>
                   </div>
                   {r.isUserReview && (
@@ -362,7 +324,7 @@ export const LovedByThousands = () => {
                   Share Your Experience
                 </h3>
                 <p className="mt-1.5 text-xs text-neutral-600">
-                  Your review will be stored locally in your browser cache and showcased in the community feed for your session.
+                  Tell us how the fit, fabric and comfort worked out — your review joins the showcase below.
                 </p>
               </div>
 
@@ -442,14 +404,6 @@ export const LovedByThousands = () => {
                     onChange={(e) => setNote(e.target.value)}
                     className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
                   />
-                </div>
-
-                {/* Privacy / Cache Disclaimer */}
-                <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 p-3 text-[11px] text-amber-900">
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-amber-600" />
-                  <span>
-                    Saved in your local browser cache. It remains private to your device and displays instantly in your community stream.
-                  </span>
                 </div>
 
                 {/* Form Buttons */}

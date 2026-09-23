@@ -1,6 +1,7 @@
 import { Navbar } from '@/components/layout/Navbar';
 import { ScrollProgress } from '@/components/ui/ScrollProgress';
 import { Hero } from '@/components/home/Hero';
+import { HeroFeatured, HeroFeaturedSkeleton } from '@/components/home/HeroFeatured';
 import { NewArrivals } from '@/components/home/NewArrivals';
 import { Marquee } from '@/components/home/Marquee';
 
@@ -65,7 +66,13 @@ export default async function Home() {
       <IntroLoader />
       <ScrollProgress />
       <Navbar />
-      <Hero />
+      <Hero
+        featured={
+          <Suspense fallback={<HeroFeaturedSkeleton />}>
+            <HeroFeatured />
+          </Suspense>
+        }
+      />
       
       <Suspense fallback={
         <>
