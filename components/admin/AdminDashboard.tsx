@@ -9,6 +9,7 @@ import Orders from './sections/Orders';
 import Inventory from './sections/Inventory';
 import Categories from './sections/Categories';
 import Coupons from './sections/Coupons';
+import Birthdays from './sections/Birthdays';
 import Delivery from './sections/Delivery';
 import Users from './sections/Users';
 import { Toast } from './ui';
@@ -121,6 +122,7 @@ export default function AdminDashboard() {
           {active === 'inventory' && <Inventory />}
           {active === 'categories' && <Categories />}
           {active === 'coupons' && <Coupons />}
+          {active === 'birthdays' && <Birthdays />}
           {active === 'delivery' && <Delivery />}
           {active === 'users' && <Users />}
         </main>

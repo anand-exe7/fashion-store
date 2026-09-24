@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Plus, Minus, Trash2, Bell, AlertTriangle, Pencil, ChevronDown, ImagePlus, Eye, EyeOff, ArrowUp, ArrowDown, X, Sparkles } from 'lucide-react';
 import {
   useAdminData,
@@ -86,13 +86,29 @@ export default function Inventory() {
     return alerts;
   }, [products]);
 
+  // Auto-open the alert the first time low/out-of-stock items appear. Products
+  // load asynchronously, so this can't be a mount-only check — but we only want
+  // it to pop once, not every time the count changes.
+  const autoOpenedRef = useRef(false);
   useEffect(() => {
-    if (attention.length > 0) {
+    if (!autoOpenedRef.current && attention.length > 0) {
+      autoOpenedRef.current = true;
       setAlertOpen(true);
-      playAlert();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [attention.length]);
+
+  // Keep beeping until the alert is acknowledged. The client wants the sound to
+  // *persist* (not a single chime), so we re-fire on an interval while the alert
+  // is open and items still need attention, and stop the moment it's dismissed
+  // (or everything is restocked). Note: browsers may block the very first beep
+  // until the operator has interacted with the page (autoplay policy); each
+  // later tick then plays normally once any gesture has occurred.
+  useEffect(() => {
+    if (!alertOpen || attention.length === 0) return;
+    playAlert();
+    const id = setInterval(playAlert, 2500);
+    return () => clearInterval(id);
+  }, [alertOpen, attention.length]);
 
   const categories = useMemo(() => ['all', ...Array.from(new Set(products.map((p) => p.category)))], [products]);
 
@@ -128,7 +144,7 @@ export default function Inventory() {
         </div>
         <div className="flex items-center gap-2 self-start">
           <button
-            onClick={() => { setAlertOpen(true); playAlert(); }}
+            onClick={() => setAlertOpen(true)}
             className={`relative flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-bold ${attention.length ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-black/[0.08] text-neutral-600'}`}
           >
             <Bell className="h-4 w-4" /> Alerts

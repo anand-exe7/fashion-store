@@ -7,6 +7,7 @@ import {
   Users,
   Truck,
   Tags,
+  Cake,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 
@@ -45,6 +46,7 @@ export const NAV: NavItem[] = [
   { key: 'inventory', label: 'Inventory', icon: Package },
   { key: 'categories', label: 'Categories', icon: Tags },
   { key: 'coupons', label: 'Coupons', icon: Ticket },
+  { key: 'birthdays', label: 'Date of Birth', icon: Cake },
   { key: 'delivery', label: 'Delivery', icon: Truck },
   { key: 'users', label: 'Users', icon: Users },
 ];
