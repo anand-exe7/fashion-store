@@ -10,6 +10,8 @@ import * as db from './db';
 
 export type Source = 'offline' | 'online';
 export type OrderStatus = 'completed' | 'pending';
+// How an offline (POS) bill was paid. Online orders are Razorpay and leave this null.
+export type PaymentMethod = 'cash' | 'gpay' | 'split';
 
 export interface OrderItem {
   name: string;
@@ -33,6 +35,12 @@ export interface Order {
   delivery: number;
   total: number;
   amountReceived: number | null;
+  // Offline bills: how the customer paid. null for online / legacy bills.
+  // NOT yet persisted in Supabase — see the hand-off note by addOrder below.
+  paymentMethod?: PaymentMethod | null;
+  // Customer date of birth (ISO yyyy-mm-dd) captured at billing/checkout, used
+  // for the Birthdays offers list. Also NOT yet persisted — same hand-off.
+  dob?: string | null;
   date: string;
   status: OrderStatus;
 }
@@ -138,6 +146,11 @@ async function refreshAll() {
       delivery: o.delivery,
       total: o.total,
       amountReceived: o.amountReceived || null,
+      // Passes through automatically once db.fetchOrders returns payment_method
+      // (see hand-off by addOrder). Until then it's undefined here and the
+      // analytics breakdown treats such offline bills as Cash.
+      paymentMethod: (o as { paymentMethod?: PaymentMethod }).paymentMethod ?? null,
+      dob: (o as { dob?: string }).dob ?? null,
       date: o.createdAt,
       status: o.status as OrderStatus
     }));
@@ -218,7 +231,20 @@ export async function addOrder(order: Order) {
   // Optimistic UI update
   globalState = { ...globalState, orders: [order, ...globalState.orders] };
   notify();
-  
+
+  // ── BACKEND HAND-OFF (payment method + date of birth) ────────────────────
+  // `order.paymentMethod` ('cash'|'gpay'|'split') and `order.dob` (yyyy-mm-dd)
+  // are captured at billing/checkout and used by Analytics / the Birthdays
+  // list for this session, but are NOT yet saved to Supabase, so they're lost
+  // on refresh. To persist (two columns):
+  //   1. Migration:  ALTER TABLE orders ADD COLUMN payment_method text,
+  //                                     ADD COLUMN dob date;
+  //   2. db.insertOrder(): add  payment_method: order.paymentMethod, dob: order.dob,
+  //   3. db.fetchOrders()/fetchOrderById(): add  paymentMethod: o.payment_method,
+  //      dob: o.dob,  and add `paymentMethod?: string; dob?: string` to db.Order.
+  //   (For online orders, /api/payment/create-order also gets `customerDob` in
+  //    its body now — persist that onto the order row too.)
+  // Nothing breaks before that's done — the fields simply stay null on reload.
   await db.insertOrder({
     id: order.id,
     customerName: order.customer,

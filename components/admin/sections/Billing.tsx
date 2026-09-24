@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { Trash2, Plus, Minus, List, ShoppingBag, MessageCircle, User, X } from 'lucide-react';
+import { Trash2, Plus, Minus, List, ShoppingBag, Printer, User, Banknote, Smartphone, Split, MessageCircle } from 'lucide-react';
 import {
   useAdminData,
   addOrder,
@@ -9,6 +9,7 @@ import {
   genInvoiceId,
   inr,
   type Source,
+  type PaymentMethod,
   type OrderItem,
   type Product,
   type ProductVariant,
@@ -49,12 +50,19 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
   const [source, setSource] = useState<Source>('offline');
   const [customer, setCustomer] = useState('');
   const [phone, setPhone] = useState('');
+  const [dob, setDob] = useState('');
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [couponCode, setCouponCode] = useState('');
   const [discMode, setDiscMode] = useState<'₹' | '%'>('₹');
   const [discValue, setDiscValue] = useState('');
   const [delivery, setDelivery] = useState('');
+  // Payment method for offline (POS) bills. Cash uses `received`; GPay uses
+  // `gpayAmt`; Split uses both `splitCash` + `splitGpay`.
+  const [payMethod, setPayMethod] = useState<PaymentMethod>('cash');
   const [received, setReceived] = useState('');
+  const [gpayAmt, setGpayAmt] = useState('');
+  const [splitCash, setSplitCash] = useState('');
+  const [splitGpay, setSplitGpay] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogProduct, setCatalogProduct] = useState<Product | null>(null);
   const [toast, setToast] = useState('');
@@ -76,8 +84,14 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
   const discount = Math.max(0, couponDiscount + Math.max(0, manualDiscount));
   const deliveryNum = Number(delivery) || 0;
   const grandTotal = Math.max(0, subtotal - discount + deliveryNum);
-  const receivedNum = Number(received) || 0;
-  const change = receivedNum - grandTotal;
+  // What the customer actually handed over, per the selected method.
+  const totalReceived =
+    payMethod === 'cash'
+      ? Number(received) || 0
+      : payMethod === 'gpay'
+        ? Number(gpayAmt) || 0
+        : (Number(splitCash) || 0) + (Number(splitGpay) || 0);
+  const change = totalReceived - grandTotal;
 
   const flash = (m: string) => {
     setToast(m);
@@ -128,19 +142,56 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
     setLines([newLine()]);
     setCustomer('');
     setPhone('');
+    setDob('');
     setCouponCode('');
     setDiscValue('');
     setDelivery('');
+    setPayMethod('cash');
     setReceived('');
+    setGpayAmt('');
+    setSplitCash('');
+    setSplitGpay('');
   };
 
-  const createBill = (openWhatsApp: boolean) => {
+  // Completing a sale can (a) open the printable receipt and (b) send the bill
+  // to the customer on WhatsApp. The new tabs are opened synchronously inside
+  // the click gesture (before the awaited DB write) so browsers don't block
+  // them as unsolicited popups. The invoice page retries its fetch, so it
+  // resolves once addOrder has persisted the record a moment later.
+  const createBill = async ({ print, whatsapp }: { print: boolean; whatsapp: boolean }) => {
     if (validLines.length === 0) {
       flash('Add at least one item with a name and price.');
       return;
     }
+    // Mobile number is mandatory (name is optional — walk-ins default to
+    // "Walk-in Customer"). The bill can't be completed without it.
+    if (phone.trim().length !== 10) {
+      flash('Enter the customer’s 10-digit mobile number to complete the sale.');
+      return;
+    }
     const id = genInvoiceId();
-    addOrder({
+    const hasPhone = !!phone.trim();
+
+    if (print) {
+      window.open(`/invoice/${id}?print=true`, '_blank');
+    }
+    if (whatsapp && hasPhone) {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const lineText = validLines.map((l) => `• ${l.name} x${l.qty} — ${inr(l.price * l.qty)}`).join('\n');
+      const msg =
+        `*Shalistone — Invoice ${id}*\n` +
+        `Hi ${customer.trim() || 'there'}, thank you for shopping with us!\n\n` +
+        `${lineText}\n` +
+        `Subtotal: ${inr(subtotal)}` +
+        (discount ? `\nDiscount: -${inr(discount)}` : '') +
+        (deliveryNum ? `\nDelivery: ${inr(deliveryNum)}` : '') +
+        `\n*Total: ${inr(grandTotal)}*\n\n` +
+        (origin ? `View / download your invoice:\n${origin}/invoice/${id}\n\n` : '') +
+        `— Shalistone`;
+      window.open(`https://wa.me/91${phone.trim()}?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    await addOrder({
       id,
       customer: customer.trim() || 'Walk-in Customer',
       phone: phone.trim(),
@@ -159,20 +210,20 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
       discount,
       delivery: deliveryNum,
       total: grandTotal,
-      amountReceived: source === 'offline' ? receivedNum || grandTotal : grandTotal,
+      amountReceived: source === 'offline' ? totalReceived || grandTotal : grandTotal,
+      paymentMethod: source === 'offline' ? payMethod : null,
+      dob: dob || null,
       date: new Date().toISOString(),
       status: 'completed',
     });
     if (couponEval?.ok) updateCoupon(couponEval.coupon.code, { used: couponEval.coupon.used + 1 });
 
-    if (openWhatsApp && phone.trim()) {
-      const lineText = validLines.map((l) => `• ${l.name} x${l.qty} — ${inr(l.price * l.qty)}`).join('\n');
-      const msg = `*Shalistone — Invoice ${id}*\n${lineText}\nSubtotal: ${inr(subtotal)}${
-        discount ? `\nDiscount: -${inr(discount)}` : ''
-      }${deliveryNum ? `\nDelivery: ${inr(deliveryNum)}` : ''}\n*Total: ${inr(grandTotal)}*\n\nThank you for shopping with us!`;
-      window.open(`https://wa.me/91${phone.trim()}?text=${encodeURIComponent(msg)}`, '_blank');
-    }
-    flash(`Bill ${id} saved${source === 'online' ? ' (online)' : ''}.`);
+    const msg = whatsapp
+      ? `Sale ${id} completed — opening WhatsApp for ${phone.trim()} with the invoice.`
+      : print
+        ? `Sale ${id} completed — receipt opening to print.`
+        : `Bill ${id} saved${source === 'online' ? ' (online)' : ''}.`;
+    flash(msg);
     clearOrder();
   };
 
@@ -221,6 +272,15 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   placeholder="Enter 10-digit number"
                   inputMode="numeric"
+                />
+              </Field>
+              <Field label="Date of Birth (for birthday offers)">
+                <input
+                  className={inputCls}
+                  type="date"
+                  value={dob}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setDob(e.target.value)}
                 />
               </Field>
             </div>
@@ -374,34 +434,110 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
 
           {source === 'offline' && (
             <div className="mt-4 rounded-xl border border-black/[0.06] bg-white p-3">
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-widest text-neutral-500">Cash Payment</p>
-              <input
-                className={inputCls}
-                value={received}
-                onChange={(e) => setReceived(e.target.value.replace(/\D/g, ''))}
-                placeholder="Amount received (₹)"
-                inputMode="numeric"
-              />
-              {receivedNum > 0 && (
-                <p className={`mt-2 text-xs font-bold ${change >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {change >= 0 ? `Change to return: ${inr(change)}` : `Short by ${inr(-change)}`}
-                </p>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-neutral-500">Payment Method</p>
+
+              {/* Cash / GPay / Split selector */}
+              <div className="mb-3 grid grid-cols-3 gap-1 rounded-xl border border-black/[0.08] bg-black/[0.03] p-1">
+                {([
+                  { k: 'cash', label: 'Cash', Icon: Banknote },
+                  { k: 'gpay', label: 'GPay', Icon: Smartphone },
+                  { k: 'split', label: 'Split', Icon: Split },
+                ] as const).map(({ k, label, Icon }) => (
+                  <button
+                    key={k}
+                    onClick={() => setPayMethod(k)}
+                    className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
+                      payMethod === k ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" /> {label}
+                  </button>
+                ))}
+              </div>
+
+              {payMethod === 'cash' && (
+                <Field label="Amount Received (₹)">
+                  <input
+                    className={inputCls}
+                    value={received}
+                    onChange={(e) => setReceived(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter cash received"
+                    inputMode="numeric"
+                  />
+                </Field>
+              )}
+
+              {payMethod === 'gpay' && (
+                <Field label="GPay Amount (₹)">
+                  <input
+                    className={inputCls}
+                    value={gpayAmt}
+                    onChange={(e) => setGpayAmt(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter GPay amount"
+                    inputMode="numeric"
+                  />
+                </Field>
+              )}
+
+              {payMethod === 'split' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Cash Amount (₹)">
+                    <input
+                      className={inputCls}
+                      value={splitCash}
+                      onChange={(e) => setSplitCash(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Cash part"
+                      inputMode="numeric"
+                    />
+                  </Field>
+                  <Field label="GPay Amount (₹)">
+                    <input
+                      className={inputCls}
+                      value={splitGpay}
+                      onChange={(e) => setSplitGpay(e.target.value.replace(/\D/g, ''))}
+                      placeholder="GPay part"
+                      inputMode="numeric"
+                    />
+                  </Field>
+                </div>
+              )}
+
+              {totalReceived > 0 && (
+                <div className="mt-2 space-y-0.5">
+                  {payMethod === 'split' && (
+                    <p className="text-[11px] font-semibold text-neutral-500">
+                      Total received: <span className="text-neutral-800">{inr(totalReceived)}</span>
+                    </p>
+                  )}
+                  <p className={`text-xs font-bold ${change >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {change >= 0 ? `Change to return: ${inr(change)}` : `Short by ${inr(-change)}`}
+                  </p>
+                </div>
               )}
             </div>
           )}
 
           <button
-            onClick={() => createBill(true)}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-emerald-700"
+            onClick={() => createBill({ print: false, whatsapp: true })}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-3.5 text-center text-xs font-bold uppercase leading-tight tracking-wide text-white transition-colors hover:bg-emerald-700 sm:text-sm"
           >
-            <MessageCircle className="h-4 w-4" /> Send Bill via WhatsApp
+            <MessageCircle className="h-4 w-4 shrink-0" />
+            <span>Complete Sale &amp; WhatsApp</span>
           </button>
-          <button
-            onClick={() => createBill(false)}
-            className="mt-2 w-full rounded-xl border border-black/[0.1] py-2.5 text-xs font-bold uppercase tracking-widest text-neutral-700 hover:bg-black/[0.03]"
-          >
-            Save Bill Only
-          </button>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => createBill({ print: true, whatsapp: false })}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-black/[0.1] py-2.5 text-xs font-bold uppercase tracking-widest text-neutral-700 hover:bg-black/[0.03]"
+            >
+              <Printer className="h-3.5 w-3.5" /> Print Only
+            </button>
+            <button
+              onClick={() => createBill({ print: false, whatsapp: false })}
+              className="rounded-xl border border-black/[0.1] py-2.5 text-xs font-bold uppercase tracking-widest text-neutral-700 hover:bg-black/[0.03]"
+            >
+              Save Only
+            </button>
+          </div>
         </div>
       </div>
 

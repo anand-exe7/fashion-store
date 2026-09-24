@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode, type CSSProperties } from 'react';
 import { motion, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion';
 import Image from 'next/image';
 import { Magnetic } from '../ui/Magnetic';
@@ -62,6 +62,31 @@ const DOODLES = [
   { key: 'star-b', left: '66%', top: '15%', dur: 8, delay: 1.6, svg: <Star c="#c9d7e6" /> },
 ] as const;
 
+// Mobile-only playful doodles. On phones the desktop set (above) is hidden and
+// its wide-screen positions would clump; these are tuned for a narrow, tall
+// viewport and sit in the band between the headline and the figure so they fill
+// the empty space with colour without ever overlapping the figure (which starts
+// ~54% down). Brighter than the desktop "texture" doodles — this is the kids
+// signal the storefront was missing on mobile.
+const DOODLES_MOBILE = [
+  { key: 'm-star1', left: '7%', top: '7%', dur: 6, delay: 0, svg: <Star c="#E5A400" /> },
+  { key: 'm-cloud', left: '68%', top: '5%', dur: 10, delay: 0.6, svg: <Cloud c="#ffffff" /> },
+  { key: 'm-star2', left: '87%', top: '16%', dur: 7.5, delay: 0.9, svg: <Star c="#EC6A9C" /> },
+  { key: 'm-star3', left: '14%', top: '27%', dur: 7, delay: 1.4, svg: <Star c="#8FC7A6" /> },
+  { key: 'm-rainbow', left: '6%', top: '35%', dur: 9, delay: 1, svg: <Rainbow c="#7FB8D9" /> },
+  { key: 'm-balloon', left: '82%', top: '33%', dur: 8, delay: 0.3, svg: <Balloon c="#EC6A9C" /> },
+] as const;
+
+// The headline, split into colour-accented tokens. The accent colours only
+// paint on mobile (see the `.hero-accent` rule in the <style> block); on sm+
+// every token inherits the original near-black so the desktop hero is unchanged.
+const HEADLINE_LINES: { t: string; a?: string }[][] = [
+  [{ t: 'Little ' }, { t: 'Stars', a: '#E5A400' }, { t: ',' }],
+  [{ t: 'Big ' }, { t: 'Style', a: '#EC6A9C' }, { t: ' —' }],
+  [{ t: 'Made for' }],
+  [{ t: 'Every ' }, { t: 'Age', a: '#2FA37A' }],
+];
+
 export const Hero = ({ featured }: { featured?: ReactNode }) => {
   const { scrollY } = useScroll();
 
@@ -82,6 +107,8 @@ export const Hero = ({ featured }: { featured?: ReactNode }) => {
   const fade = useTransform(scrollY, [0, 550], [1, 0]);
   // Doodles stay deliberately faint so they read as texture, not clip-art.
   const doodleFade = useTransform(scrollY, [0, 550], [0.5, 0]);
+  // Mobile doodles are meant to be seen (kid signal), so they start much brighter.
+  const doodleFadeMobile = useTransform(scrollY, [0, 550], [0.95, 0]);
 
   const onMove = (e: React.MouseEvent) => {
     if (typeof window === 'undefined') return;
@@ -131,13 +158,35 @@ export const Hero = ({ featured }: { featured?: ReactNode }) => {
         }}
       />
 
-      {/* Cartoon doodles — small, soft, and behind everything else */}
+      {/* Cartoon doodles — small, soft, and behind everything else (desktop/tablet) */}
       <motion.div
         style={{ opacity: doodleFade }}
         className="absolute inset-0 z-[7] hidden select-none pointer-events-none sm:block"
         aria-hidden
       >
         {DOODLES.map((d) => (
+          <span
+            key={d.key}
+            className="absolute block"
+            style={{
+              left: d.left,
+              top: d.top,
+              animation: `heroFloat ${d.dur}s ease-in-out ${d.delay}s infinite`,
+            }}
+          >
+            {d.svg}
+          </span>
+        ))}
+      </motion.div>
+
+      {/* Cartoon doodles — mobile only. Brighter and positioned around the
+          headline / in the gap above the figure to fill the empty space. */}
+      <motion.div
+        style={{ opacity: doodleFadeMobile }}
+        className="absolute inset-0 z-[7] block select-none pointer-events-none sm:hidden"
+        aria-hidden
+      >
+        {DOODLES_MOBILE.map((d) => (
           <span
             key={d.key}
             className="absolute block"
@@ -176,7 +225,7 @@ export const Hero = ({ featured }: { featured?: ReactNode }) => {
       <motion.div
         style={{ y: figScrollY }}
         className="absolute bottom-0 left-1/2 z-20 -translate-x-1/2 pointer-events-none
-          h-[46vh] w-auto
+          h-[58vh] w-auto
           sm:h-[58vh]
           md:h-[80vh]
           lg:h-[84vh]"
@@ -200,32 +249,48 @@ export const Hero = ({ featured }: { featured?: ReactNode }) => {
       <motion.div
         style={{ x: headX, y: headScrollY, opacity: fade }}
         className="absolute z-[25] pointer-events-none
-          left-0 right-0 top-[11vh] px-4 text-center
+          left-0 right-0 top-[13vh] px-4 text-center
           sm:top-[16vh]
           md:left-[4vw] md:right-auto md:top-[22vh] md:max-w-[34vw] md:px-0 md:text-left"
       >
         <h1
-          className="uppercase text-[#141414]"
+          className="heroHeadline uppercase text-[#141414]"
           style={{
             fontFamily: HEADLINE_FONT,
             fontWeight: 900,
-            fontSize: 'clamp(1.5rem, 5.5vw, 3.8rem)',
             lineHeight: 0.95,
             letterSpacing: '-0.03em',
             textShadow: '0 1px 0 rgba(255,255,255,0.6)',
           }}
         >
-          {settings.headline.map((line, i) => (
-            <span key={line} className="block overflow-hidden">
+          {HEADLINE_LINES.map((line, i) => (
+            <span key={i} className="block overflow-hidden">
               <span
                 className="block"
                 style={{ animation: `heroSlideUp 0.8s cubic-bezier(0.22,1,0.36,1) ${0.12 + i * 0.07}s both` }}
               >
-                {line}
+                {line.map((tok, j) =>
+                  tok.a ? (
+                    <span key={j} className="hero-accent" style={{ '--a': tok.a } as CSSProperties}>
+                      {tok.t}
+                    </span>
+                  ) : (
+                    <span key={j}>{tok.t}</span>
+                  ),
+                )}
               </span>
             </span>
           ))}
         </h1>
+
+        {/* Kid tagline chip — mobile only. Adds the "made for kids" context the
+            client felt was missing, and fills a little of the space under the headline. */}
+        <div className="mt-4 flex justify-center sm:hidden" style={{ animation: 'heroFade 0.9s ease-out 0.55s both' }}>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white/70 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-700 shadow-sm backdrop-blur-sm">
+            <span className="text-sm leading-none text-[#E5A400]">★</span>
+            Ages 0–16 · Playful &amp; Comfy
+          </span>
+        </div>
 
         <div
           className="mx-auto mt-4 hidden max-w-[280px] md:mx-0 md:mt-6 md:block"
@@ -324,6 +389,14 @@ export const Hero = ({ featured }: { featured?: ReactNode }) => {
       />
 
       <style>{`
+        /* Mobile: bigger, punchier headline. On sm+ the original clamp is
+           restored so the desktop/tablet hero is byte-for-byte unchanged. */
+        .heroHeadline { font-size: clamp(2.2rem, 9vw, 3.4rem); }
+        .hero-accent { color: var(--a, inherit); }
+        @media (min-width: 640px) {
+          .heroHeadline { font-size: clamp(1.5rem, 5.5vw, 3.8rem); }
+          .hero-accent { color: inherit; }
+        }
         @keyframes heroSlideUp {
           from { transform: translateY(105%); }
           to { transform: translateY(0); }

@@ -1,15 +1,44 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { Search, Download, Trash2, ExternalLink, ShoppingCart, ChevronDown } from 'lucide-react';
+import { Search, Download, Trash2, ShoppingCart, ChevronDown, MessageCircle, FileText } from 'lucide-react';
 import { useAdminData, deleteOrder, inr, type Order, type Source } from '@/lib/store';
 import { Card, Modal, ModalHeader, EmptyState } from '../ui';
 
 type TypeFilter = 'all' | Source;
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+
 function fmtDate(iso: string) {
   const d = new Date(iso);
-  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Opens the shareable/printable invoice for an order in a new tab.
+function openInvoice(id: string) {
+  window.open(`/invoice/${encodeURIComponent(id)}`, '_blank');
+}
+
+// Sends the bill summary + invoice link to the customer over WhatsApp.
+function sendWhatsApp(o: Order) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const lineText = o.items.map((l) => `• ${l.name} x${l.qty} — ${inr(l.price * l.qty)}`).join('\n');
+  const msg =
+    `*Shalistone — Invoice ${o.id}*\n` +
+    `Hi ${o.customer || 'there'}, thank you for shopping with us!\n\n` +
+    `${lineText}\n` +
+    `Subtotal: ${inr(o.subtotal)}` +
+    (o.discount ? `\nDiscount: -${inr(o.discount)}` : '') +
+    (o.delivery ? `\nDelivery: ${inr(o.delivery)}` : '') +
+    `\n*Total: ${inr(o.total)}*\n\n` +
+    (origin ? `View / download your invoice:\n${origin}/invoice/${o.id}\n\n` : '') +
+    `— Shalistone`;
+  const base = o.phone.trim() ? `https://wa.me/91${o.phone.trim()}` : 'https://wa.me/';
+  window.open(`${base}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 function inDate(iso: string, f: DateFilter, from: string, to: string) {
@@ -45,6 +74,10 @@ export default function Orders({ go }: { go?: (k: string) => void }) {
     const q = query.trim().toLowerCase();
     const filtered = orders.filter(
       (o) =>
+        // Only completed sales are shown. Abandoned online checkouts stay
+        // "pending" in the DB (payment never finished) and are hidden here so
+        // Orders matches Analytics — no phantom bills.
+        o.status === 'completed' &&
         (type === 'all' || o.source === type) &&
         inDate(o.date, date, from, to) &&
         (!q || o.id.toLowerCase().includes(q) || o.customer.toLowerCase().includes(q) || o.phone.includes(q)),
@@ -164,45 +197,58 @@ export default function Orders({ go }: { go?: (k: string) => void }) {
       {/* Table (desktop) */}
       <Card className="hidden overflow-hidden lg:block">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] text-left">
+          <table className="w-full min-w-[1080px] text-left">
             <thead>
               <tr className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                <th className="px-5 py-3">Invoice No</th>
-                <th className="px-3 py-3">Customer</th>
-                <th className="px-3 py-3">Phone</th>
-                <th className="px-3 py-3">Bill Type</th>
-                <th className="px-3 py-3">Coupon</th>
-                <th className="px-3 py-3">Discount</th>
-                <th className="px-3 py-3">Delivery</th>
-                <th className="px-3 py-3">Total</th>
-                <th className="px-3 py-3">Date</th>
-                <th className="px-3 py-3">Status</th>
-                <th className="px-3 py-3 text-right">Actions</th>
+                <th className="px-5 py-3.5">Order ID</th>
+                <th className="px-3 py-3.5">Date &amp; Time</th>
+                <th className="px-3 py-3.5">Customer Name</th>
+                <th className="px-3 py-3.5">Mobile Number</th>
+                <th className="px-3 py-3.5">Source</th>
+                <th className="px-3 py-3.5">Total Due</th>
+                <th className="px-3 py-3.5 text-right">Status &amp; Actions</th>
               </tr>
             </thead>
             <tbody>
               {list.map((o) => (
                 <tr key={o.id} className="border-t border-black/[0.05] hover:bg-black/[0.015]">
-                  <td className="px-5 py-4">
-                    <button onClick={() => setDetail(o)} className="flex items-center gap-1.5 text-sm font-bold text-neutral-900 hover:underline">
-                      {o.id} <ExternalLink className="h-3 w-3 text-neutral-400" />
-                    </button>
+                  <td className="px-5 py-4 text-sm font-bold text-neutral-900">{o.id}</td>
+                  <td className="px-3 py-4">
+                    <p className="text-sm font-bold text-neutral-900">{fmtDate(o.date)}</p>
+                    <p className="text-xs text-neutral-400">{fmtTime(o.date)}</p>
                   </td>
                   <td className="px-3 py-4 text-sm font-semibold text-neutral-800">{o.customer}</td>
                   <td className="px-3 py-4 text-sm text-neutral-600">{o.phone || '—'}</td>
                   <td className="px-3 py-4"><SourceBadge source={o.source} /></td>
-                  <td className="px-3 py-4 text-sm text-neutral-500">{o.couponCode ?? '—'}</td>
-                  <td className="px-3 py-4 text-sm text-neutral-500">{o.discount ? inr(o.discount) : '—'}</td>
-                  <td className="px-3 py-4 text-sm text-neutral-500">{o.delivery ? inr(o.delivery) : '—'}</td>
-                  <td className="px-3 py-4 text-sm font-bold text-neutral-900">{inr(o.total)}</td>
-                  <td className="px-3 py-4 text-sm text-neutral-600">{fmtDate(o.date)}</td>
+                  <td className="px-3 py-4 text-sm font-bold text-teal-600">{inr(o.total)}</td>
                   <td className="px-3 py-4">
-                    <span className="rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-bold uppercase text-emerald-700">{o.status}</span>
-                  </td>
-                  <td className="px-3 py-4 text-right">
-                    <button onClick={() => setConfirmId(o.id)} className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50" aria-label="Delete">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <StatusBadge status={o.status} />
+                      <button
+                        onClick={() => sendWhatsApp(o)}
+                        className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-emerald-600"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                      </button>
+                      <button
+                        onClick={() => openInvoice(o.id)}
+                        className="flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-sky-600"
+                      >
+                        <FileText className="h-3.5 w-3.5" /> Invoice
+                      </button>
+                      <button
+                        onClick={() => setDetail(o)}
+                        className="px-2 text-[11px] font-bold uppercase tracking-wide text-neutral-700 underline decoration-neutral-300 underline-offset-2 hover:text-black"
+                      >
+                        Details
+                      </button>
+                      <button
+                        onClick={() => setConfirmId(o.id)}
+                        className="rounded-lg border border-red-300 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-red-500 transition-colors hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -217,17 +263,29 @@ export default function Orders({ go }: { go?: (k: string) => void }) {
         {list.map((o) => (
           <Card key={o.id} className="p-4">
             <div className="flex items-start justify-between gap-2">
-              <button onClick={() => setDetail(o)} className="text-sm font-bold text-neutral-900 hover:underline">{o.id}</button>
+              <div>
+                <p className="text-sm font-bold text-neutral-900">{o.id}</p>
+                <p className="text-xs text-neutral-400">{fmtDate(o.date)} · {fmtTime(o.date)}</p>
+              </div>
               <SourceBadge source={o.source} />
             </div>
-            <p className="mt-1 text-sm font-semibold text-neutral-800">{o.customer}</p>
-            <p className="text-xs text-neutral-400">{o.phone || '—'} · {fmtDate(o.date)}</p>
+            <p className="mt-2 text-sm font-semibold text-neutral-800">{o.customer}</p>
+            <p className="text-xs text-neutral-400">{o.phone || '—'}</p>
             <div className="mt-3 flex items-center justify-between">
-              <span className="text-lg font-extrabold text-neutral-900">{inr(o.total)}</span>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setDetail(o)} className="rounded-lg border border-black/[0.09] px-3 py-1.5 text-xs font-bold text-neutral-700">View</button>
-                <button onClick={() => setConfirmId(o.id)} className="grid h-8 w-8 place-items-center rounded-lg text-red-500 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
-              </div>
+              <span className="text-lg font-extrabold text-teal-600">{inr(o.total)}</span>
+              <StatusBadge status={o.status} />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button onClick={() => sendWhatsApp(o)} className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold uppercase tracking-wide text-white">
+                <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+              </button>
+              <button onClick={() => openInvoice(o.id)} className="flex items-center justify-center gap-1.5 rounded-lg bg-sky-500 px-3 py-2 text-xs font-bold uppercase tracking-wide text-white">
+                <FileText className="h-3.5 w-3.5" /> Invoice
+              </button>
+              <button onClick={() => setDetail(o)} className="rounded-lg border border-black/[0.09] px-3 py-2 text-xs font-bold text-neutral-700">Details</button>
+              <button onClick={() => setConfirmId(o.id)} className="flex items-center justify-center gap-1.5 rounded-lg border border-red-300 px-3 py-2 text-xs font-bold text-red-500">
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
             </div>
           </Card>
         ))}
@@ -289,8 +347,23 @@ export default function Orders({ go }: { go?: (k: string) => void }) {
 
 function SourceBadge({ source }: { source: Source }) {
   return (
-    <span className={`rounded px-2 py-1 text-[10px] font-bold uppercase ${source === 'online' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+    <span
+      className={`inline-block rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wide ${
+        source === 'online' ? 'border-emerald-300 text-emerald-600' : 'border-rose-300 text-rose-500'
+      }`}
+    >
       {source}
+    </span>
+  );
+}
+function StatusBadge({ status }: { status: Order['status'] }) {
+  return (
+    <span
+      className={`inline-block rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+        status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+      }`}
+    >
+      {status}
     </span>
   );
 }
