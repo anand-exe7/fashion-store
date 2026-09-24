@@ -59,6 +59,19 @@ const HARDCODED_MENS_CATEGORIES = [
   "Accessories"
 ];
 
+// The client wants the department filter in age order — Toddlers → Kids → Teens —
+// not the DB's alphabetical order (Kids, Teens, Toddlers). Rank the known kid
+// groups explicitly so the order holds even when age ranges aren't set on the
+// departments; anything else falls back to its configured min age, then name.
+function departmentRank(d: Department): number {
+  const n = d.name.toLowerCase();
+  if (n.includes('toddler')) return 0;
+  if (n.includes('kid')) return 1;
+  if (n.includes('teen')) return 2;
+  if (d.ageMinMonths != null) return 100 + d.ageMinMonths;
+  return 1000;
+}
+
 const containerVariants = {
   hidden: { opacity: 0 },
   show: {
@@ -250,19 +263,37 @@ function productMatchesCategory(p: Product, catName: string): boolean {
   return pCat.includes(c) || c.includes(pCat);
 }
 
+  // These three never had a good white-background catalogue thumbnail (the old
+  // local files were beige studio mockups). Instead of a hardcoded image, pull
+  // the REAL product photo from the live catalogue — those are clean white-bg
+  // studio shots — and only fall back to the local tile if the catalogue has no
+  // matching item.
+  const PREFER_PRODUCT_PHOTO = new Set(['All', 'Over Sized T-Shirts', 'Hoodies']);
+
   // Dynamic image lookup for category bubbles
   const getCategoryPhoto = (catName: string): string => {
+    if (PREFER_PRODUCT_PHOTO.has(catName)) {
+      const match = catName === 'All'
+        ? products[0]
+        : products.find(p => productMatchesCategory(p, catName));
+      const img = match?.images?.find(i => i.isPrimary)?.url || match?.images?.[0]?.url || match?.image;
+      if (img) return img;
+      return CATEGORY_DEFAULT_IMAGES[catName] || CATEGORY_DEFAULT_IMAGES.All;
+    }
     // Force use of the explicitly defined catalogue image if one exists
     if (CATEGORY_DEFAULT_IMAGES[catName] && CATEGORY_DEFAULT_IMAGES[catName].startsWith('/categories/')) {
       return CATEGORY_DEFAULT_IMAGES[catName];
-    }
-    if (catName === 'All' && CATEGORY_DEFAULT_IMAGES.All) {
-      return CATEGORY_DEFAULT_IMAGES.All;
     }
     const match = products.find(p => productMatchesCategory(p, catName));
     const matchImg = match?.images?.find(i => i.isPrimary)?.url || match?.images?.[0]?.url || match?.image;
     return matchImg || CATEGORY_DEFAULT_IMAGES[catName] || CATEGORY_DEFAULT_IMAGES.All;
   };
+
+  // Departments in the client's requested age order for the filter tabs/drawer.
+  const orderedDepartments = useMemo(
+    () => [...departments].sort((a, b) => departmentRank(a) - departmentRank(b) || a.name.localeCompare(b.name)),
+    [departments],
+  );
 
   // Products filtered by selected department
   const departmentFilteredProducts = useMemo(() => {
@@ -365,9 +396,9 @@ function productMatchesCategory(p: Product, catName: string): boolean {
 
         {/* 1. Visual Category Rail (Mobile Story Avatars) */}
         <div className="mb-6 sm:mb-8">
-          <div 
+          <div
             ref={categoryRailRef}
-            className="-mx-3 px-3 sm:mx-0 sm:px-0 flex items-start gap-3 sm:gap-6 overflow-x-auto no-scrollbar scroll-smooth py-2 touch-pan-x"
+            className="-mx-4 px-4 sm:-mx-2 sm:px-2 flex items-start gap-3 sm:gap-6 overflow-x-auto no-scrollbar scroll-smooth scroll-pl-4 sm:scroll-pl-2 py-3 touch-pan-x"
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {categories.map(cat => {
@@ -437,7 +468,7 @@ function productMatchesCategory(p: Product, catName: string): boolean {
             
             {/* Desktop / Tablet Department Tabs */}
             <div className="hidden sm:flex items-center gap-1 bg-black/[0.04] p-1 rounded-full overflow-x-auto no-scrollbar">
-              {['All', ...departments.map(d => d.name)].map(name => {
+              {['All', ...orderedDepartments.map(d => d.name)].map(name => {
                 const isSelected = departmentFilter === name;
                 const deptObj = departments.find(d => d.name === name);
                 const ageLabel = deptObj ? formatAgeRange(deptObj.ageMinMonths, deptObj.ageMaxMonths) : '';
@@ -680,7 +711,7 @@ function productMatchesCategory(p: Product, catName: string): boolean {
                   Department
                 </span>
                 <div className="flex flex-wrap gap-2">
-                  {['All', ...departments.map(d => d.name)].map(name => {
+                  {['All', ...orderedDepartments.map(d => d.name)].map(name => {
                     const isSelected = departmentFilter === name;
                     return (
                       <button

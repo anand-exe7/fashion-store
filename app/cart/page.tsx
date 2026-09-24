@@ -35,6 +35,7 @@ export default function CartPage() {
   const [custPhone, setCustPhone] = useState('');
   const [custEmail, setCustEmail] = useState('');
   const [custAddress, setCustAddress] = useState('');
+  const [custDob, setCustDob] = useState('');
   
   const [paidInvoice, setPaidInvoice] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -146,6 +147,7 @@ export default function CartPage() {
           customerPhone: custPhone,
           customerEmail: custEmail,
           customerAddress: custAddress,
+          customerDob: custDob || undefined,
         })
       });
 
@@ -330,6 +332,10 @@ export default function CartPage() {
                   <input type="text" value={custName} onChange={(e) => setCustName(e.target.value)} placeholder="Full Name" className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors" />
                   <input type="tel" value={custPhone} onChange={(e) => setCustPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Mobile Number" className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors" />
                   <input type="email" value={custEmail} onChange={(e) => setCustEmail(e.target.value)} placeholder="Email Address" className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors" />
+                  <div>
+                    <label className="block text-[10px] font-bold tracking-widest uppercase text-neutral-500 mb-2">Date of Birth <span className="font-medium normal-case tracking-normal text-neutral-400">— for birthday offers</span></label>
+                    <input type="date" value={custDob} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setCustDob(e.target.value)} className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm text-neutral-700 focus:outline-none focus:border-black/20 transition-colors" />
+                  </div>
                   <textarea value={custAddress} onChange={(e) => setCustAddress(e.target.value)} placeholder="Complete Delivery Address" rows={3} className="w-full bg-[#F5F2EB] border border-black/5 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-black/20 transition-colors resize-none"></textarea>
                 </div>
                 
