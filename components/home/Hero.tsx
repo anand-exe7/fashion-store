@@ -286,7 +286,7 @@ export const Hero = ({ featured }: { featured?: ReactNode }) => {
         {/* Kid tagline chip — mobile only. Adds the "made for kids" context the
             client felt was missing, and fills a little of the space under the headline. */}
         <div className="mt-4 flex justify-center sm:hidden" style={{ animation: 'heroFade 0.9s ease-out 0.55s both' }}>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white/70 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-700 shadow-sm backdrop-blur-sm">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-white px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-800 shadow-md ring-1 ring-black/[0.04]">
             <span className="text-sm leading-none text-[#E5A400]">★</span>
             Ages 0–16 · Playful &amp; Comfy
           </span>

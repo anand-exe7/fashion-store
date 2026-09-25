@@ -36,6 +36,7 @@ function sendWhatsApp(o: Order) {
     (o.delivery ? `\nDelivery: ${inr(o.delivery)}` : '') +
     `\n*Total: ${inr(o.total)}*\n\n` +
     (origin ? `View / download your invoice:\n${origin}/invoice/${o.id}\n\n` : '') +
+    `Follow us on Instagram 📸\n@shalistone · https://www.instagram.com/shalistone/\n\n` +
     `— Shalistone`;
   const base = o.phone.trim() ? `https://wa.me/91${o.phone.trim()}` : 'https://wa.me/';
   window.open(`${base}?text=${encodeURIComponent(msg)}`, '_blank');

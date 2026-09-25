@@ -1,6 +1,6 @@
 'use client';
-import { useMemo, useState } from 'react';
-import { Trash2, Plus, Minus, List, ShoppingBag, Printer, User, Banknote, Smartphone, Split, MessageCircle } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Trash2, Plus, Minus, List, ShoppingBag, Printer, User, Banknote, Smartphone, Split, MessageCircle, FileText, Check } from 'lucide-react';
 import {
   useAdminData,
   addOrder,
@@ -45,6 +45,21 @@ const stockLabel = (p: Product) => {
   return n > 0 ? `${n} in stock` : 'Out of stock';
 };
 
+// Print target for the receipt. Thermal = label/roll printer (58/80 mm rolls);
+// A4 = regular sheet printer (A4/A5). Passed to /invoice via ?paper=&size=.
+type Printer = 'thermal' | 'a4';
+const PRINT_SIZES: Record<Printer, { k: string; label: string; sub: string }[]> = {
+  thermal: [
+    { k: '58', label: '58 mm', sub: '2-inch thermal roll' },
+    { k: '80', label: '80 mm', sub: '3-inch thermal roll' },
+  ],
+  a4: [
+    { k: 'a4', label: 'A4', sub: '210 × 297 mm sheet' },
+    { k: 'a5', label: 'A5', sub: '148 × 210 mm sheet' },
+  ],
+};
+const PRINT_PREFS_KEY = 'shalistone_print_prefs';
+
 export default function Billing({ go }: { go?: (k: string) => void }) {
   const { products, coupons } = useAdminData();
   const [source, setSource] = useState<Source>('offline');
@@ -66,6 +81,34 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogProduct, setCatalogProduct] = useState<Product | null>(null);
   const [toast, setToast] = useState('');
+  // Print settings dialog (opened from the "Print" button).
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printer, setPrinter] = useState<Printer>('thermal');
+  const [printSize, setPrintSize] = useState('80');
+
+  // Restore the operator's last-used printer + size so the dialog opens on their
+  // usual choice. Per-viewer convenience only — safe to fail (private mode etc.).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PRINT_PREFS_KEY);
+      if (!raw) return;
+      const p = JSON.parse(raw) as { printer?: Printer; size?: string };
+      if (p.printer === 'thermal' || p.printer === 'a4') {
+        setPrinter(p.printer);
+        const valid = PRINT_SIZES[p.printer].some((s) => s.k === p.size);
+        setPrintSize(valid ? (p.size as string) : PRINT_SIZES[p.printer][0].k);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // Switching printer resets the size to that printer's default (roll sizes and
+  // sheet sizes aren't interchangeable).
+  const selectPrinter = (p: Printer) => {
+    setPrinter(p);
+    setPrintSize(PRINT_SIZES[p][0].k);
+  };
 
   const validLines = lines.filter((l) => l.name.trim() && l.price > 0);
   const subtotal = validLines.reduce((a, l) => a + l.price * l.qty, 0);
@@ -158,22 +201,37 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
   // the click gesture (before the awaited DB write) so browsers don't block
   // them as unsolicited popups. The invoice page retries its fetch, so it
   // resolves once addOrder has persisted the record a moment later.
-  const createBill = async ({ print, whatsapp }: { print: boolean; whatsapp: boolean }) => {
+  const createBill = async ({
+    print,
+    whatsapp,
+    paper,
+    size,
+  }: {
+    print: boolean;
+    whatsapp: boolean;
+    paper?: Printer;
+    size?: string;
+  }): Promise<boolean> => {
     if (validLines.length === 0) {
       flash('Add at least one item with a name and price.');
-      return;
+      return false;
     }
     // Mobile number is mandatory (name is optional — walk-ins default to
     // "Walk-in Customer"). The bill can't be completed without it.
     if (phone.trim().length !== 10) {
       flash('Enter the customer’s 10-digit mobile number to complete the sale.');
-      return;
+      return false;
     }
     const id = genInvoiceId();
     const hasPhone = !!phone.trim();
 
     if (print) {
-      window.open(`/invoice/${id}?print=true`, '_blank');
+      // paper/size tell the invoice page to lay out for a thermal roll or an
+      // A4/A5 sheet and set the matching @page for the browser print dialog.
+      const params = new URLSearchParams({ print: 'true' });
+      if (paper) params.set('paper', paper);
+      if (size) params.set('size', size);
+      window.open(`/invoice/${id}?${params.toString()}`, '_blank');
     }
     if (whatsapp && hasPhone) {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -187,6 +245,7 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
         (deliveryNum ? `\nDelivery: ${inr(deliveryNum)}` : '') +
         `\n*Total: ${inr(grandTotal)}*\n\n` +
         (origin ? `View / download your invoice:\n${origin}/invoice/${id}\n\n` : '') +
+        `Follow us on Instagram 📸\n@shalistone · https://www.instagram.com/shalistone/\n\n` +
         `— Shalistone`;
       window.open(`https://wa.me/91${phone.trim()}?text=${encodeURIComponent(msg)}`, '_blank');
     }
@@ -225,6 +284,19 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
         : `Bill ${id} saved${source === 'online' ? ' (online)' : ''}.`;
     flash(msg);
     clearOrder();
+    return true;
+  };
+
+  // Persist the chosen printer/size, run the sale with the print flag, and close
+  // the dialog only if the bill actually completed (validation may block it).
+  const confirmPrint = async () => {
+    try {
+      localStorage.setItem(PRINT_PREFS_KEY, JSON.stringify({ printer, size: printSize }));
+    } catch {
+      /* ignore */
+    }
+    const ok = await createBill({ print: true, whatsapp: false, paper: printer, size: printSize });
+    if (ok) setPrintOpen(false);
   };
 
   return (
@@ -526,10 +598,10 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
           </button>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <button
-              onClick={() => createBill({ print: true, whatsapp: false })}
+              onClick={() => setPrintOpen(true)}
               className="flex items-center justify-center gap-1.5 rounded-xl border border-black/[0.1] py-2.5 text-xs font-bold uppercase tracking-widest text-neutral-700 hover:bg-black/[0.03]"
             >
-              <Printer className="h-3.5 w-3.5" /> Print Only
+              <Printer className="h-3.5 w-3.5" /> Print
             </button>
             <button
               onClick={() => createBill({ print: false, whatsapp: false })}
@@ -635,8 +707,98 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
         )}
       </Modal>
 
+      {/* Print settings — pick printer + paper size, then print the receipt */}
+      <Modal open={printOpen} onClose={() => setPrintOpen(false)} size="md">
+        <ModalHeader title="Print Settings" onClose={() => setPrintOpen(false)} />
+        <div className="space-y-6 p-5 sm:p-6">
+          <div>
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-neutral-500">Printer</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <PrintOption
+                active={printer === 'thermal'}
+                onClick={() => selectPrinter('thermal')}
+                icon={<Printer className="h-4 w-4" />}
+                title="Label Printer (Thermal)"
+                sub="Receipt / roll printer"
+              />
+              <PrintOption
+                active={printer === 'a4'}
+                onClick={() => selectPrinter('a4')}
+                icon={<FileText className="h-4 w-4" />}
+                title="Regular Printer (A4)"
+                sub="Standard sheet printer"
+              />
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-neutral-500">Size</p>
+            <div className="grid grid-cols-2 gap-2">
+              {PRINT_SIZES[printer].map((s) => (
+                <PrintOption
+                  key={s.k}
+                  active={printSize === s.k}
+                  onClick={() => setPrintSize(s.k)}
+                  title={s.label}
+                  sub={s.sub}
+                />
+              ))}
+            </div>
+          </div>
+
+          <p className="text-[11px] text-neutral-400">
+            The invoice opens in a new tab and prints on the selected paper. Completing the sale also saves it to Orders &amp; Analytics.
+          </p>
+
+          <button
+            onClick={confirmPrint}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-3 py-3.5 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-black"
+          >
+            <Printer className="h-4 w-4" /> Print Invoice
+          </button>
+        </div>
+      </Modal>
+
       <Toast show={!!toast} message={toast} />
     </Card>
+  );
+}
+
+function PrintOption({
+  active,
+  onClick,
+  icon,
+  title,
+  sub,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon?: ReactNode;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative flex items-start gap-3 rounded-xl border p-3 text-left transition-colors ${
+        active ? 'border-neutral-900 bg-neutral-900/[0.04]' : 'border-black/[0.1] hover:bg-black/[0.02]'
+      }`}
+    >
+      {icon && (
+        <span className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg ${active ? 'bg-neutral-900 text-white' : 'bg-black/[0.05] text-neutral-500'}`}>
+          {icon}
+        </span>
+      )}
+      <span className="min-w-0">
+        <span className="block text-sm font-bold text-neutral-900">{title}</span>
+        <span className="block text-[11px] text-neutral-500">{sub}</span>
+      </span>
+      {active && (
+        <span className="absolute right-2.5 top-2.5 grid h-4 w-4 place-items-center rounded-full bg-neutral-900 text-white">
+          <Check className="h-3 w-3" />
+        </span>
+      )}
+    </button>
   );
 }
 

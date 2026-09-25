@@ -37,6 +37,23 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Print target chosen in the POS "Print Settings" dialog and passed through
+  // the URL: paper = 'thermal' (roll) or 'a4' (sheet); size = '58'/'80' for
+  // thermal, 'a4'/'a5' for sheet. Defaults to a full A4 sheet.
+  const [paper, setPaper] = useState<'thermal' | 'a4'>('a4');
+  const [paperSize, setPaperSize] = useState('a4');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get('paper') === 'thermal') {
+      setPaper('thermal');
+      setPaperSize(sp.get('size') === '58' ? '58' : '80');
+    } else if (sp.get('paper') === 'a4') {
+      setPaper('a4');
+      setPaperSize(sp.get('size') === 'a5' ? 'a5' : 'a4');
+    }
+  }, []);
 
   const handleCopyLink = () => {
     if (typeof window !== "undefined") {
@@ -145,17 +162,145 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
 
   const amountPaid = order.amountReceived || order.total;
 
+  const isThermal = paper === 'thermal';
+  // Roll width for thermal, or the sheet size for A4/A5, drives the print @page.
+  const pageSize = isThermal
+    ? `${paperSize === '58' ? '58mm' : '80mm'} auto`
+    : paperSize === 'a5'
+      ? 'A5 portrait'
+      : 'A4 portrait';
+  const pageMargin = isThermal ? '3mm' : paperSize === 'a5' ? '10mm' : '12mm';
+  // On-screen preview width for the thermal roll (real mm scaled up slightly so
+  // it's readable).
+  const thermalWidth = paperSize === '58' ? 260 : 320;
+  // Printed width, pinned to the real roll (roll mm minus the 3mm page margins
+  // on each side). Using a fixed mm width — NOT 100% — keeps the receipt a small
+  // narrow column even when the browser prints to an A4/Letter PDF that ignores
+  // the @page roll size, instead of stretching it across the whole sheet.
+  const thermalPrintWidth = paperSize === '58' ? '52mm' : '74mm';
+
+  const printStyle = `
+    @media print {
+      @page { size: ${pageSize}; margin: ${pageMargin}; }
+      body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .print-hidden { display: none !important; }
+      .invoice-sheet { box-shadow: none !important; border: none !important; border-radius: 0 !important; max-width: 100% !important; width: 100% !important; }
+      .thermal-sheet { box-shadow: none !important; border: none !important; border-radius: 0 !important; width: ${thermalPrintWidth} !important; max-width: ${thermalPrintWidth} !important; margin: 0 auto !important; }
+    }
+  `;
+
+  if (isThermal) {
+    return (
+      <div className="min-h-screen bg-[#F4F2EC] text-neutral-900 py-6 sm:py-10 px-3 print:p-0 print:bg-white flex flex-col items-center">
+        <style>{printStyle}</style>
+
+        {/* Action bar (screen only) */}
+        <div className="w-full flex items-center justify-center gap-2 mb-5 print-hidden" style={{ maxWidth: thermalWidth }}>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 bg-white hover:bg-neutral-50 text-neutral-800 font-bold text-xs uppercase tracking-wider px-3 py-2.5 rounded-xl shadow-xs border border-black/10 transition-all"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <button
+            onClick={handleCopyLink}
+            className="inline-flex items-center gap-2 bg-white hover:bg-neutral-50 text-neutral-700 hover:text-black font-semibold text-xs uppercase tracking-wider px-3 py-2.5 rounded-xl shadow-xs border border-black/10 transition-colors"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="inline-flex flex-1 items-center justify-center gap-2 bg-neutral-900 hover:bg-black text-white font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Print</span>
+          </button>
+        </div>
+
+        {/* Thermal receipt */}
+        <div
+          className="thermal-sheet bg-white text-neutral-900 border border-black/10 rounded-xl shadow-lg px-3 py-4 print:border-none print:shadow-none print:rounded-none"
+          style={{ width: thermalWidth, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}
+        >
+          <div className="text-center">
+            <img src="/logo.jpeg" alt="Shalistone" className="mx-auto w-9 h-9 rounded-md object-cover mb-1" />
+            <p className="text-base font-black uppercase tracking-tight leading-none">Shalistone</p>
+            <p className="mt-0.5 text-[9px] uppercase tracking-[0.15em] text-neutral-500">Kids &amp; Mens Fashion</p>
+            <p className="mt-1 text-[10px] text-neutral-500">www.shalistone.com · +91 98765 43210</p>
+          </div>
+
+          <div className="my-2 border-t border-dashed border-black/30" />
+
+          <div className="text-[11px] leading-5">
+            <div className="flex justify-between"><span className="text-neutral-500">Invoice</span><span className="font-bold">#{order.id}</span></div>
+            <div className="flex justify-between"><span className="text-neutral-500">Date</span><span>{formattedDate}</span></div>
+            <div className="flex justify-between"><span className="text-neutral-500">Time</span><span>{formattedTime}</span></div>
+            <div className="flex justify-between"><span className="text-neutral-500">Customer</span><span className="font-semibold text-right">{order.customerName || 'Walk-in'}</span></div>
+            {order.customerPhone && (
+              <div className="flex justify-between"><span className="text-neutral-500">Mobile</span><span>+91 {order.customerPhone}</span></div>
+            )}
+          </div>
+
+          <div className="my-2 border-t border-dashed border-black/30" />
+
+          {/* Items */}
+          <div className="text-[11px]">
+            <div className="flex justify-between font-bold uppercase text-[9px] tracking-wide text-neutral-500">
+              <span>Item</span>
+              <span>Amount</span>
+            </div>
+            <div className="mt-1 space-y-1.5">
+              {order.items.map((item, index) => (
+                <div key={index}>
+                  <p className="font-semibold leading-tight">{item.name}</p>
+                  <div className="flex justify-between text-neutral-600">
+                    <span>{item.quantity} × {inr(item.price)}{(item.size || item.color) ? ` · ${[item.size && `Sz ${item.size}`, item.color].filter(Boolean).join(' ')}` : ''}</span>
+                    <span className="font-bold tabular-nums text-neutral-900">{inr(item.price * item.quantity)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="my-2 border-t border-dashed border-black/30" />
+
+          {/* Totals */}
+          <div className="text-[11px] leading-5">
+            <div className="flex justify-between"><span className="text-neutral-500">Subtotal</span><span className="tabular-nums">{inr(order.subtotal)}</span></div>
+            {order.discount > 0 && (
+              <div className="flex justify-between text-neutral-700"><span>Discount{order.couponCode ? ` (${order.couponCode})` : ''}</span><span className="tabular-nums">- {inr(order.discount)}</span></div>
+            )}
+            <div className="flex justify-between"><span className="text-neutral-500">Delivery</span><span className="tabular-nums">{order.delivery > 0 ? inr(order.delivery) : 'Free'}</span></div>
+          </div>
+
+          <div className="my-2 flex items-center justify-between border-y border-black/70 py-1.5 text-sm font-black">
+            <span className="uppercase tracking-wide">Total</span>
+            <span className="tabular-nums">{inr(order.total)}</span>
+          </div>
+
+          <div className="text-[11px] leading-5">
+            <div className="flex justify-between"><span className="text-neutral-500">Paid via</span><span className="font-semibold">{payLabel}</span></div>
+            <div className="flex justify-between"><span className="text-neutral-500">Paid</span><span className="tabular-nums">{inr(amountPaid)}</span></div>
+          </div>
+
+          <p className="mt-2 text-[9px] italic leading-tight text-neutral-500">{numberToWordsINR(order.total)}</p>
+          <p className="mt-0.5 text-[9px] text-neutral-400">Prices inclusive of applicable GST.</p>
+
+          <div className="my-2 border-t border-dashed border-black/30" />
+
+          <div className="text-center text-[10px] text-neutral-600">
+            <p className="font-semibold">Thank you for shopping with us!</p>
+            <p className="mt-1 text-[9px] text-neutral-400">Powered by Cenexa Systems</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F4F2EC] text-neutral-900 font-sans py-6 sm:py-10 px-3 sm:px-6 print:p-0 print:bg-white flex flex-col items-center">
 
-      <style>{`
-        @media print {
-          @page { size: A4 portrait; margin: 12mm; }
-          body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .print-hidden { display: none !important; }
-          .invoice-sheet { box-shadow: none !important; border: none !important; border-radius: 0 !important; max-width: 100% !important; width: 100% !important; }
-        }
-      `}</style>
+      <style>{printStyle}</style>
 
       {/* Action bar (screen only) */}
       <div className="w-full max-w-3xl flex items-center justify-between mb-5 print-hidden gap-3">
