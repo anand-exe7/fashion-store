@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-
 import { useState, useRef, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { CartDrawer } from '../ui/CartDrawer';
+import { createClient } from '@/lib/supabase/client';
 
 const NAV_LINKS = [
   { label: 'Home', href: '/', subtitle: 'Return to flagship' },
@@ -20,6 +21,7 @@ export const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const mobileSearchRef = useRef<HTMLInputElement>(null);
@@ -61,6 +63,37 @@ export const Navbar = () => {
       }
     }
   });
+
+  // Determine whether the signed-in user is an admin (controls admin link visibility)
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+
+    async function checkAdmin() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        if (!cancelled) setIsAdmin(false);
+        return;
+      }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+      if (!cancelled) setIsAdmin(profile?.role === 'admin');
+    }
+
+    checkAdmin();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      checkAdmin();
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // Focus search
   useEffect(() => {
@@ -400,17 +433,19 @@ export const Navbar = () => {
                   <ChevronRight className="h-4 w-4 text-neutral-400" />
                 </a>
 
-                <a
-                  href="/admin"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center justify-between rounded-xl px-4 py-2.5 bg-neutral-900 text-white transition-all text-xs font-semibold uppercase tracking-wider"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Shield className="h-4 w-4 text-neutral-300" />
-                    <span>Store Admin Portal</span>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-white/70" />
-                </a>
+                {isAdmin && (
+                  <a
+                    href="/admin"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center justify-between rounded-xl px-4 py-2.5 bg-neutral-900 text-white transition-all text-xs font-semibold uppercase tracking-wider"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Shield className="h-4 w-4 text-neutral-300" />
+                      <span>Store Admin Portal</span>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-white/70" />
+                  </a>
+                )}
               </div>
 
               {/* Studio Info Footer in Drawer */}
