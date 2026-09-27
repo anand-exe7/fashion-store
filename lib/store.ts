@@ -39,11 +39,16 @@ export interface Order {
   // NOT yet persisted in Supabase — see the hand-off note by addOrder below.
   paymentMethod?: PaymentMethod | null;
   // Customer date of birth (ISO yyyy-mm-dd) captured at billing/checkout, used
-  // for the Birthdays offers list. Also NOT yet persisted — same hand-off.
+  // for the Birthdays offers list.
   dob?: string | null;
+  // Online-order packing workflow. null for POS bills.
+  fulfillmentStatus?: FulfillmentStatus | null;
   date: string;
   status: OrderStatus;
 }
+
+// Online-order packing lifecycle (retail POS bills leave this null).
+export type FulfillmentStatus = 'pending' | 'packed' | 'shipped';
 
 export interface ProductVariant {
   id?: string;
@@ -146,11 +151,9 @@ async function refreshAll() {
       delivery: o.delivery,
       total: o.total,
       amountReceived: o.amountReceived || null,
-      // Passes through automatically once db.fetchOrders returns payment_method
-      // (see hand-off by addOrder). Until then it's undefined here and the
-      // analytics breakdown treats such offline bills as Cash.
-      paymentMethod: (o as { paymentMethod?: PaymentMethod }).paymentMethod ?? null,
-      dob: (o as { dob?: string }).dob ?? null,
+      paymentMethod: (o.paymentMethod as PaymentMethod) ?? null,
+      dob: o.dob ?? null,
+      fulfillmentStatus: (o.fulfillmentStatus as FulfillmentStatus) ?? null,
       date: o.createdAt,
       status: o.status as OrderStatus
     }));
@@ -232,19 +235,9 @@ export async function addOrder(order: Order) {
   globalState = { ...globalState, orders: [order, ...globalState.orders] };
   notify();
 
-  // ── BACKEND HAND-OFF (payment method + date of birth) ────────────────────
-  // `order.paymentMethod` ('cash'|'gpay'|'split') and `order.dob` (yyyy-mm-dd)
-  // are captured at billing/checkout and used by Analytics / the Birthdays
-  // list for this session, but are NOT yet saved to Supabase, so they're lost
-  // on refresh. To persist (two columns):
-  //   1. Migration:  ALTER TABLE orders ADD COLUMN payment_method text,
-  //                                     ADD COLUMN dob date;
-  //   2. db.insertOrder(): add  payment_method: order.paymentMethod, dob: order.dob,
-  //   3. db.fetchOrders()/fetchOrderById(): add  paymentMethod: o.payment_method,
-  //      dob: o.dob,  and add `paymentMethod?: string; dob?: string` to db.Order.
-  //   (For online orders, /api/payment/create-order also gets `customerDob` in
-  //    its body now — persist that onto the order row too.)
-  // Nothing breaks before that's done — the fields simply stay null on reload.
+  // Payment method + DOB are persisted here (migration 0003 adds the columns).
+  // Manually-entered online bills start their packing workflow at 'pending';
+  // offline POS bills leave fulfillment null.
   await db.insertOrder({
     id: order.id,
     customerName: order.customer,
@@ -257,6 +250,9 @@ export async function addOrder(order: Order) {
     total: order.total,
     amountReceived: order.amountReceived || undefined,
     status: order.status,
+    paymentMethod: order.paymentMethod ?? null,
+    dob: order.dob ?? null,
+    fulfillmentStatus: order.fulfillmentStatus ?? (order.source === 'online' ? 'pending' : null),
     createdAt: new Date().toISOString(),
     items: order.items.map(i => ({
       name: i.name,
@@ -287,6 +283,22 @@ export async function deleteOrder(id: string) {
   globalState = { ...globalState, orders: globalState.orders.filter(o => o.id !== id) };
   notify();
   await db.deleteOrder(id);
+  refreshAll();
+}
+
+// Advance an online order through its packing workflow (pending → packed → shipped).
+export async function setFulfillment(id: string, fulfillmentStatus: FulfillmentStatus) {
+  globalState = {
+    ...globalState,
+    orders: globalState.orders.map(o => (o.id === id ? { ...o, fulfillmentStatus } : o)),
+  };
+  notify();
+  try {
+    await db.updateOrderFulfillment(id, fulfillmentStatus);
+  } catch (err) {
+    console.error('Failed to update fulfillment status:', err);
+    showToast("Couldn't update packing status.");
+  }
   refreshAll();
 }
 

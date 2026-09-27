@@ -12,6 +12,47 @@ export async function GET(
     return Response.json({ error: 'Not found' }, { status: 404 });
   }
 
+  // Wholesale bills use a 'WS-' prefix and live in their own tables. Serve them
+  // in the same Order shape so the shared invoice page renders them unchanged.
+  if (id.startsWith('WS-')) {
+    const { data: w, error: wErr } = await adminSupabase
+      .from('wholesale_orders')
+      .select('*, wholesale_order_items(*)')
+      .eq('id', id)
+      .single();
+    if (wErr || !w) {
+      return Response.json({ error: 'Not found' }, { status: 404 });
+    }
+    const items = (w.wholesale_order_items || [])
+      .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map((i: any) => ({
+        id: i.id,
+        name: i.name,
+        size: i.size,
+        color: null,
+        quantity: i.quantity,
+        price: i.price,
+      }));
+    return Response.json({
+      id: w.id,
+      customerName: w.customer_name,
+      customerPhone: w.customer_phone,
+      customerEmail: null,
+      customerAddress: null,
+      source: 'wholesale',
+      subtotal: w.subtotal,
+      discount: w.discount,
+      couponCode: null,
+      delivery: 0,
+      total: w.total,
+      amountReceived: w.amount_received,
+      paymentMethod: w.payment_method,
+      status: 'completed',
+      createdAt: w.created_at,
+      items,
+    });
+  }
+
   const { data: o, error } = await adminSupabase
     .from('orders')
     .select('*, order_items(*)')

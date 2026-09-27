@@ -11,7 +11,7 @@ const STORE_PHONE_DISPLAY = '+91 91104 15639';
 type StoreStatus = { open: boolean; label: string };
 
 // Live open/closed from the store's own timezone (IST), independent of the
-// visitor's clock. Hours: Mon–Sat 10:00–19:00, Sun 11:00–17:00.
+// visitor's clock. Hours: Mon–Sun 10:00–20:00 (10 AM–8 PM every day).
 function getStoreStatus(): StoreStatus {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Kolkata',
@@ -21,14 +21,13 @@ function getStoreStatus(): StoreStatus {
     hour12: false,
   }).formatToParts(new Date());
 
-  const weekday = parts.find((p) => p.type === 'weekday')?.value ?? 'Mon';
   const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
   const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
   const mins = hour * 60 + minute;
 
-  const isSun = weekday === 'Sun';
-  const openMin = isSun ? 11 * 60 : 10 * 60;
-  const closeMin = isSun ? 17 * 60 : 19 * 60;
+  // Same hours every day of the week.
+  const openMin = 10 * 60;
+  const closeMin = 20 * 60;
 
   const fmt = (m: number) => {
     const h = Math.floor(m / 60);
@@ -91,8 +90,8 @@ export const Newsletter = () => {
                 <path d="M12 7v5l3 2" />
               </svg>
               <div className="text-sm font-bold leading-relaxed tracking-wide text-black">
-                MON – SAT · 10AM – 7PM
-                <span className="block font-medium text-neutral-500">SUN · 11AM – 5PM</span>
+                MON – SUN · 10AM – 8PM
+                <span className="block font-medium text-neutral-500">Open every day</span>
               </div>
             </div>
           </div>
@@ -234,7 +233,7 @@ export const Newsletter = () => {
 
             <div className="mt-3 flex items-center justify-between border-t border-black/5 pt-3">
               <span className="text-[11px] font-semibold text-neutral-600">
-                {status ? status.label : 'Mon–Sat 10–7 · Sun 11–5'}
+                {status ? status.label : 'Mon–Sun · 10AM–8PM'}
               </span>
               <a
                 href={DIRECTIONS_URL}

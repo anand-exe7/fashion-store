@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { Search, Download, Trash2, ShoppingCart, ChevronDown, MessageCircle, FileText } from 'lucide-react';
-import { useAdminData, deleteOrder, inr, type Order, type Source } from '@/lib/store';
+import { Search, Download, Trash2, ShoppingCart, ChevronDown, MessageCircle, FileText, Package, Zap, Check } from 'lucide-react';
+import { useAdminData, deleteOrder, setFulfillment, inr, type Order, type Source, type FulfillmentStatus } from '@/lib/store';
 import { Card, Modal, ModalHeader, EmptyState } from '../ui';
 
 type TypeFilter = 'all' | Source;
@@ -60,6 +60,10 @@ function inDate(iso: string, f: DateFilter, from: string, to: string) {
   return true;
 }
 
+const fulfillmentOf = (o: Order) => (o.fulfillmentStatus ?? 'pending') as FulfillmentStatus;
+// An online order still needs the shop's attention until it has shipped.
+const needsAction = (o: Order) => o.source === 'online' && o.status === 'completed' && fulfillmentOf(o) !== 'shipped';
+
 export default function Orders({ go }: { go?: (k: string) => void }) {
   const { orders } = useAdminData();
   const [type, setType] = useState<TypeFilter>('all');
@@ -70,6 +74,16 @@ export default function Orders({ go }: { go?: (k: string) => void }) {
   const [sort, setSort] = useState<'newest' | 'oldest' | 'high' | 'low'>('newest');
   const [detail, setDetail] = useState<Order | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  // Online orders awaiting packing/shipping — surfaced in a queue at the top so
+  // the shop never has to hunt for what needs processing.
+  const queue = useMemo(
+    () =>
+      orders
+        .filter(needsAction)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), // oldest first — process in order
+    [orders],
+  );
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -115,7 +129,10 @@ export default function Orders({ go }: { go?: (k: string) => void }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-bold tracking-tight text-neutral-900 sm:text-2xl">Order Management</h2>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-neutral-900 sm:text-2xl">Order Management</h2>
+          <p className="text-xs text-neutral-500 sm:text-sm">Online orders to pack are pinned to the top.</p>
+        </div>
         <button
           onClick={() => go?.('billing')}
           className="flex items-center gap-2 self-start rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-neutral-800"
@@ -124,15 +141,35 @@ export default function Orders({ go }: { go?: (k: string) => void }) {
         </button>
       </div>
 
+      {/* Online fulfillment queue — the primary focus of this page */}
+      {queue.length > 0 && (
+        <Card className="overflow-hidden border-amber-200/70 bg-gradient-to-b from-amber-50/80 to-white">
+          <div className="flex items-center gap-2.5 border-b border-amber-200/60 px-4 py-3 sm:px-5">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-400 text-amber-950">
+              <Zap className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-sm font-bold text-neutral-900">Online orders to process</p>
+              <p className="text-[11px] text-neutral-500">{queue.length} order{queue.length === 1 ? '' : 's'} waiting to be packed or shipped</p>
+            </div>
+          </div>
+          <div className="divide-y divide-amber-100/80">
+            {queue.map((o) => (
+              <QueueRow key={o.id} order={o} onDetail={() => setDetail(o)} />
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Filters */}
       <Card className="p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="w-12 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Type</span>
-              {(['all', 'offline', 'online'] as TypeFilter[]).map((t) => (
+              {(['all', 'online', 'offline'] as TypeFilter[]).map((t) => (
                 <button key={t} onClick={() => setType(t)} className={chip(type === t)}>
-                  {t === 'all' ? 'All Bills' : t.charAt(0).toUpperCase() + t.slice(1)}
+                  {t === 'all' ? 'All Bills' : t === 'online' ? 'Online' : 'In-Store'}
                 </button>
               ))}
             </div>
@@ -174,7 +211,7 @@ export default function Orders({ go }: { go?: (k: string) => void }) {
 
       {/* Result bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm font-medium text-neutral-500">{list.length} result(s)</p>
+        <p className="text-sm font-medium text-neutral-500">{list.length} order{list.length === 1 ? '' : 's'}</p>
         <div className="flex items-center gap-3">
           <div className="relative">
             <select
@@ -195,103 +232,16 @@ export default function Orders({ go }: { go?: (k: string) => void }) {
         </div>
       </div>
 
-      {/* Table (desktop) */}
-      <Card className="hidden overflow-hidden lg:block">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1080px] text-left">
-            <thead>
-              <tr className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                <th className="px-5 py-3.5">Order ID</th>
-                <th className="px-3 py-3.5">Date &amp; Time</th>
-                <th className="px-3 py-3.5">Customer Name</th>
-                <th className="px-3 py-3.5">Mobile Number</th>
-                <th className="px-3 py-3.5">Source</th>
-                <th className="px-3 py-3.5">Total Due</th>
-                <th className="px-3 py-3.5 text-right">Status &amp; Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((o) => (
-                <tr key={o.id} className="border-t border-black/[0.05] hover:bg-black/[0.015]">
-                  <td className="px-5 py-4 text-sm font-bold text-neutral-900">{o.id}</td>
-                  <td className="px-3 py-4">
-                    <p className="text-sm font-bold text-neutral-900">{fmtDate(o.date)}</p>
-                    <p className="text-xs text-neutral-400">{fmtTime(o.date)}</p>
-                  </td>
-                  <td className="px-3 py-4 text-sm font-semibold text-neutral-800">{o.customer}</td>
-                  <td className="px-3 py-4 text-sm text-neutral-600">{o.phone || '—'}</td>
-                  <td className="px-3 py-4"><SourceBadge source={o.source} /></td>
-                  <td className="px-3 py-4 text-sm font-bold text-teal-600">{inr(o.total)}</td>
-                  <td className="px-3 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <StatusBadge status={o.status} />
-                      <button
-                        onClick={() => sendWhatsApp(o)}
-                        className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-emerald-600"
-                      >
-                        <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
-                      </button>
-                      <button
-                        onClick={() => openInvoice(o.id)}
-                        className="flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-sky-600"
-                      >
-                        <FileText className="h-3.5 w-3.5" /> Invoice
-                      </button>
-                      <button
-                        onClick={() => setDetail(o)}
-                        className="px-2 text-[11px] font-bold uppercase tracking-wide text-neutral-700 underline decoration-neutral-300 underline-offset-2 hover:text-black"
-                      >
-                        Details
-                      </button>
-                      <button
-                        onClick={() => setConfirmId(o.id)}
-                        className="rounded-lg border border-red-300 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-red-500 transition-colors hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Order cards — one clean, roomy card per order on every screen size */}
+      {list.length === 0 ? (
+        <Card><EmptyState message="No orders match your filters." /></Card>
+      ) : (
+        <div className="space-y-3">
+          {list.map((o) => (
+            <OrderCard key={o.id} order={o} onDetail={() => setDetail(o)} onDelete={() => setConfirmId(o.id)} />
+          ))}
         </div>
-        {list.length === 0 && <EmptyState message="No orders match your filters." />}
-      </Card>
-
-      {/* Cards (mobile) */}
-      <div className="space-y-3 lg:hidden">
-        {list.map((o) => (
-          <Card key={o.id} className="p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-sm font-bold text-neutral-900">{o.id}</p>
-                <p className="text-xs text-neutral-400">{fmtDate(o.date)} · {fmtTime(o.date)}</p>
-              </div>
-              <SourceBadge source={o.source} />
-            </div>
-            <p className="mt-2 text-sm font-semibold text-neutral-800">{o.customer}</p>
-            <p className="text-xs text-neutral-400">{o.phone || '—'}</p>
-            <div className="mt-3 flex items-center justify-between">
-              <span className="text-lg font-extrabold text-teal-600">{inr(o.total)}</span>
-              <StatusBadge status={o.status} />
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button onClick={() => sendWhatsApp(o)} className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold uppercase tracking-wide text-white">
-                <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
-              </button>
-              <button onClick={() => openInvoice(o.id)} className="flex items-center justify-center gap-1.5 rounded-lg bg-sky-500 px-3 py-2 text-xs font-bold uppercase tracking-wide text-white">
-                <FileText className="h-3.5 w-3.5" /> Invoice
-              </button>
-              <button onClick={() => setDetail(o)} className="rounded-lg border border-black/[0.09] px-3 py-2 text-xs font-bold text-neutral-700">Details</button>
-              <button onClick={() => setConfirmId(o.id)} className="flex items-center justify-center gap-1.5 rounded-lg border border-red-300 px-3 py-2 text-xs font-bold text-red-500">
-                <Trash2 className="h-3.5 w-3.5" /> Delete
-              </button>
-            </div>
-          </Card>
-        ))}
-        {list.length === 0 && <Card><EmptyState message="No orders match your filters." /></Card>}
-      </div>
+      )}
 
       {/* Detail modal */}
       <Modal open={!!detail} onClose={() => setDetail(null)} size="md">
@@ -346,15 +296,130 @@ export default function Orders({ go }: { go?: (k: string) => void }) {
   );
 }
 
+// A single order rendered as a spacious, tidy card — replaces the cramped table.
+function OrderCard({ order: o, onDetail, onDelete }: { order: Order; onDetail: () => void; onDelete: () => void }) {
+  return (
+    <Card className="p-4 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        {/* Identity */}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-bold text-neutral-900">{o.id}</span>
+            <SourceBadge source={o.source} />
+          </div>
+          <p className="mt-1 truncate text-sm font-semibold text-neutral-800">{o.customer}</p>
+          <p className="text-xs text-neutral-400">{o.phone || '—'} · {fmtDate(o.date)} · {fmtTime(o.date)}</p>
+        </div>
+        {/* Amount */}
+        <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
+          <span className="text-xl font-extrabold text-teal-600">{inr(o.total)}</span>
+          <StatusBadge status={o.status} />
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-black/[0.05] pt-3">
+        {o.source === 'online' && <FulfillmentControl order={o} />}
+        <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+          <button
+            onClick={() => sendWhatsApp(o)}
+            className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-emerald-600"
+          >
+            <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+          </button>
+          <button
+            onClick={() => openInvoice(o.id)}
+            className="flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-sky-600"
+          >
+            <FileText className="h-3.5 w-3.5" /> Invoice
+          </button>
+          <button
+            onClick={onDetail}
+            className="rounded-lg border border-black/[0.09] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-neutral-700 hover:bg-black/[0.03]"
+          >
+            Details
+          </button>
+          <button
+            onClick={onDelete}
+            className="grid h-8 w-8 place-items-center rounded-lg border border-red-200 text-red-500 transition-colors hover:bg-red-50"
+            aria-label="Delete order"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// Compact row for the online fulfillment queue — action-forward.
+function QueueRow({ order: o, onDetail }: { order: Order; onDetail: () => void }) {
+  return (
+    <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-bold text-neutral-900">{o.customer}</span>
+          <span className="text-xs font-semibold text-neutral-400">{o.id}</span>
+        </div>
+        <p className="text-xs text-neutral-500">{o.phone || '—'} · {fmtDate(o.date)}, {fmtTime(o.date)} · <span className="font-bold text-teal-600">{inr(o.total)}</span></p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <FulfillmentControl order={o} />
+        <button onClick={() => sendWhatsApp(o)} className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500 text-white transition-colors hover:bg-emerald-600" aria-label="WhatsApp">
+          <MessageCircle className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={() => openInvoice(o.id)} className="grid h-8 w-8 place-items-center rounded-lg bg-sky-500 text-white transition-colors hover:bg-sky-600" aria-label="Invoice">
+          <FileText className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={onDetail} className="rounded-lg border border-black/[0.09] bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-neutral-700 hover:bg-black/[0.03]">
+          Details
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SourceBadge({ source }: { source: Source }) {
   return (
     <span
-      className={`inline-block rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wide ${
-        source === 'online' ? 'border-emerald-300 text-emerald-600' : 'border-rose-300 text-rose-500'
+      className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+        source === 'online' ? 'border-emerald-300 bg-emerald-50 text-emerald-600' : 'border-rose-300 bg-rose-50 text-rose-500'
       }`}
     >
-      {source}
+      {source === 'online' ? 'Online' : 'In-Store'}
     </span>
+  );
+}
+// Online-order packing workflow control. Advances pending → packed → shipped,
+// and shows the current stage. Retail POS bills don't get one.
+const FULFILL_NEXT: Record<FulfillmentStatus, FulfillmentStatus | null> = {
+  pending: 'packed',
+  packed: 'shipped',
+  shipped: null,
+};
+const FULFILL_STYLE: Record<FulfillmentStatus, string> = {
+  pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  packed: 'bg-sky-50 text-sky-700 border-sky-200',
+  shipped: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+};
+function FulfillmentControl({ order }: { order: Order }) {
+  if (order.source !== 'online') return null;
+  const current = (order.fulfillmentStatus ?? 'pending') as FulfillmentStatus;
+  const next = FULFILL_NEXT[current];
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${FULFILL_STYLE[current]}`}>
+        {current === 'shipped' ? <Check className="h-3 w-3" /> : <Package className="h-3 w-3" />} {current}
+      </span>
+      {next && (
+        <button
+          onClick={() => setFulfillment(order.id, next)}
+          className="rounded-lg bg-neutral-900 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-black"
+        >
+          Mark {next}
+        </button>
+      )}
+    </div>
   );
 }
 function StatusBadge({ status }: { status: Order['status'] }) {

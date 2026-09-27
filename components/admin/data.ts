@@ -8,8 +8,17 @@ import {
   Truck,
   Tags,
   Cake,
+  Star,
+  Film,
+  Warehouse,
+  Receipt,
+  TrendingUp,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
+
+// Which admin roles may open a section. 'staff' is a limited role: it sees only
+// online-order packaging and inventory — never analytics, billing or user admin.
+export type Role = 'admin' | 'staff';
 
 export type Status = 'pending' | 'contacted' | 'completed';
 
@@ -37,18 +46,28 @@ export interface NavItem {
   key: string;
   label: string;
   icon: ComponentType<{ className?: string }>;
+  // Roles allowed to see this section. Defaults to admin-only when omitted.
+  roles?: Role[];
+  // Optional heading rendered above this item in the sidebar.
+  group?: string;
 }
 
 export const NAV: NavItem[] = [
-  { key: 'billing', label: 'Billing', icon: CreditCard },
-  { key: 'analytics', label: 'POS Analytics', icon: BarChart3 },
-  { key: 'orders', label: 'Orders', icon: ShoppingCart },
-  { key: 'inventory', label: 'Inventory', icon: Package },
-  { key: 'categories', label: 'Categories', icon: Tags },
-  { key: 'coupons', label: 'Coupons', icon: Ticket },
-  { key: 'birthdays', label: 'Date of Birth', icon: Cake },
-  { key: 'delivery', label: 'Delivery', icon: Truck },
-  { key: 'users', label: 'Users', icon: Users },
+  { key: 'billing', label: 'Billing', icon: CreditCard, roles: ['admin'] },
+  { key: 'analytics', label: 'POS Analytics', icon: BarChart3, roles: ['admin'] },
+  { key: 'orders', label: 'Orders', icon: ShoppingCart, roles: ['admin', 'staff'] },
+  { key: 'inventory', label: 'Inventory', icon: Package, roles: ['admin', 'staff'] },
+  { key: 'reviews', label: 'Reviews', icon: Star, roles: ['admin'] },
+  { key: 'categories', label: 'Categories', icon: Tags, roles: ['admin'] },
+  { key: 'coupons', label: 'Coupons', icon: Ticket, roles: ['admin'] },
+  { key: 'birthdays', label: 'Date of Birth', icon: Cake, roles: ['admin'] },
+  { key: 'reels', label: 'Instagram Reels', icon: Film, roles: ['admin'] },
+  { key: 'delivery', label: 'Delivery', icon: Truck, roles: ['admin'] },
+  { key: 'users', label: 'Users', icon: Users, roles: ['admin'] },
+  // Wholesale — a separate mini-suite.
+  { key: 'ws-billing', label: 'WS Billing', icon: Receipt, roles: ['admin'], group: 'Wholesale' },
+  { key: 'ws-inventory', label: 'WS Inventory', icon: Warehouse, roles: ['admin'] },
+  { key: 'ws-analytics', label: 'WS Analytics', icon: TrendingUp, roles: ['admin'] },
 ];
 
 export const REQUESTS: OrderRequest[] = [

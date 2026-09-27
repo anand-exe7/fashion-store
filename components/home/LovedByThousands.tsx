@@ -1,22 +1,23 @@
 'use client';
 import { motion, useMotionValue, useAnimationFrame, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import { Star, MessageSquarePlus, X, Check, Trash2, Sparkles } from 'lucide-react';
+import { Star, MessageSquarePlus, X, Check, Sparkles } from 'lucide-react';
 import { RevealText } from '../ui/RevealText';
+import { fetchApprovedReviews, submitReview } from '@/lib/db';
 
 const SPEED = 45; // px per second
 
 export interface ReviewItem {
   id?: string;
-  img: string;
+  img?: string | null;
   name: string;
   note: string;
   rating?: number;
   product?: string;
-  isUserReview?: boolean;
-  date?: string;
 }
 
+// A small built-in showcase so the marquee is never empty. Real, admin-approved
+// customer reviews are loaded from the database and pinned in front of these.
 const DEFAULT_REVIEWS: ReviewItem[] = [
   { img: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=600&auto=format&fit=crop', name: 'Aria M.', note: 'Impeccable fit and wonderful linen texture.', rating: 5, product: 'Summer Tunic' },
   { img: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=600&auto=format&fit=crop', name: 'Devin K.', note: 'Buttery soft organic cotton — my kid loves it.', rating: 5, product: 'Ribbed Romper' },
@@ -35,9 +36,10 @@ const RATING_LABELS: Record<number, string> = {
 };
 
 export const LovedByThousands = () => {
-  const [userReviews, setUserReviews] = useState<ReviewItem[]>([]);
+  const [approvedReviews, setApprovedReviews] = useState<ReviewItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Form state
   const [name, setName] = useState('');
@@ -54,19 +56,25 @@ export const LovedByThousands = () => {
   const sectionRef = useRef<HTMLElement>(null);
   const [inView, setInView] = useState(false);
 
-  // Load reviews from client localStorage cache
+  // Load approved, moderated reviews from the database.
   useEffect(() => {
-    try {
-      const cached = localStorage.getItem('shalistone_user_reviews');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) {
-          setUserReviews(parsed);
-        }
-      }
-    } catch (err) {
-      console.warn('Error reading cached reviews:', err);
-    }
+    let cancelled = false;
+    fetchApprovedReviews()
+      .then((rows) => {
+        if (cancelled) return;
+        setApprovedReviews(
+          rows.map((r) => ({
+            id: r.id,
+            img: r.imageUrl || null,
+            name: r.name,
+            note: r.note,
+            rating: r.rating,
+            product: r.product || undefined,
+          })),
+        );
+      })
+      .catch((err) => console.warn('Could not load reviews:', err));
+    return () => { cancelled = true; };
   }, []);
 
   // Recalculate marquee width whenever reviews change
@@ -74,18 +82,18 @@ export const LovedByThousands = () => {
     if (trackRef.current) {
       halfWidthRef.current = trackRef.current.scrollWidth / 2;
     }
-  }, [userReviews]);
+  }, [approvedReviews]);
 
-  // Combined list with user reviews pinned first
-  const allReviews = [...userReviews, ...DEFAULT_REVIEWS];
+  // Combined list with approved customer reviews pinned first
+  const allReviews = [...approvedReviews, ...DEFAULT_REVIEWS];
   const marquee = [...allReviews, ...allReviews];
 
   // Calculate dynamic stats
-  const totalCount = 2000 + userReviews.length;
+  const totalCount = 2000 + approvedReviews.length;
   const avgRating = (
     (DEFAULT_REVIEWS.reduce((acc, r) => acc + (r.rating || 5), 0) +
-      userReviews.reduce((acc, r) => acc + (r.rating || 5), 0)) /
-    (DEFAULT_REVIEWS.length + userReviews.length)
+      approvedReviews.reduce((acc, r) => acc + (r.rating || 5), 0)) /
+    (DEFAULT_REVIEWS.length + approvedReviews.length)
   ).toFixed(1);
 
   // Intersection observer for animation performance
@@ -105,59 +113,37 @@ export const LovedByThousands = () => {
     x.set(next);
   });
 
-  const handleOpenModal = () => {
-    setIsModalOpen(true);
-  };
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
-
-  const handleSubmitReview = (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!note.trim()) return;
+    if (!note.trim() || submitting) return;
 
-    const newReview: ReviewItem = {
-      id: 'rev_' + Date.now(),
-      img: '/looks/look_3.jpg', // stylish default photo
-      name: name.trim() || 'Valued Client',
-      note: note.trim(),
-      rating,
-      product: product.trim() || 'Verified Purchase',
-      isUserReview: true,
-    };
-
-    const updated = [newReview, ...userReviews];
-    setUserReviews(updated);
+    setSubmitting(true);
     try {
-      localStorage.setItem('shalistone_user_reviews', JSON.stringify(updated));
+      await submitReview({
+        name: name.trim() || 'Valued Client',
+        note: note.trim(),
+        rating,
+        product: product.trim() || undefined,
+      });
+
+      // Reset form
+      setName('');
+      setProduct('');
+      setNote('');
+      setRating(5);
+      setIsModalOpen(false);
+
+      setToastMessage('Thank you! Your review has been sent for approval and will appear once published.');
     } catch (err) {
-      console.warn('Failed to cache review:', err);
+      console.error('Failed to submit review:', err);
+      setToastMessage('Something went wrong sending your review. Please try again.');
+    } finally {
+      setSubmitting(false);
+      setTimeout(() => setToastMessage(null), 6000);
     }
-
-    // Reset form
-    setName('');
-    setProduct('');
-    setNote('');
-    setRating(5);
-    setIsModalOpen(false);
-
-    // Toast
-    setToastMessage('Thanks! Your review is now live in the showcase.');
-    setTimeout(() => setToastMessage(null), 5000);
-  };
-
-  const handleDeleteReview = (id?: string) => {
-    if (!id) return;
-    const updated = userReviews.filter((r) => r.id !== id);
-    setUserReviews(updated);
-    try {
-      localStorage.setItem('shalistone_user_reviews', JSON.stringify(updated));
-    } catch (err) {
-      console.warn('Failed to update cache:', err);
-    }
-    setToastMessage('Your review has been removed.');
-    setTimeout(() => setToastMessage(null), 3000);
   };
 
   return (
@@ -199,7 +185,6 @@ export const LovedByThousands = () => {
             <span>Write a Review</span>
           </button>
         </div>
-
       </motion.div>
 
       {/* Marquee Track */}
@@ -213,78 +198,51 @@ export const LovedByThousands = () => {
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#f5f2eb] to-transparent md:w-28" />
 
         <motion.div ref={trackRef} style={{ x }} className="flex w-max gap-4 px-4 md:gap-5">
-          {marquee.map((r, i) => (
-            <div
-              key={`${r.name}-${i}`}
-              className={`group relative aspect-[4/5] w-[210px] flex-shrink-0 overflow-hidden rounded-2xl shadow-sm transition-all duration-300 hover:shadow-xl md:w-[280px] ${
-                r.isUserReview
-                  ? 'ring-2 ring-amber-400 shadow-amber-200/50 bg-amber-950'
-                  : 'bg-neutral-200 ring-1 ring-black/5'
-              }`}
-            >
-              <img
-                src={r.img}
-                alt={`${r.name} review`}
-                className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
+          {marquee.map((r, i) => {
+            const hasImage = !!r.img;
+            return (
               <div
-                className={`absolute inset-0 bg-gradient-to-t ${
-                  r.isUserReview
-                    ? 'from-black/85 via-black/35 to-amber-950/20'
-                    : 'from-black/70 via-black/15 to-transparent'
+                key={`${r.name}-${i}`}
+                className={`group relative aspect-[4/5] w-[210px] flex-shrink-0 overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:shadow-xl md:w-[280px] ${
+                  hasImage ? 'bg-neutral-200' : 'bg-gradient-to-br from-neutral-900 to-neutral-700'
                 }`}
-              />
+              >
+                {hasImage && (
+                  <>
+                    <img
+                      src={r.img as string}
+                      alt={`${r.name} review`}
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+                  </>
+                )}
 
-              {/* Badges on Top */}
-              <div className="absolute left-3 top-3 right-3 flex items-center justify-between">
-                <div className="flex gap-0.5 rounded-full bg-white/90 px-2 py-1 shadow-sm backdrop-blur-xs">
-                  {Array.from({ length: r.rating || 5 }).map((_, s) => (
-                    <Star key={s} className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
-                  ))}
-                </div>
-
-                {r.isUserReview ? (
-                  <span className="flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-widest text-amber-950 shadow-sm">
-                    <Sparkles className="h-2.5 w-2.5" />
-                    Your Review
-                  </span>
-                ) : (
-                  r.product && (
+                {/* Badges on Top */}
+                <div className="absolute left-3 top-3 right-3 flex items-center justify-between">
+                  <div className="flex gap-0.5 rounded-full bg-white/90 px-2 py-1 shadow-sm backdrop-blur-xs">
+                    {Array.from({ length: r.rating || 5 }).map((_, s) => (
+                      <Star key={s} className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+                    ))}
+                  </div>
+                  {r.product && (
                     <span className="rounded-full bg-black/40 px-2 py-0.5 text-[8px] font-semibold text-white/90 backdrop-blur-xs">
                       {r.product}
                     </span>
-                  )
-                )}
-              </div>
-
-              {/* Review Text on Bottom */}
-              <div className="absolute inset-x-4 bottom-4 text-left text-white">
-                <p className="font-serif text-base italic leading-snug line-clamp-3">“{r.note}”</p>
-                <div className="mt-2 flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/95">
-                      {r.name}
-                    </p>
-                    <p className="text-[9px] text-white/60">
-                      {r.isUserReview ? 'Posted by you' : 'Verified Purchase'}
-                    </p>
-                  </div>
-                  {r.isUserReview && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteReview(r.id);
-                      }}
-                      title="Delete review"
-                      className="rounded-full bg-white/20 p-1 text-white hover:bg-red-500 transition-colors"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
                   )}
                 </div>
+
+                {/* Review Text on Bottom */}
+                <div className="absolute inset-x-4 bottom-4 text-left text-white">
+                  <p className="font-serif text-base italic leading-snug line-clamp-3">“{r.note}”</p>
+                  <div className="mt-2">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/95">{r.name}</p>
+                    <p className="text-[9px] text-white/60">Verified Purchase</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </motion.div>
       </div>
 
@@ -324,7 +282,7 @@ export const LovedByThousands = () => {
                   Share Your Experience
                 </h3>
                 <p className="mt-1.5 text-xs text-neutral-600">
-                  Tell us how the fit, fabric and comfort worked out — your review joins the showcase below.
+                  Tell us how the fit, fabric and comfort worked out. Reviews are published after a quick review by our team.
                 </p>
               </div>
 
@@ -417,10 +375,11 @@ export const LovedByThousands = () => {
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-2 rounded-full bg-black px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all hover:bg-neutral-800 hover:shadow-lg active:scale-95"
+                    disabled={submitting}
+                    className="inline-flex items-center gap-2 rounded-full bg-black px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all hover:bg-neutral-800 hover:shadow-lg active:scale-95 disabled:opacity-60"
                   >
                     <Check className="h-4 w-4" />
-                    <span>Publish Review</span>
+                    <span>{submitting ? 'Sending…' : 'Submit Review'}</span>
                   </button>
                 </div>
               </form>

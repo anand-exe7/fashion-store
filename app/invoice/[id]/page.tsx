@@ -226,7 +226,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             <img src="/logo.jpeg" alt="Shalistone" className="mx-auto w-9 h-9 rounded-md object-cover mb-1" />
             <p className="text-base font-black uppercase tracking-tight leading-none">Shalistone</p>
             <p className="mt-0.5 text-[9px] uppercase tracking-[0.15em] text-neutral-500">Kids &amp; Mens Fashion</p>
-            <p className="mt-1 text-[10px] text-neutral-500">www.shalistone.com · +91 98765 43210</p>
+            <p className="mt-1 text-[10px] text-neutral-500">www.shalistone.com · +91 91104 15639</p>
           </div>
 
           <div className="my-2 border-t border-dashed border-black/30" />
@@ -387,6 +387,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 border-b border-black/10">
+                <th className="pb-2.5 pr-2 text-center w-8">#</th>
                 <th className="pb-2.5 pr-3">Item</th>
                 <th className="pb-2.5 px-2 text-center w-12">Qty</th>
                 <th className="pb-2.5 px-2 text-right w-24">Rate</th>
@@ -398,6 +399,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                 const hasVariant = !!(item.size || item.color);
                 return (
                   <tr key={index}>
+                    <td className="py-3 pr-2 text-center text-sm text-neutral-500 tabular-nums align-top">{index + 1}</td>
                     <td className="py-3 pr-3">
                       <p className="text-sm font-semibold text-neutral-900 leading-snug">{item.name}</p>
                       {hasVariant && (
@@ -465,7 +467,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
         {/* Footer */}
         <div className="px-6 sm:px-9 py-5 border-t border-black/[0.06] bg-neutral-50/60 text-center space-y-1">
           <p className="text-sm font-semibold text-neutral-800">Thank you for shopping with Shalistone!</p>
-          <p className="text-[11px] text-neutral-500">support@shalistone.com · +91 98765 43210 · www.shalistone.com</p>
+          <p className="text-[11px] text-neutral-500">theshalistone@gmail.com · +91 91104 15639 · www.shalistone.com</p>
           <p className="text-[10px] text-neutral-400 pt-1">
             Powered by <span className="font-semibold text-neutral-500">Cenexa Systems</span>
           </p>

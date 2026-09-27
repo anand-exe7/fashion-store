@@ -3,12 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Volume2, VolumeX, ExternalLink } from 'lucide-react';
 import { Magnetic } from '../ui/Magnetic';
+import { fetchActiveReels } from '@/lib/db';
 
 const PROFILE_URL = 'https://www.instagram.com/shalistone/';
 
-// Latest reels from instagram.com/shalistone — videos are self-hosted in /public/reels
-// so we can render a clean, chrome-free looping player (no likes/comments/share).
-const REELS = [
+type ReelSlide = { src: string; href: string };
+
+// Built-in fallback reels (self-hosted in /public/reels). Shown only until the
+// admin uploads reels of their own from the dashboard (Reels section).
+const DEFAULT_REELS: ReelSlide[] = [
   { src: '/reels/reel1.mp4', href: 'https://www.instagram.com/reel/DdoO-bKJZYv/' },
   { src: '/reels/reel2.mp4', href: 'https://www.instagram.com/reel/DdVJSFTpvju/' },
   { src: '/reels/reel3.mp4', href: 'https://www.instagram.com/reel/DdL7D8FJJbT/' },
@@ -114,6 +117,19 @@ const VideoReel = ({ src, href, index }: { src: string; href: string; index: num
 };
 
 export const Instagram = () => {
+  const [reels, setReels] = useState<ReelSlide[]>(DEFAULT_REELS);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchActiveReels()
+      .then((rows) => {
+        if (cancelled || rows.length === 0) return; // keep the fallback if none uploaded
+        setReels(rows.map((r) => ({ src: r.videoUrl, href: r.href || PROFILE_URL })));
+      })
+      .catch((err) => console.warn('Could not load reels:', err));
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <section className="relative overflow-hidden py-24 px-6 md:px-12 max-w-6xl mx-auto">
       {/* Centered header + the follow button */}
@@ -154,7 +170,7 @@ export const Instagram = () => {
 
       {/* Reels — clean looping video cards. 1 column on mobile, 3 across on desktop. */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 justify-items-center">
-        {REELS.map((reel, i) => (
+        {reels.map((reel, i) => (
           <VideoReel key={reel.src} src={reel.src} href={reel.href} index={i} />
         ))}
       </div>

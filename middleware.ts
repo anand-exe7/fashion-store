@@ -69,7 +69,9 @@ export async function middleware(request: NextRequest) {
         .eq('id', user.id)
         .single();
 
-      if (!profile || profile.role !== 'admin') {
+      // Admins get the full dashboard; staff get a restricted subset (the
+      // sidebar and section switch in AdminDashboard enforce which sections).
+      if (!profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
         const url = request.nextUrl.clone();
         url.pathname = '/';
         return NextResponse.redirect(url);

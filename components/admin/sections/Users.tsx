@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, ChevronDown } from 'lucide-react';
 import { Card, EmptyState } from '../ui';
 import { createClient } from '@/lib/supabase/client';
 import { showToast } from '@/lib/store';
@@ -14,9 +14,17 @@ type Profile = {
 };
 
 const ROLE_STYLES = {
-  admin: 'bg-neutral-900 text-white',
-  user: 'bg-neutral-100 text-neutral-600',
+  admin: 'border-neutral-900 bg-neutral-900 text-white',
+  staff: 'border-sky-200 bg-sky-50 text-sky-700',
+  user: 'border-black/10 bg-neutral-100 text-neutral-600',
 } as Record<string, string>;
+
+// Roles an admin can assign from the dropdown.
+const ROLE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'user', label: 'User' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'admin', label: 'Admin' },
+];
 
 export default function Users() {
   const [query, setQuery] = useState('');
@@ -33,19 +41,20 @@ export default function Users() {
     fetchUsers();
   }, []);
 
-  const toggleRole = async (user: Profile) => {
-    const newRole = user.role === 'admin' ? 'user' : 'admin';
-    const confirmed = window.confirm(`Are you sure you want to change ${user.name || user.email}'s role to ${newRole.toUpperCase()}?`);
-    
-    if (!confirmed) return;
-
+  // Pick a role straight from the dropdown — no multi-click cycling or confirm.
+  const setRole = async (user: Profile, newRole: string) => {
+    if (newRole === user.role) return;
+    const prev = user.role;
+    // Optimistic update so the select reflects the choice immediately.
+    setUsers((list) => list.map((u) => (u.id === user.id ? { ...u, role: newRole } : u)));
     try {
       const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', user.id);
       if (error) throw error;
-      setUsers(users.map(u => u.id === user.id ? { ...u, role: newRole } : u));
-      showToast(`${user.name || user.email} is now an ${newRole.toUpperCase()}`);
-    } catch (e: any) {
-      alert("Failed to update role. Ensure you have admin privileges.");
+      showToast(`${user.name || user.email} is now ${newRole.toUpperCase()}`);
+    } catch {
+      // Roll back if the write was rejected (e.g. not an admin).
+      setUsers((list) => list.map((u) => (u.id === user.id ? { ...u, role: prev } : u)));
+      showToast('Could not update role — admin access required.');
     }
   };
 
@@ -89,12 +98,21 @@ export default function Users() {
                   </td>
                   <td className="px-3 py-4 text-sm text-neutral-600">{u.email}</td>
                   <td className="px-3 py-4">
-                    <button 
-                      onClick={() => toggleRole(u)}
-                      className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase transition-colors cursor-pointer hover:opacity-80 ${ROLE_STYLES[u.role] || ROLE_STYLES.user}`}
-                    >
-                      {u.role}
-                    </button>
+                    <div className="relative inline-block">
+                      <select
+                        value={ROLE_OPTIONS.some((o) => o.value === u.role) ? u.role : 'user'}
+                        onChange={(e) => setRole(u, e.target.value)}
+                        className={`cursor-pointer appearance-none rounded-md border py-1 pl-2.5 pr-7 text-[10px] font-bold uppercase tracking-wide outline-none transition-colors ${ROLE_STYLES[u.role] || ROLE_STYLES.user}`}
+                        aria-label={`Role for ${u.name || u.email}`}
+                      >
+                        {ROLE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value} className="bg-white text-neutral-800">
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className={`pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 ${u.role === 'admin' ? 'text-white/70' : 'text-neutral-400'}`} />
+                    </div>
                   </td>
                   <td className="px-3 py-4">
                     <span className="rounded-md px-2 py-1 text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700">Active</span>

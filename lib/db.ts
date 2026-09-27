@@ -85,6 +85,12 @@ export interface Order {
   total: number;
   amountReceived?: number;
   status: 'pending' | 'processing' | 'completed' | 'cancelled';
+  // How an offline (POS) bill was paid; null for online / legacy bills.
+  paymentMethod?: 'cash' | 'gpay' | 'split' | null;
+  // Customer date of birth (yyyy-mm-dd), captured at billing for birthday offers.
+  dob?: string | null;
+  // Online-order packing workflow: 'pending' | 'packed' | 'shipped'. NULL for POS bills.
+  fulfillmentStatus?: 'pending' | 'packed' | 'shipped' | null;
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   createdAt: string;
@@ -600,6 +606,9 @@ export const fetchOrders = async (): Promise<Order[]> => {
     total: o.total,
     amountReceived: o.amount_received,
     status: o.status,
+    paymentMethod: o.payment_method,
+    dob: o.dob,
+    fulfillmentStatus: o.fulfillment_status,
     razorpayOrderId: o.razorpay_order_id,
     razorpayPaymentId: o.razorpay_payment_id,
     createdAt: o.created_at,
@@ -641,6 +650,9 @@ export const fetchOrderById = async (id: string): Promise<Order | null> => {
     total: o.total,
     amountReceived: o.amount_received,
     status: o.status as any,
+    paymentMethod: o.payment_method,
+    dob: o.dob,
+    fulfillmentStatus: o.fulfillment_status,
     razorpayOrderId: o.razorpay_order_id,
     razorpayPaymentId: o.razorpay_payment_id,
     createdAt: o.created_at,
@@ -671,6 +683,9 @@ export const insertOrder = async (order: Order) => {
     total: order.total,
     amount_received: order.amountReceived,
     status: order.status,
+    payment_method: order.paymentMethod ?? null,
+    dob: order.dob ?? null,
+    fulfillment_status: order.fulfillmentStatus ?? null,
     razorpay_order_id: order.razorpayOrderId,
     razorpay_payment_id: order.razorpayPaymentId,
   });
@@ -693,6 +708,12 @@ export const insertOrder = async (order: Order) => {
 
 export const updateOrderStatus = async (id: string, status: string) => {
   const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+  if (error) throw error;
+};
+
+// Advance an online order's packing workflow: 'pending' | 'packed' | 'shipped'.
+export const updateOrderFulfillment = async (id: string, fulfillmentStatus: string) => {
+  const { error } = await supabase.from('orders').update({ fulfillment_status: fulfillmentStatus }).eq('id', id);
   if (error) throw error;
 };
 
@@ -762,4 +783,306 @@ export const calculateDeliveryFee = (
   }
 
   return sortedTiers[sortedTiers.length - 1].charge;
+};
+
+// ============================
+// REVIEWS (customer-submitted, admin-moderated)
+// ============================
+export interface Review {
+  id: string;
+  name: string;
+  note: string;
+  rating: number;
+  product?: string | null;
+  imageUrl?: string | null;
+  isApproved: boolean;
+  createdAt: string;
+}
+
+const mapReview = (r: any): Review => ({
+  id: r.id,
+  name: r.name,
+  note: r.note,
+  rating: r.rating,
+  product: r.product,
+  imageUrl: r.image_url,
+  isApproved: r.is_approved,
+  createdAt: r.created_at,
+});
+
+// Public storefront: only approved reviews (RLS also enforces this).
+export const fetchApprovedReviews = async (): Promise<Review[]> => {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('*')
+    .eq('is_approved', true)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('fetchApprovedReviews error:', error);
+    return [];
+  }
+  return (data || []).map(mapReview);
+};
+
+// Admin: every review, pending first so new submissions are easy to spot.
+export const fetchAllReviews = async (): Promise<Review[]> => {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('*')
+    .order('is_approved', { ascending: true })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapReview);
+};
+
+// Customer submission — always lands unapproved (pending admin review).
+export const submitReview = async (r: { name: string; note: string; rating: number; product?: string }) => {
+  const { error } = await supabase.from('reviews').insert({
+    name: r.name,
+    note: r.note,
+    rating: r.rating,
+    product: r.product || null,
+    is_approved: false,
+  });
+  if (error) throw error;
+};
+
+export const updateReview = async (
+  id: string,
+  patch: Partial<{ note: string; isApproved: boolean; imageUrl: string | null }>,
+) => {
+  const payload: Record<string, unknown> = {};
+  if (patch.note !== undefined) payload.note = patch.note;
+  if (patch.isApproved !== undefined) payload.is_approved = patch.isApproved;
+  if (patch.imageUrl !== undefined) payload.image_url = patch.imageUrl;
+  const { error } = await supabase.from('reviews').update(payload).eq('id', id);
+  if (error) throw error;
+};
+
+export const deleteReview = async (id: string) => {
+  const { error } = await supabase.from('reviews').delete().eq('id', id);
+  if (error) throw error;
+};
+
+// ============================
+// INSTAGRAM REELS (admin-managed home-page reels)
+// ============================
+export interface Reel {
+  id: string;
+  videoUrl: string;
+  href?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+const mapReel = (r: any): Reel => ({
+  id: r.id,
+  videoUrl: r.video_url,
+  href: r.href,
+  sortOrder: r.sort_order,
+  isActive: r.is_active,
+  createdAt: r.created_at,
+});
+
+export const fetchActiveReels = async (): Promise<Reel[]> => {
+  const { data, error } = await supabase
+    .from('instagram_reels')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order');
+  if (error) {
+    console.error('fetchActiveReels error:', error);
+    return [];
+  }
+  return (data || []).map(mapReel);
+};
+
+export const fetchAllReels = async (): Promise<Reel[]> => {
+  const { data, error } = await supabase.from('instagram_reels').select('*').order('sort_order');
+  if (error) throw error;
+  return (data || []).map(mapReel);
+};
+
+export const MAX_REEL_BYTES = 20 * 1024 * 1024; // 20 MB
+
+// Uploads a video file to the 'reels' storage bucket and records it. When
+// `sortOrder` is given (e.g. replacing a reel), the new row takes that exact
+// slot position instead of being appended at the end.
+export const addReel = async (file: File, href?: string, sortOrder?: number) => {
+  if (file.size > MAX_REEL_BYTES) {
+    throw new Error('Video is larger than 20 MB. Please upload a smaller file.');
+  }
+  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
+  const path = `reel_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error: upErr } = await supabase.storage.from('reels').upload(path, file, {
+    cacheControl: '3600',
+    contentType: file.type || 'video/mp4',
+    upsert: false,
+  });
+  if (upErr) throw upErr;
+
+  const { data: pub } = supabase.storage.from('reels').getPublicUrl(path);
+
+  let order = sortOrder;
+  if (order === undefined) {
+    // Append after the current highest sort_order.
+    const { data: existing } = await supabase
+      .from('instagram_reels')
+      .select('sort_order')
+      .order('sort_order', { ascending: false })
+      .limit(1);
+    order = (existing?.[0]?.sort_order ?? -1) + 1;
+  }
+
+  const { error: insErr } = await supabase.from('instagram_reels').insert({
+    video_url: pub.publicUrl,
+    href: href || null,
+    sort_order: order,
+    is_active: true,
+  });
+  if (insErr) throw insErr;
+};
+
+export const deleteReel = async (reel: Reel) => {
+  // Remove the stored file too (best-effort — the row is the source of truth).
+  try {
+    const marker = '/reels/';
+    const idx = reel.videoUrl.indexOf(marker);
+    if (idx !== -1) {
+      const path = reel.videoUrl.slice(idx + marker.length).split('?')[0];
+      await supabase.storage.from('reels').remove([path]);
+    }
+  } catch (err) {
+    console.warn('Could not remove reel file from storage:', err);
+  }
+  const { error } = await supabase.from('instagram_reels').delete().eq('id', reel.id);
+  if (error) throw error;
+};
+
+// ============================
+// WHOLESALE (separate simple inventory + billing)
+// ============================
+export interface WholesaleItem {
+  id: string;
+  code?: string | null;
+  company?: string | null;
+  color?: string | null;
+  createdAt?: string;
+}
+
+export interface WholesaleOrderItem {
+  name: string;      // pre-rendered code/name/both label
+  itemId?: string | null;
+  size?: string | null;
+  quantity: number;
+  price: number;     // per unit
+  amount: number;    // line total
+}
+
+export interface WholesaleOrder {
+  id: string;
+  customerName?: string;
+  customerPhone?: string;
+  subtotal: number;
+  discount: number;
+  total: number;
+  amountReceived?: number;
+  paymentMethod?: string | null;
+  createdAt: string;
+  items: WholesaleOrderItem[];
+}
+
+export const fetchWholesaleItems = async (): Promise<WholesaleItem[]> => {
+  const { data, error } = await supabase.from('wholesale_items').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map((r: any) => ({
+    id: r.id,
+    code: r.code,
+    company: r.company,
+    color: r.color,
+    createdAt: r.created_at,
+  }));
+};
+
+export const upsertWholesaleItem = async (item: Partial<WholesaleItem>) => {
+  const { error } = await supabase.from('wholesale_items').upsert({
+    id: item.id,
+    code: item.code || null,
+    company: item.company || null,
+    color: item.color || null,
+  });
+  if (error) throw error;
+};
+
+export const deleteWholesaleItem = async (id: string) => {
+  const { error } = await supabase.from('wholesale_items').delete().eq('id', id);
+  if (error) throw error;
+};
+
+export const insertWholesaleOrder = async (order: WholesaleOrder) => {
+  const { error: oErr } = await supabase.from('wholesale_orders').insert({
+    id: order.id,
+    customer_name: order.customerName,
+    customer_phone: order.customerPhone,
+    subtotal: order.subtotal,
+    discount: order.discount,
+    total: order.total,
+    amount_received: order.amountReceived,
+    payment_method: order.paymentMethod ?? null,
+  });
+  if (oErr) throw oErr;
+
+  if (order.items.length > 0) {
+    const { error: iErr } = await supabase.from('wholesale_order_items').insert(
+      order.items.map((it, i) => ({
+        order_id: order.id,
+        item_id: it.itemId || null,
+        name: it.name,
+        size: it.size || null,
+        quantity: it.quantity,
+        price: it.price,
+        amount: it.amount,
+        sort_order: i,
+      })),
+    );
+    if (iErr) throw iErr;
+  }
+};
+
+export const fetchWholesaleOrders = async (): Promise<WholesaleOrder[]> => {
+  const { data, error } = await supabase
+    .from('wholesale_orders')
+    .select('*, wholesale_order_items(*)')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map((o: any) => ({
+    id: o.id,
+    customerName: o.customer_name,
+    customerPhone: o.customer_phone,
+    subtotal: o.subtotal,
+    discount: o.discount,
+    total: o.total,
+    amountReceived: o.amount_received,
+    paymentMethod: o.payment_method,
+    createdAt: o.created_at,
+    items: (o.wholesale_order_items || [])
+      .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map((i: any) => ({
+        name: i.name,
+        itemId: i.item_id,
+        size: i.size,
+        quantity: i.quantity,
+        price: i.price,
+        amount: i.amount,
+      })),
+  }));
+};
+
+export const generateWholesaleInvoiceId = (): string => {
+  const year = new Date().getFullYear();
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let suffix = '';
+  for (let i = 0; i < 6; i++) suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+  return `WS-${year}-${suffix}`;
 };
