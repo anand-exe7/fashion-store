@@ -1,8 +1,16 @@
 'use client';
 import { ShieldCheck, Truck, Sparkles, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { fetchDeliveryInfo, DEFAULT_DELIVERY_INFO } from '@/lib/db';
 
 export const Features = () => {
+  // Delivery blurb is admin-editable (Admin → Delivery); defaults until loaded.
+  const [deliveryInfo, setDeliveryInfo] = useState(DEFAULT_DELIVERY_INFO);
+  useEffect(() => {
+    fetchDeliveryInfo().then(setDeliveryInfo);
+  }, []);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -32,7 +40,7 @@ export const Features = () => {
     {
       icon: Truck,
       title: 'Fast Delivery',
-      desc: 'Quick and reliable shipping across India. Get your order within 3–5 days.',
+      desc: deliveryInfo.landingText,
     },
     {
       icon: RefreshCw,

@@ -1,9 +1,78 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Save, X } from 'lucide-react';
-import { fetchDeliveryRegions, DeliveryRegion, DeliveryTier } from '@/lib/db';
+import { Plus, Trash2, Edit2, Save, X, Truck, Check } from 'lucide-react';
+import { fetchDeliveryRegions, fetchDeliveryInfo, saveDeliveryInfo, DEFAULT_DELIVERY_INFO, DeliveryRegion, DeliveryTier } from '@/lib/db';
 import { Card } from '../ui';
 import { createClient } from '@/lib/supabase/client';
+
+// Delivery date / instructions shown on the landing page and on EVERY product
+// page. One edit here updates all of them.
+function DeliveryInfoEditor() {
+  const [landingText, setLandingText] = useState(DEFAULT_DELIVERY_INFO.landingText);
+  const [lines, setLines] = useState(DEFAULT_DELIVERY_INFO.productLines.join('\n'));
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetchDeliveryInfo().then((info) => {
+      setLandingText(info.landingText);
+      setLines(info.productLines.join('\n'));
+    });
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await saveDeliveryInfo({
+        landingText: landingText.trim() || DEFAULT_DELIVERY_INFO.landingText,
+        productLines: lines.split('\n').map((l) => l.trim()).filter(Boolean),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e: any) {
+      alert('Could not save delivery info: ' + (e?.message || e) );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fieldCls = 'w-full bg-white border border-black/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-black/30';
+
+  return (
+    <Card className="p-5 sm:p-6">
+      <div className="mb-5 flex items-center gap-3">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-neutral-100 text-neutral-700"><Truck className="h-5 w-5" /></span>
+        <div>
+          <h3 className="text-base font-bold text-neutral-900">Delivery Date &amp; Instructions</h3>
+          <p className="text-xs text-neutral-500">Shown on the landing page and on every product page. Edit once — it updates everywhere.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <label className="block">
+          <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-neutral-500">Landing page · Fast Delivery text</span>
+          <textarea value={landingText} onChange={(e) => setLandingText(e.target.value)} rows={4} className={fieldCls + ' resize-none'} placeholder="e.g. Get your order within 3–5 days." />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-neutral-500">Product pages · Delivery &amp; Returns (one line per bullet)</span>
+          <textarea value={lines} onChange={(e) => setLines(e.target.value)} rows={4} className={fieldCls + ' resize-none'} placeholder={'Standard Delivery: 3-5 business days\nFree delivery over ₹2,000'} />
+        </label>
+      </div>
+
+      <div className="mt-5 flex items-center justify-end gap-3">
+        {saved && <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600"><Check className="h-3.5 w-3.5" /> Saved</span>}
+        <button
+          onClick={save}
+          disabled={saving}
+          className="bg-black text-white px-6 py-2.5 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 flex items-center gap-2 shadow-lg disabled:opacity-60"
+        >
+          <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save Delivery Info'}
+        </button>
+      </div>
+    </Card>
+  );
+}
 
 export default function Delivery() {
   const [regions, setRegions] = useState<DeliveryRegion[]>([]);
@@ -239,6 +308,8 @@ export default function Delivery() {
           </button>
         )}
       </div>
+
+      {!isAdding && !editingRegion && <DeliveryInfoEditor />}
 
       {renderEditor()}
 

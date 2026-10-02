@@ -8,9 +8,37 @@ const inr = (n: number) => '₹' + Math.round(n || 0).toLocaleString('en-IN');
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const fmtDate = (iso: string) => { const d = new Date(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; };
 
+// Same period filter as the main POS Analytics screen.
+type Period = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom';
+const PERIODS: Period[] = ['all', 'today', 'week', 'month', 'year', 'custom'];
+
+function inPeriod(iso: string, p: Period, from: string, to: string) {
+  if (p === 'all') return true;
+  const d = new Date(iso);
+  const now = new Date();
+  if (p === 'today') return d.toDateString() === now.toDateString();
+  if (p === 'week') {
+    const diff = (now.getTime() - d.getTime()) / 86400000;
+    return diff >= 0 && diff <= 7;
+  }
+  if (p === 'month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  if (p === 'year') return d.getFullYear() === now.getFullYear();
+  if (from && d < new Date(from)) return false;
+  if (to && d > new Date(to + 'T23:59:59')) return false;
+  return true;
+}
+
 export default function WholesaleAnalytics() {
-  const [orders, setOrders] = useState<WholesaleOrder[]>([]);
+  const [allOrders, setOrders] = useState<WholesaleOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<Period>('all');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const orders = useMemo(
+    () => allOrders.filter((o) => inPeriod(o.createdAt, period, from, to)),
+    [allOrders, period, from, to],
+  );
 
   useEffect(() => {
     fetchWholesaleOrders()
@@ -35,9 +63,35 @@ export default function WholesaleAnalytics() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-bold tracking-tight text-neutral-900 sm:text-2xl">Wholesale Analytics</h2>
-        <p className="text-xs text-neutral-500 sm:text-sm">Performance of the wholesale billing centre.</p>
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-neutral-900 sm:text-2xl">Wholesale Analytics</h2>
+          <p className="text-xs text-neutral-500 sm:text-sm">Performance of the wholesale billing centre.</p>
+        </div>
+        <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex max-w-full flex-wrap items-center gap-1 rounded-2xl border border-black/[0.06] bg-white p-1 sm:rounded-full">
+            <span className="px-2 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Period</span>
+            {PERIODS.map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold uppercase transition-colors ${
+                  period === p ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:text-neutral-900'
+                }`}
+              >
+                {p === 'all' ? 'All Time' : p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : p === 'year' ? 'This Year' : p}
+              </button>
+            ))}
+          </div>
+          {period === 'custom' && (
+            <div className="flex w-full max-w-full flex-wrap items-center gap-2 rounded-2xl border border-black/[0.06] bg-white px-3 py-2 sm:w-auto sm:flex-nowrap sm:rounded-full sm:py-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">From</span>
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="min-w-0 flex-1 rounded border border-black/[0.09] px-2 py-1 text-xs outline-none focus:border-neutral-400 sm:w-[130px] sm:flex-none" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">To</span>
+              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="min-w-0 flex-1 rounded border border-black/[0.09] px-2 py-1 text-xs outline-none focus:border-neutral-400 sm:w-[130px] sm:flex-none" />
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -54,12 +108,12 @@ export default function WholesaleAnalytics() {
 
       <Card className="overflow-hidden">
         <div className="border-b border-black/[0.06] px-5 py-3.5">
-          <p className="text-sm font-bold text-neutral-900">Recent Wholesale Bills</p>
+          <p className="text-sm font-bold text-neutral-900">Wholesale Bills</p>
         </div>
         {loading ? (
           <EmptyState message="Loading…" />
         ) : orders.length === 0 ? (
-          <EmptyState message="No wholesale bills yet." />
+          <EmptyState message={allOrders.length === 0 ? 'No wholesale bills yet.' : 'No wholesale bills in this period.'} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left">

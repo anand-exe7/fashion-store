@@ -15,6 +15,7 @@ import {
 } from '@/lib/store';
 import { Card, Modal, ModalHeader, EmptyState, Field, inputCls, AgeRangeInput } from '../ui';
 import { formatAgeRange } from '@/lib/db';
+import { compressImage } from '@/lib/image';
 
 function playAlert() {
   try {
@@ -425,14 +426,16 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
       const supabase = createClient();
       
       const newUrls: string[] = [];
-      for (const f of files) {
+      for (const original of files) {
+        // Shrink big photos first so the storefront never serves multi-MB images.
+        const f = await compressImage(original);
         const ext = f.name.split('.').pop() || 'jpg';
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
         const filePath = `products/${fileName}`;
         
         const { error } = await supabase.storage.from('images').upload(filePath, f);
         if (error) {
-          alert(`Upload failed for ${f.name}. Make sure you have created an 'images' bucket in Supabase and made it public.`);
+          alert(`Upload failed for ${original.name}. Make sure you have created an 'images' bucket in Supabase and made it public.`);
           console.error(error);
           continue;
         }
