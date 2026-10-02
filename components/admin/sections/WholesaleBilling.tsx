@@ -139,6 +139,7 @@ export default function WholesaleBilling() {
   };
 
   const validLines = lines.filter((l) => (l.code.trim() || l.company.trim()) && l.qty > 0);
+  const itemCount = validLines.reduce((n, l) => n + l.qty, 0);
   const subtotal = validLines.reduce((a, l) => a + (l.amount || 0), 0);
   const discount = Math.min(
     subtotal,
@@ -255,17 +256,24 @@ export default function WholesaleBilling() {
 
   return (
     <Card className="p-4 sm:p-5 md:p-7">
-      <div className="mb-6 flex items-center gap-3">
-        <span className="h-7 w-1.5 rounded-full bg-neutral-900" />
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-neutral-900 sm:text-2xl">Wholesale Billing</h2>
-          <p className="text-xs text-neutral-500 sm:text-sm">Size, quantity, price/unit and amount are entered per line.</p>
+      {/* header */}
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="h-7 w-1.5 rounded-full bg-neutral-900" />
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-neutral-900 sm:text-2xl">Wholesale Billing</h2>
+            <p className="text-xs text-neutral-500 sm:text-sm">Size, quantity, price/unit and amount are entered per line.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 self-start rounded-xl border border-black/[0.08] bg-black/[0.03] px-3 py-2 text-xs font-bold uppercase tracking-wide text-neutral-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
+          Wholesale
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_340px]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* left */}
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <div className="rounded-2xl border border-black/[0.06] p-4 sm:p-5">
             <p className="mb-4 flex items-center gap-2 text-sm font-bold text-neutral-900"><User className="h-4 w-4" /> Customer Details</p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -278,23 +286,21 @@ export default function WholesaleBilling() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <p className="flex items-center gap-2 text-sm font-bold text-neutral-900"><ShoppingBag className="h-4 w-4" /> Invoice Items</p>
               <div className="flex items-center gap-2">
-                <button onClick={clearAll} className="rounded-lg border border-black/[0.08] px-3 py-1.5 text-xs font-bold text-neutral-600 hover:bg-black/[0.03]">Clear</button>
+                <button onClick={clearAll} className="rounded-lg border border-black/[0.08] px-3 py-1.5 text-xs font-bold text-neutral-600 hover:bg-black/[0.03]">Clear Order</button>
                 <button onClick={() => setCatalogOpen(true)} className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-neutral-800"><List className="h-3.5 w-3.5" /> Inventory</button>
-                <button onClick={() => setLines((p) => [...p, newLine()])} className="flex items-center gap-1.5 rounded-lg border border-black/[0.08] px-3 py-1.5 text-xs font-bold text-neutral-700 hover:bg-black/[0.03]"><Plus className="h-3.5 w-3.5" /> Add Row</button>
+                <button onClick={() => setLines((p) => [...p, newLine()])} className="flex items-center gap-1.5 rounded-lg border border-black/[0.08] px-3 py-1.5 text-xs font-bold text-neutral-700 hover:bg-black/[0.03]"><Plus className="h-3.5 w-3.5" /> Add Item</button>
               </div>
             </div>
 
             <div className="space-y-3">
               {lines.map((l) => (
-                <div key={l.key} className="rounded-xl border border-black/[0.06] p-3">
-                  {/* Item + display mode */}
-                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <div className="flex flex-1 flex-col gap-2 sm:flex-row">
-                      <input className={`${inputBase} flex-1`} value={l.code} onChange={(e) => setLine(l.key, { code: e.target.value })} placeholder="Code" />
-                      <input className={`${inputBase} flex-1`} value={l.company} onChange={(e) => setLine(l.key, { company: e.target.value })} placeholder="Company / Name" />
-                    </div>
+                <div key={l.key} className="flex flex-col gap-2 rounded-xl border border-black/[0.06] p-2.5">
+                  {/* Item: code + company / name + what prints on the invoice */}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input className={`${inputBase} w-full min-w-0 sm:w-32 sm:shrink-0`} value={l.code} onChange={(e) => setLine(l.key, { code: e.target.value })} placeholder="Code" />
+                    <input className={`${inputBase} w-full min-w-0 sm:flex-1`} value={l.company} onChange={(e) => setLine(l.key, { company: e.target.value })} placeholder="Company / Name" />
                     <select
-                      className={`${inputBase} shrink-0 sm:w-40`}
+                      className={`${inputBase} w-full min-w-0 sm:w-44 sm:shrink-0`}
                       value={l.labelMode}
                       onChange={(e) => setLine(l.key, { labelMode: e.target.value as LabelMode })}
                       title="What prints as the item name"
@@ -303,31 +309,19 @@ export default function WholesaleBilling() {
                       <option value="code">Show: Code only</option>
                       <option value="name">Show: Name only</option>
                     </select>
-                    <button onClick={() => setLines((p) => (p.length > 1 ? p.filter((x) => x.key !== l.key) : [newLine()]))} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-red-500 hover:bg-red-50" aria-label="Remove row"><Trash2 className="h-4 w-4" /></button>
                   </div>
 
-                  {/* Variables typed by hand */}
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <label className="block">
-                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-neutral-400">Size</span>
-                      <input className={`${inputBase} w-full`} value={l.size} onChange={(e) => setLine(l.key, { size: e.target.value })} placeholder="e.g. M" />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-neutral-400">Qty</span>
-                      <div className="flex items-center rounded-xl border border-black/[0.09]">
-                        <button onClick={() => setLine(l.key, { qty: Math.max(1, l.qty - 1) })} className="grid h-9 w-8 place-items-center text-neutral-500 hover:text-black"><Minus className="h-3.5 w-3.5" /></button>
-                        <input className="w-full min-w-0 border-0 text-center text-sm outline-none" value={l.qty} onChange={(e) => setLine(l.key, { qty: Math.max(1, Number(e.target.value.replace(/\D/g, '')) || 1) })} inputMode="numeric" />
-                        <button onClick={() => setLine(l.key, { qty: l.qty + 1 })} className="grid h-9 w-8 place-items-center text-neutral-500 hover:text-black"><Plus className="h-3.5 w-3.5" /></button>
-                      </div>
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-neutral-400">Price / Unit ₹</span>
-                      <input className={`${inputBase} w-full`} value={l.price || ''} onChange={(e) => setLine(l.key, { price: Number(e.target.value.replace(/[^\d.]/g, '')) || 0 })} placeholder="0" inputMode="decimal" />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-neutral-400">Amount ₹</span>
-                      <input className={`${inputBase} w-full`} value={l.amount || ''} onChange={(e) => setLine(l.key, { amount: Number(e.target.value.replace(/[^\d.]/g, '')) || 0, amountEdited: true })} placeholder="0" inputMode="decimal" />
-                    </label>
+                  {/* Size · qty · price/unit · amount · remove */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input className={`${inputBase} w-20 shrink-0 sm:w-24`} value={l.size} onChange={(e) => setLine(l.key, { size: e.target.value })} placeholder="Size" title="Size" />
+                    <div className="flex shrink-0 items-center rounded-xl border border-black/[0.09]" title="Quantity">
+                      <button onClick={() => setLine(l.key, { qty: Math.max(1, l.qty - 1) })} className="grid h-8 w-8 place-items-center text-neutral-500 hover:text-black sm:h-9 sm:w-9"><Minus className="h-3.5 w-3.5" /></button>
+                      <input className="w-9 min-w-0 border-0 bg-transparent text-center text-sm font-bold outline-none sm:w-10" value={l.qty} onChange={(e) => setLine(l.key, { qty: Math.max(1, Number(e.target.value.replace(/\D/g, '')) || 1) })} inputMode="numeric" />
+                      <button onClick={() => setLine(l.key, { qty: l.qty + 1 })} className="grid h-8 w-8 place-items-center text-neutral-500 hover:text-black sm:h-9 sm:w-9"><Plus className="h-3.5 w-3.5" /></button>
+                    </div>
+                    <input className={`${inputBase} w-24 shrink-0 sm:w-28`} value={l.price || ''} onChange={(e) => setLine(l.key, { price: Number(e.target.value.replace(/[^\d.]/g, '')) || 0 })} placeholder="Price/unit ₹" title="Price per unit" inputMode="decimal" />
+                    <input className={`${inputBase} w-24 shrink-0 sm:w-28`} value={l.amount || ''} onChange={(e) => setLine(l.key, { amount: Number(e.target.value.replace(/[^\d.]/g, '')) || 0, amountEdited: true })} placeholder="Amount ₹" title="Line amount" inputMode="decimal" />
+                    <button onClick={() => setLines((p) => (p.length > 1 ? p.filter((x) => x.key !== l.key) : [newLine()]))} className="ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-xl text-red-500 hover:bg-red-50 sm:h-9 sm:w-9" aria-label="Remove row"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 </div>
               ))}
@@ -336,7 +330,22 @@ export default function WholesaleBilling() {
         </div>
 
         {/* right — summary */}
-        <div className="rounded-2xl border border-black/[0.06] bg-[#faf9f6] p-4 sm:p-5">
+        <div className="min-w-0 rounded-2xl border border-black/[0.06] bg-[#faf9f6] p-4 sm:p-5">
+          <div className="mb-4 space-y-2 border-b border-dashed border-black/10 pb-4 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">Source</span>
+              <span className="rounded bg-teal-100 px-2 py-0.5 text-[10px] font-bold uppercase text-teal-700">wholesale</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">Customer</span>
+              <span className="truncate font-semibold text-neutral-800">{customer.trim() || '—'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">Phone</span>
+              <span className="font-semibold text-neutral-800">{phone.trim() || '—'}</span>
+            </div>
+          </div>
+
           {validLines.length === 0 ? (
             <p className="py-4 text-center text-xs text-neutral-400">No items added yet</p>
           ) : (
@@ -351,7 +360,7 @@ export default function WholesaleBilling() {
           )}
 
           <div className="mt-2">
-            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-neutral-500">Discount</span>
+            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-neutral-500">Manual Discount</span>
             <div className="flex flex-wrap gap-2">
               <select className={`${inputBase} w-16 shrink-0`} value={discMode} onChange={(e) => setDiscMode(e.target.value as '₹' | '%')}>
                 <option value="₹">₹</option><option value="%">%</option>
@@ -361,11 +370,11 @@ export default function WholesaleBilling() {
           </div>
 
           <div className="mt-4 space-y-2 border-t border-dashed border-black/10 pt-4 text-sm">
-            <div className="flex justify-between"><span className="text-neutral-500">Subtotal</span><span className="font-semibold text-neutral-800">{inr(subtotal)}</span></div>
+            <div className="flex justify-between"><span className="text-neutral-500">Subtotal ({itemCount} item{itemCount === 1 ? '' : 's'})</span><span className="font-semibold text-neutral-800">{inr(subtotal)}</span></div>
             {discount > 0 && <div className="flex justify-between"><span className="text-neutral-500">Discount</span><span className="font-semibold text-emerald-600">- {inr(discount)}</span></div>}
           </div>
           <div className="mt-4 flex items-center justify-between border-t border-black/10 pt-4">
-            <span className="text-sm font-bold uppercase tracking-widest text-neutral-900">Total</span>
+            <span className="text-sm font-bold uppercase tracking-widest text-neutral-900">Grand Total</span>
             <span className="text-2xl font-extrabold text-neutral-900">{inr(grandTotal)}</span>
           </div>
 
@@ -432,7 +441,7 @@ export default function WholesaleBilling() {
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-3.5 text-center text-xs font-bold uppercase leading-tight tracking-wide text-white transition-colors hover:bg-emerald-700 disabled:opacity-60 sm:text-sm"
           >
             <MessageCircle className="h-4 w-4 shrink-0" />
-            <span>Save &amp; WhatsApp</span>
+            <span>Complete Sale &amp; WhatsApp</span>
           </button>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <button

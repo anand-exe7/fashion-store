@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { IndianRupee, Receipt, Package, Users } from 'lucide-react';
-import { fetchWholesaleOrders, type WholesaleOrder } from '@/lib/db';
+import { IndianRupee, Receipt, Package, Users, MessageCircle, Trash2, Eye } from 'lucide-react';
+import { fetchWholesaleOrders, deleteWholesaleOrder, type WholesaleOrder } from '@/lib/db';
 import { Card, EmptyState } from '../ui';
 
 const inr = (n: number) => '₹' + Math.round(n || 0).toLocaleString('en-IN');
@@ -28,12 +28,41 @@ function inPeriod(iso: string, p: Period, from: string, to: string) {
   return true;
 }
 
+// Opens WhatsApp with the bill summary + invoice link, same wording as billing.
+function sendBillWhatsApp(o: WholesaleOrder) {
+  const origin = window.location.origin;
+  const lineText = o.items.map((i) => `• ${i.name} x${i.quantity} — ${inr(i.amount)}`).join('\n');
+  const msg =
+    `*Shalistone Wholesale — Invoice ${o.id}*\n` +
+    `Hi ${o.customerName?.trim() || 'there'}, thank you for your order!\n\n` +
+    `${lineText}\n` +
+    `Subtotal: ${inr(o.subtotal)}` +
+    (o.discount ? `\nDiscount: -${inr(o.discount)}` : '') +
+    `\n*Total: ${inr(o.total)}*\n\n` +
+    `View / download your invoice:\n${origin}/invoice/${encodeURIComponent(o.id)}\n\n` +
+    `— Shalistone`;
+  const phone = (o.customerPhone || '').replace(/\D/g, '').slice(-10);
+  const base = phone.length === 10 ? `https://wa.me/91${phone}` : 'https://wa.me/';
+  window.open(`${base}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
 export default function WholesaleAnalytics() {
   const [allOrders, setOrders] = useState<WholesaleOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+
+  const handleDelete = async (o: WholesaleOrder) => {
+    if (!confirm(`Delete wholesale bill ${o.id}? This cannot be undone.`)) return;
+    try {
+      await deleteWholesaleOrder(o.id);
+      setOrders((prev) => prev.filter((x) => x.id !== o.id));
+    } catch (err) {
+      console.error(err);
+      alert('Could not delete the bill. Please try again.');
+    }
+  };
 
   const orders = useMemo(
     () => allOrders.filter((o) => inPeriod(o.createdAt, period, from, to)),
@@ -116,7 +145,7 @@ export default function WholesaleAnalytics() {
           <EmptyState message={allOrders.length === 0 ? 'No wholesale bills yet.' : 'No wholesale bills in this period.'} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left">
+            <table className="w-full min-w-[820px] text-left">
               <thead>
                 <tr className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                   <th className="px-5 py-3">Invoice</th>
@@ -124,7 +153,7 @@ export default function WholesaleAnalytics() {
                   <th className="px-3 py-3">Date</th>
                   <th className="px-3 py-3 text-center">Items</th>
                   <th className="px-3 py-3 text-right">Total</th>
-                  <th className="px-3 py-3 text-right">Invoice</th>
+                  <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -135,8 +164,30 @@ export default function WholesaleAnalytics() {
                     <td className="px-3 py-3.5 text-sm text-neutral-500">{fmtDate(o.createdAt)}</td>
                     <td className="px-3 py-3.5 text-center text-sm text-neutral-700">{o.items.reduce((s, i) => s + i.quantity, 0)}</td>
                     <td className="px-3 py-3.5 text-right text-sm font-bold text-teal-600">{inr(o.total)}</td>
-                    <td className="px-3 py-3.5 text-right">
-                      <button onClick={() => window.open(`/invoice/${encodeURIComponent(o.id)}`, '_blank')} className="rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white hover:bg-sky-600">View</button>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => sendBillWhatsApp(o)}
+                          title={o.customerPhone ? 'Send on WhatsApp' : 'No mobile number saved — opens WhatsApp without a recipient'}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white hover:bg-emerald-600"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                        </button>
+                        <button
+                          onClick={() => window.open(`/invoice/${encodeURIComponent(o.id)}`, '_blank')}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white hover:bg-sky-600"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> View
+                        </button>
+                        <button
+                          onClick={() => handleDelete(o)}
+                          title="Delete bill"
+                          aria-label={`Delete bill ${o.id}`}
+                          className="grid h-8 w-8 place-items-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

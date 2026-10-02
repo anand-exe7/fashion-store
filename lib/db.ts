@@ -1082,6 +1082,12 @@ export const fetchWholesaleOrders = async (): Promise<WholesaleOrder[]> => {
   }));
 };
 
+export const deleteWholesaleOrder = async (id: string) => {
+  // wholesale_order_items rows go with it (ON DELETE CASCADE).
+  const { error } = await supabase.from('wholesale_orders').delete().eq('id', id);
+  if (error) throw error;
+};
+
 export const generateWholesaleInvoiceId = (): string => {
   const year = new Date().getFullYear();
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
