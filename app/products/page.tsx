@@ -25,6 +25,7 @@ import {
   Product, 
   Department 
 } from '@/lib/db';
+import { optimizedSrc } from '@/lib/image';
 
 const CATEGORY_DEFAULT_IMAGES: Record<string, string> = {
   All: '/categories/cat_all.jpg',
@@ -437,7 +438,7 @@ function productMatchesCategory(p: Product, catName: string): boolean {
                         />
                       ) : (
                         <img
-                          src={photo}
+                          src={optimizedSrc(photo, 256)}
                           alt={cat}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
                         />

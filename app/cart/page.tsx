@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { fetchDeliveryRegions, calculateDeliveryFee, validateCoupon, DeliveryRegion, Coupon } from '@/lib/db';
 import { createClient } from '@/lib/supabase/client';
 import Script from 'next/script';
+import { optimizedSrc } from '@/lib/image';
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<{
@@ -229,7 +230,7 @@ export default function CartPage() {
               {cartItems.map((item) => (
                 <div key={item.id} className="flex gap-4 md:gap-6 group relative bg-white/30 p-3 rounded-xl border border-black/5">
                   <div className="w-20 md:w-32 aspect-[3/4] bg-white/50 rounded-lg overflow-hidden flex-shrink-0 border border-black/5 shadow-sm">
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    <img src={optimizedSrc(item.image, 256)} alt={item.name} className="w-full h-full object-cover" />
                   </div>
                   
                   <div className="flex-grow flex flex-col justify-between py-1">

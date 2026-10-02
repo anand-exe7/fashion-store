@@ -41,9 +41,18 @@ const pad = (n: number) => String(n).padStart(2, '0');
 // A recurring birthday is identified by month-day only (year-agnostic), e.g.
 // "10-05" for someone born on 5 October in any year.
 const monthDayKey = (dob: string) => {
+  // Read month/day straight from the yyyy-mm-dd string so a timezone offset can
+  // never shift the day; fall back to Date parsing for any other format.
+  const m = /^\d{4}-(\d{2})-(\d{2})/.exec(dob);
+  if (m) return `${m[1]}-${m[2]}`;
   const d = new Date(dob);
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
+
+// Whether a month-day key falls in the [from, to] window. The window is
+// year-agnostic and may wrap past 31 Dec (e.g. 20 Dec → 5 Jan).
+const inMonthDayRange = (key: string, from: string, to: string) =>
+  from <= to ? key >= from && key <= to : key >= from || key <= to;
 
 // The next real calendar date this birthday will fall on (today if it's today,
 // else this year or rolling into next year).
@@ -71,8 +80,15 @@ function ageFrom(dob: string): number {
   return a;
 }
 
-const fmtDob = (dob: string) => new Date(dob).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-const fmtDayMonth = (dob: string) => new Date(dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' });
+// Birthdays are shown by day and month only — the year isn't wanted in the list.
+const fmtDayMonth = (dob: string) => {
+  const [m, d] = monthDayKey(dob).split('-').map(Number);
+  return new Date(2000, m - 1, d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' });
+};
+const fmtDob = (dob: string) => {
+  const [m, d] = monthDayKey(dob).split('-').map(Number);
+  return new Date(2000, m - 1, d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+};
 
 function countdownLabel(dob: string): { text: string; soon: boolean; today: boolean } {
   const d = daysUntilBirthday(dob);
@@ -133,9 +149,11 @@ export default function Birthdays() {
   const [calMonth, setCalMonth] = useState(today.getMonth());
   // Selected calendar day as a month-day key ("10-05"), or null.
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  // Upcoming-birthday date-range filter (real dates).
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  // Birthday window filter — day + month only (year is irrelevant for birthdays).
+  const [fromMonth, setFromMonth] = useState('');
+  const [fromDay, setFromDay] = useState('');
+  const [toMonth, setToMonth] = useState('');
+  const [toDay, setToDay] = useState('');
 
   const customers = useMemo(() => buildCustomers(orders), [orders]);
   const withDob = useMemo(() => customers.filter((c) => c.dob), [customers]);
@@ -158,10 +176,11 @@ export default function Birthdays() {
     [withDob],
   );
 
+  // Calendar order: January 1 → December 31 by month then day, year ignored.
   const sorted = useMemo(
     () =>
       [...customers].sort((a, b) => {
-        if (a.dob && b.dob) return daysUntilBirthday(a.dob) - daysUntilBirthday(b.dob);
+        if (a.dob && b.dob) return monthDayKey(a.dob).localeCompare(monthDayKey(b.dob));
         if (a.dob) return -1;
         if (b.dob) return 1;
         return b.spent - a.spent;
@@ -169,18 +188,16 @@ export default function Birthdays() {
     [customers],
   );
 
-  const hasRange = !!(fromDate && toDate);
+  const hasRange = !!(fromMonth && fromDay && toMonth && toDay);
+  const fromKey = hasRange ? `${pad(Number(fromMonth))}-${pad(Number(fromDay))}` : '';
+  const toKey = hasRange ? `${pad(Number(toMonth))}-${pad(Number(toDay))}` : '';
   const rows = sorted.filter((c) => {
     if (q && !(c.name.toLowerCase().includes(q.toLowerCase()) || c.phone.includes(q))) return false;
     if (selectedDay) {
       if (!c.dob || monthDayKey(c.dob) !== selectedDay) return false;
     }
     if (hasRange) {
-      if (!c.dob) return false;
-      const nb = nextBirthdayDate(c.dob);
-      const f = new Date(fromDate); f.setHours(0, 0, 0, 0);
-      const t = new Date(toDate); t.setHours(23, 59, 59, 999);
-      if (nb < f || nb > t) return false;
+      if (!c.dob || !inMonthDayRange(monthDayKey(c.dob), fromKey, toKey)) return false;
     }
     return true;
   });
@@ -201,10 +218,15 @@ export default function Birthdays() {
       })
     : null;
   const filtersActive = !!selectedDay || hasRange;
+  const clearRange = () => {
+    setFromMonth('');
+    setFromDay('');
+    setToMonth('');
+    setToDay('');
+  };
   const clearFilters = () => {
     setSelectedDay(null);
-    setFromDate('');
-    setToDate('');
+    clearRange();
   };
 
   // Mirrors the actual WhatsApp message built in sendOffer(), with a sample
@@ -348,30 +370,33 @@ export default function Birthdays() {
         {/* From–To range */}
         <Card className="p-4 sm:p-5">
           <p className="mb-3 flex items-center gap-2 text-sm font-bold text-neutral-900">
-            <CalendarDays className="h-4 w-4 text-neutral-500" /> Filter by upcoming birthday
+            <CalendarDays className="h-4 w-4 text-neutral-500" /> Filter by birthday date
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block">
-              <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-neutral-500">From</span>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="w-full rounded-xl border border-black/[0.09] bg-white px-2.5 py-2 text-xs outline-none focus:border-neutral-400"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-neutral-500">To</span>
-              <input
-                type="date"
-                value={toDate}
-                min={fromDate || undefined}
-                onChange={(e) => setToDate(e.target.value)}
-                className="w-full rounded-xl border border-black/[0.09] bg-white px-2.5 py-2 text-xs outline-none focus:border-neutral-400"
-              />
-            </label>
+          <div className="space-y-2">
+            {([
+              ['From', fromMonth, setFromMonth, fromDay, setFromDay],
+              ['To', toMonth, setToMonth, toDay, setToDay],
+            ] as const).map(([label, month, setMonth, day, setDay]) => (
+              <div key={label}>
+                <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-neutral-500">{label}</span>
+                <div className="grid grid-cols-[1fr_84px] gap-2">
+                  <select value={month} onChange={(e) => setMonth(e.target.value)} className={selectCls} aria-label={`${label} month`}>
+                    <option value="">Month</option>
+                    {MONTHS.map((m, i) => (
+                      <option key={m} value={i + 1}>{m}</option>
+                    ))}
+                  </select>
+                  <select value={day} onChange={(e) => setDay(e.target.value)} className={selectCls} aria-label={`${label} day`}>
+                    <option value="">Day</option>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ))}
           </div>
-          <p className="mt-2 text-[11px] text-neutral-400">Shows customers whose next birthday falls inside the chosen window.</p>
+          <p className="mt-2 text-[11px] text-neutral-400">Shows customers whose birthday (day &amp; month) falls inside the chosen window. Year is ignored.</p>
           {filtersActive && (
             <button
               onClick={clearFilters}
@@ -454,8 +479,8 @@ export default function Birthdays() {
             )}
             {hasRange && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-bold text-neutral-600">
-                {new Date(fromDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – {new Date(toDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                <button onClick={() => { setFromDate(''); setToDate(''); }} aria-label="Clear range"><X className="h-3 w-3" /></button>
+                {Number(fromDay)} {MONTHS[Number(fromMonth) - 1].slice(0, 3)} – {Number(toDay)} {MONTHS[Number(toMonth) - 1].slice(0, 3)}
+                <button onClick={clearRange} aria-label="Clear range"><X className="h-3 w-3" /></button>
               </span>
             )}
           </div>

@@ -5,7 +5,8 @@ import { motion, useScroll } from 'framer-motion';
 import { useState, useRef, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Minus, Plus, ArrowRight, ChevronDown } from 'lucide-react';
-import { fetchProductById, fetchProducts, fetchSuggestions, formatAgeRange, Product } from '@/lib/db';
+import { fetchProductById, fetchProducts, fetchSuggestions, fetchDeliveryInfo, DEFAULT_DELIVERY_INFO, formatAgeRange, Product } from '@/lib/db';
+import { optimizedSrc } from '@/lib/image';
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
@@ -21,11 +22,17 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const [activeAccordion, setActiveAccordion] = useState<string | null>('details');
   const [related, setRelated] = useState<Product[]>([]);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(true);
+  const [deliveryInfo, setDeliveryInfo] = useState(DEFAULT_DELIVERY_INFO);
 
   useEffect(() => {
+    let cancelled = false;
+
+    // The product itself gates the page; suggestions and delivery copy load
+    // afterwards so they never hold up the first paint.
     async function load() {
       try {
         const prod = await fetchProductById(id);
+        if (cancelled) return;
         if (prod) {
           setProduct(prod);
           const activeVars = prod.variants?.filter(v => v.isAvailable !== false) || [];
@@ -34,12 +41,22 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           if (sizes.length > 0) setSelectedSize(sizes[0]);
           if (colors.length > 0) setSelectedColor(colors[0]);
         }
+        loadRelated(prod);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    async function loadRelated(prod: Product | null) {
+      try {
         const curated = await fetchSuggestions(id);
+        if (cancelled) return;
         if (curated.length > 0) {
           setRelated(curated.slice(0, 4));
         } else {
           // No admin-curated suggestions yet — fall back to same-category picks.
           const all = await fetchProducts();
+          if (cancelled) return;
           const pool = all.filter(p => p.id !== id);
           const sameCategory = prod ? pool.filter(p => p.category === prod.category) : [];
           const fallback = (sameCategory.length > 0 ? sameCategory : pool)
@@ -47,11 +64,14 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
             .slice(0, 4);
           setRelated(fallback);
         }
-      } finally {
-        setLoading(false);
+      } catch (err) {
+        console.error('Failed to load related products:', err);
       }
     }
+
     load();
+    fetchDeliveryInfo().then((info) => { if (!cancelled) setDeliveryInfo(info); });
+    return () => { cancelled = true; };
   }, [id]);
 
   const images = (product?.images && product.images.length > 0) ? product.images.map(img => typeof img === 'string' ? img : img.url) : (product?.image ? [product.image] : []);
@@ -175,7 +195,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                   onClick={() => setActiveImage(idx)}
                   className={`relative w-20 h-24 md:w-full md:h-32 flex-shrink-0 rounded-lg overflow-hidden transition-all duration-300 ${activeImage === idx ? 'ring-1 ring-neutral-900 opacity-100 scale-105 shadow-md' : 'opacity-50 hover:opacity-100'}`}
                 >
-                  <img src={img} className="w-full h-full object-cover" alt={`Thumbnail ${idx}`} />
+                  <img src={optimizedSrc(img, 256)} className="w-full h-full object-cover" alt={`Thumbnail ${idx}`} />
                   {activeImage === idx && (
                     <motion.div 
                       key={`progress-${idx}`}
@@ -196,7 +216,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                   initial={{ opacity: 0, filter: 'blur(10px)', scale: 1.05 }}
                   animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
-                  src={images[activeImage]} 
+                  src={optimizedSrc(images[activeImage], 1080)} 
                   className="w-full h-full object-cover" 
                   alt="Product Main" 
                 />
@@ -322,9 +342,9 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 <div className="w-full max-w-sm bg-black/5 rounded-xl p-5 mb-10 border border-black/5">
                   <h4 className="text-[10px] font-bold uppercase tracking-widest text-neutral-900 mb-3">Delivery & Returns</h4>
                   <ul className="text-xs text-neutral-600 space-y-2 mb-3">
-                    <li className="flex items-start"><span className="mr-2 text-black">•</span> Express Delivery: 1-2 business days (₹500)</li>
-                    <li className="flex items-start"><span className="mr-2 text-black">•</span> Standard Delivery: 3-5 business days (Free over ₹20,000)</li>
-                    <li className="flex items-start"><span className="mr-2 text-black">•</span> International Delivery: 7-10 business days</li>
+                    {deliveryInfo.productLines.map((line, i) => (
+                      <li key={i} className="flex items-start"><span className="mr-2 text-black">•</span> {line}</li>
+                    ))}
                   </ul>
                 </div>
                 
@@ -460,7 +480,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 onClick={() => window.location.href = `/product/${prod.id}`}
               >
                 <div className="aspect-[3/4] bg-white/50 rounded-xl mb-5 overflow-hidden relative border border-black/5 shadow-sm group-hover:shadow-lg transition-shadow duration-500">
-                  <img src={(typeof prod.images?.[0] === 'string' ? prod.images[0] : prod.images?.[0]?.url) || prod.image || ''} alt={prod.name} className="w-full h-full object-cover group-hover:scale-105 opacity-90 group-hover:opacity-100 transition-all duration-1000 ease-out" />
+                  <img src={optimizedSrc((typeof prod.images?.[0] === 'string' ? prod.images[0] : prod.images?.[0]?.url) || prod.image || '', 640)} alt={prod.name} className="w-full h-full object-cover group-hover:scale-105 opacity-90 group-hover:opacity-100 transition-all duration-1000 ease-out" />
                   <div className="absolute bottom-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <span className="bg-black text-white text-[9px] uppercase tracking-widest font-bold px-3 py-1.5 rounded-full shadow-lg">View</span>
                   </div>
