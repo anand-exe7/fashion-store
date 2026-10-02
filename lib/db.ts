@@ -218,15 +218,18 @@ export const deleteCategory = async (name: string) => {
 // ============================
 // PRODUCTS
 // ============================
-export const fetchProducts = async (): Promise<Product[]> => {
+// `ids` narrows the load to specific products (used for "Complete the Look"
+// suggestions) so we don't pull the whole catalogue for a handful of items.
+export const fetchProducts = async (ids?: string[]): Promise<Product[]> => {
+  if (ids && ids.length === 0) return [];
   const [
     { data: products, error: pError },
     { data: images, error: iError },
     { data: variants, error: vError },
   ] = await Promise.all([
-    supabase.from('products').select('*').order('created_at', { ascending: false }),
-    supabase.from('product_images').select('*').order('sort_order'),
-    supabase.from('product_variants').select('*').order('sort_order'),
+    (ids ? supabase.from('products').select('*').in('id', ids) : supabase.from('products').select('*')).order('created_at', { ascending: false }),
+    (ids ? supabase.from('product_images').select('*').in('product_id', ids) : supabase.from('product_images').select('*')).order('sort_order'),
+    (ids ? supabase.from('product_variants').select('*').in('product_id', ids) : supabase.from('product_variants').select('*')).order('sort_order'),
   ]);
 
   if (pError) throw pError;
@@ -465,7 +468,7 @@ export const fetchSuggestions = async (productId: string): Promise<Product[]> =>
   const ids = await fetchSuggestionIds(productId);
   if (ids.length === 0) return [];
 
-  const all = await fetchProducts();
+  const all = await fetchProducts(ids);
   const byId = new Map(all.map((p) => [p.id, p]));
   return ids.map((id) => byId.get(id)).filter((p): p is Product => !!p);
 };
@@ -1085,4 +1088,50 @@ export const generateWholesaleInvoiceId = (): string => {
   let suffix = '';
   for (let i = 0; i < 6; i++) suffix += chars.charAt(Math.floor(Math.random() * chars.length));
   return `WS-${year}-${suffix}`;
+};
+
+// ============================
+// SITE SETTINGS — admin-editable storefront copy (served by /api/settings/delivery)
+// ============================
+// Delivery estimate + instructions shown on the landing page and on every
+// product page. Falls back to these defaults until the admin saves their own
+// (or if the site_settings table hasn't been created yet).
+export interface DeliveryInfo {
+  landingText: string;     // landing-page "Fast Delivery" blurb, e.g. the delivery date/estimate
+  productLines: string[];  // bullet lines under "Delivery & Returns" on every product page
+}
+
+export const DEFAULT_DELIVERY_INFO: DeliveryInfo = {
+  landingText: 'Quick and reliable shipping across India. Get your order within 3–5 days.',
+  productLines: [
+    'Express Delivery: 1-2 business days (₹500)',
+    'Standard Delivery: 3-5 business days (Free over ₹20,000)',
+    'International Delivery: 7-10 business days',
+  ],
+};
+
+export const fetchDeliveryInfo = async (): Promise<DeliveryInfo> => {
+  try {
+    const res = await fetch('/api/settings/delivery', { cache: 'no-store' });
+    const v = (await res.json()) as Partial<DeliveryInfo> | null;
+    if (!res.ok || !v) return DEFAULT_DELIVERY_INFO;
+    return {
+      landingText: v.landingText?.trim() || DEFAULT_DELIVERY_INFO.landingText,
+      productLines: Array.isArray(v.productLines) && v.productLines.length > 0 ? v.productLines : DEFAULT_DELIVERY_INFO.productLines,
+    };
+  } catch {
+    return DEFAULT_DELIVERY_INFO;
+  }
+};
+
+export const saveDeliveryInfo = async (info: DeliveryInfo) => {
+  const res = await fetch('/api/settings/delivery', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(info),
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error(j.error || `Save failed (${res.status})`);
+  }
 };

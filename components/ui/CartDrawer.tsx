@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, ArrowRight } from 'lucide-react';
 import { inr } from '@/lib/store';
+import { optimizedSrc } from '@/lib/image';
 
 export const CartDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [cart, setCart] = useState<any[]>([]);
@@ -65,7 +66,7 @@ export const CartDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                 cart.map((item, idx) => (
                   <div key={idx} className="flex gap-4">
                     <div className="w-20 h-24 shrink-0 bg-neutral-100 rounded-lg overflow-hidden">
-                      <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                      <img src={optimizedSrc(item.image, 256)} alt={item.name} className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0 py-1">
                       <div className="flex justify-between items-start">

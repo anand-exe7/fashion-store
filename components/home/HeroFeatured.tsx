@@ -1,5 +1,6 @@
 import { fetchProducts } from '@/lib/db';
 import type { Product } from '@/lib/db';
+import { optimizedSrc } from '@/lib/image';
 
 const shell =
   'w-56 rounded-2xl border border-white/50 bg-white/80 p-3 shadow-[0_16px_40px_rgba(40,45,60,0.1)] backdrop-blur-sm';
@@ -41,7 +42,7 @@ export const HeroFeatured = async () => {
       <div className="flex items-center gap-3">
         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-neutral-200">
           <img
-            src={image.url}
+            src={optimizedSrc(image.url, 128)}
             alt={image.altText || product.name}
             className="h-full w-full object-cover"
           />

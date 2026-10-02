@@ -1,6 +1,7 @@
 'use client';
 import { motion, useMotionValue, useSpring } from 'framer-motion';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { optimizedSrc } from '@/lib/image';
 
 const itemVariants: any = {
   hidden: { opacity: 0, y: 30 },
@@ -9,6 +10,8 @@ const itemVariants: any = {
 
 export const ProductCard = ({ id, title, category, price, isNew, discount, image, stock }: any) => {
   const isOutOfStock = stock <= 0;
+  // If the optimizer ever fails for a photo, fall back to the original so the card is never blank.
+  const [optimizerFailed, setOptimizerFailed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const rotateXRaw = useMotionValue(0);
   const rotateYRaw = useMotionValue(0);
@@ -48,7 +51,8 @@ export const ProductCard = ({ id, title, category, price, isNew, discount, image
           <motion.img
             whileHover={{ scale: 1.05 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            src={image || undefined}
+            src={(optimizerFailed ? image : optimizedSrc(image, 640)) || undefined}
+            onError={() => setOptimizerFailed(true)}
             alt={title}
             className={`w-full h-full object-cover ${isOutOfStock ? 'opacity-40 grayscale-[0.5]' : ''}`}
             loading="lazy"

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Star, MessageSquarePlus, X, Check, Sparkles } from 'lucide-react';
 import { RevealText } from '../ui/RevealText';
 import { fetchApprovedReviews, submitReview } from '@/lib/db';
+import { optimizedSrc } from '@/lib/image';
 
 const SPEED = 45; // px per second
 
@@ -210,7 +211,7 @@ export const LovedByThousands = () => {
                 {hasImage && (
                   <>
                     <img
-                      src={r.img as string}
+                      src={optimizedSrc(r.img as string, 640)}
                       alt={`${r.name} review`}
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                     />

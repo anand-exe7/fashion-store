@@ -214,14 +214,21 @@ async function refreshAll() {
   }
 }
 
-// Initial fetch
-if (typeof window !== 'undefined') {
+// Fetched lazily on first use by an admin screen. This used to run at module
+// load, and because storefront components (CartDrawer) import `inr` from this
+// file, EVERY customer page load pulled all orders, products, coupons and
+// taxonomy before showing anything — a big cause of slow product pages.
+let hasLoaded = false;
+function ensureLoaded() {
+  if (hasLoaded || typeof window === 'undefined') return;
+  hasLoaded = true;
   refreshAll();
 }
 
 export function useAdminData(): StoreState {
   const [state, setState] = useState(globalState);
   useEffect(() => {
+    ensureLoaded();
     setState(globalState);
     const cb = () => setState(globalState);
     listeners.add(cb);
