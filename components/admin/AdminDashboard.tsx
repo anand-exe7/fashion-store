@@ -8,6 +8,7 @@ import Analytics from './sections/Analytics';
 import Orders from './sections/Orders';
 import Inventory from './sections/Inventory';
 import Categories from './sections/Categories';
+import CategoryImages from './sections/CategoryImages';
 import Coupons from './sections/Coupons';
 import Birthdays from './sections/Birthdays';
 import Delivery from './sections/Delivery';
@@ -184,6 +185,7 @@ export default function AdminDashboard() {
           {active === 'inventory' && <Inventory />}
           {active === 'reviews' && <Reviews />}
           {active === 'categories' && <Categories />}
+          {active === 'category-images' && <CategoryImages />}
           {active === 'coupons' && <Coupons />}
           {active === 'birthdays' && <Birthdays />}
           {active === 'reels' && <Reels />}

@@ -13,6 +13,7 @@ import {
   Warehouse,
   Receipt,
   TrendingUp,
+  ImageIcon,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 
@@ -59,6 +60,7 @@ export const NAV: NavItem[] = [
   { key: 'inventory', label: 'Inventory', icon: Package, roles: ['admin', 'staff'] },
   { key: 'reviews', label: 'Reviews', icon: Star, roles: ['admin'] },
   { key: 'categories', label: 'Categories', icon: Tags, roles: ['admin'] },
+  { key: 'category-images', label: 'Category Photos', icon: ImageIcon, roles: ['admin'] },
   { key: 'coupons', label: 'Coupons', icon: Ticket, roles: ['admin'] },
   { key: 'birthdays', label: 'Date of Birth', icon: Cake, roles: ['admin'] },
   { key: 'reels', label: 'Instagram Reels', icon: Film, roles: ['admin'] },

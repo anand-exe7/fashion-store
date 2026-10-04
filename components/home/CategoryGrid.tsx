@@ -1,43 +1,24 @@
 'use client';
-import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { RevealText } from '../ui/RevealText';
+import { CATEGORY_SLOTS, type CategoryImageMap } from '@/lib/categoryImages';
 
-const DEFAULT_CATEGORIES = [
-    {
-      title: "Infants (0–2)",
-      desc: "Soft onesies & rompers",
-      bgColor: "bg-[#D5EAD8]",
-      image: "/looks/infant_onesie.jpg",
-      position: "object-[center_20%]"
-    },
-    {
-      title: "Toddlers (3–5)",
-      desc: "Playful sets & combos",
-      bgColor: "bg-[#FCD3E1]",
-      image: "/looks/toddler_girl_grass.jpg",
-      position: "object-top"
-    },
-    {
-      title: "Kids (6–12)",
-      desc: "Cool & comfy everyday",
-      bgColor: "bg-[#D3EAFC]",
-      image: "/looks/look_6.jpg",
-      position: "object-top"
-    },
-    {
-      title: "Teens (13–16)",
-      desc: "Trendy fits, their style",
-      bgColor: "bg-[#FCEFD3]",
-      image: "/looks/look_cargo.jpg",
-      position: "object-[center_15%]"
-    }
-  ];
-
-export const CategoryGrid = () => {
-  const categories = DEFAULT_CATEGORIES;
+// `images` holds admin-uploaded photos (Admin → Category Photos). Any card without
+// one keeps its built-in default photo.
+export const CategoryGrid = ({ images = {} }: { images?: CategoryImageMap }) => {
+  const categories = CATEGORY_SLOTS.map((slot) => {
+    const uploaded = images[slot.key];
+    return {
+      title: slot.title,
+      desc: slot.desc,
+      bgColor: slot.bgColor,
+      image: uploaded || slot.defaultImage,
+      // Uploads are already cropped to the card's 3:4 shape, so anchor them to the top.
+      position: uploaded ? 'object-top' : slot.position,
+    };
+  });
 
   return (
     <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto">

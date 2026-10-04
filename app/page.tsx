@@ -17,6 +17,8 @@ import { Newsletter } from '@/components/home/Newsletter';
 import { Footer } from '@/components/layout/Footer';
 import { IntroLoader } from '@/components/ui/IntroLoader';
 import { fetchProducts } from '@/lib/db';
+import { readCategoryImages } from '@/lib/server/categoryImages';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 
 function ProductSkeleton() {
@@ -48,12 +50,14 @@ function GridSkeleton({ count = 3 }: { count?: number }) {
 }
 
 async function AsyncProducts() {
-  const products = await fetchProducts();
+  // Always read the latest admin-uploaded category photos (never a build-time snapshot).
+  await connection();
+  const [products, categoryImages] = await Promise.all([fetchProducts(), readCategoryImages()]);
   return (
     <>
       <NewArrivals products={products} />
       <Marquee />
-      <CategoryGrid />
+      <CategoryGrid images={categoryImages} />
       <ShoppableLook />
       <BestSellers products={products} />
     </>
