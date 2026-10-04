@@ -17,6 +17,7 @@ export const CategoryGrid = ({ images = {} }: { images?: CategoryImageMap }) => 
       image: uploaded || slot.defaultImage,
       // Uploads are already cropped to the card's 3:4 shape, so anchor them to the top.
       position: uploaded ? 'object-top' : slot.position,
+      uploaded: !!uploaded,
     };
   });
 
@@ -46,6 +47,9 @@ export const CategoryGrid = ({ images = {} }: { images?: CategoryImageMap }) => 
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               loading="eager"
+              // Admin uploads are already cropped + compressed WebP, so load them straight from
+              // storage instead of through the image optimizer (which can time out on remote files).
+              unoptimized={cat.uploaded}
               className={`absolute inset-0 w-full h-full object-cover ${cat.position || 'object-center'} transition-transform duration-[1.2s] group-hover:scale-105 ease-out`}
             />
 

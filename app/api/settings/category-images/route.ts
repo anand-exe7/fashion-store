@@ -4,9 +4,8 @@ import { CATEGORY_IMAGE_SPEC, isCategorySlotKey } from '@/lib/categoryImages';
 import {
   BUCKET,
   IMAGE_DIR,
-  deleteCategoryImageFile,
+  deleteSlotFiles,
   readCategoryImages,
-  writeCategoryImages,
 } from '@/lib/server/categoryImages';
 
 // Admin-managed photos for the four landing-page category cards.
@@ -49,27 +48,17 @@ export async function POST(req: Request) {
   }
 
   try {
-    const map = await readCategoryImages();
-    const oldUrl = map[slot];
-
     // 1. Upload the new photo under a unique name (so CDN / optimizer caches never serve a stale one).
-    const path = `${IMAGE_DIR}/${slot}_${Date.now()}.${ext}`;
+    //    The newest file for a slot is the live one, so it takes over as soon as it lands.
+    const name = `${slot}_${Date.now()}.${ext}`;
     const { error: upErr } = await adminSupabase.storage
       .from(BUCKET)
-      .upload(path, file, { contentType: file.type, cacheControl: '31536000', upsert: false });
+      .upload(`${IMAGE_DIR}/${name}`, file, { contentType: file.type, cacheControl: '31536000', upsert: false });
     if (upErr) throw new Error(upErr.message);
-    const { data: pub } = adminSupabase.storage.from(BUCKET).getPublicUrl(path);
+    const { data: pub } = adminSupabase.storage.from(BUCKET).getPublicUrl(`${IMAGE_DIR}/${name}`);
 
-    // 2. Point the slot at it. If this fails, drop the orphan upload and keep the old photo live.
-    try {
-      await writeCategoryImages({ ...map, [slot]: pub.publicUrl });
-    } catch (e) {
-      await adminSupabase.storage.from(BUCKET).remove([path]);
-      throw e;
-    }
-
-    // 3. Only now delete the old photo from the bucket.
-    await deleteCategoryImageFile(oldUrl);
+    // 2. Only now delete the old photo(s) for this slot from the bucket.
+    await deleteSlotFiles(slot, name);
 
     return Response.json({ ok: true, slot, url: pub.publicUrl });
   } catch (e) {
@@ -85,13 +74,7 @@ export async function DELETE(req: Request) {
   if (!isCategorySlotKey(slot)) return Response.json({ error: 'Unknown category' }, { status: 400 });
 
   try {
-    const map = await readCategoryImages();
-    const oldUrl = map[slot];
-    if (!oldUrl) return Response.json({ ok: true });
-    const rest = { ...map };
-    delete rest[slot];
-    await writeCategoryImages(rest);
-    await deleteCategoryImageFile(oldUrl);
+    await deleteSlotFiles(slot);
     return Response.json({ ok: true });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : 'Reset failed' }, { status: 500 });
