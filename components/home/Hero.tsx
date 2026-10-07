@@ -248,7 +248,7 @@ export const Hero = ({ featured }: { featured?: ReactNode }) => {
       {/* Headline — top left */}
       <motion.div
         style={{ x: headX, y: headScrollY, opacity: fade }}
-        className="absolute z-[25] pointer-events-none
+        className="heroHeadBox absolute z-[25] pointer-events-none
           left-0 right-0 top-[13vh] px-4 text-center
           sm:top-[16vh]
           md:left-[4vw] md:right-auto md:top-[22vh] md:max-w-[34vw] md:px-0 md:text-left"
@@ -293,7 +293,7 @@ export const Hero = ({ featured }: { featured?: ReactNode }) => {
         </div>
 
         <div
-          className="mx-auto mt-4 hidden max-w-[280px] md:mx-0 md:mt-6 md:block"
+          className="heroSub mx-auto mt-4 hidden max-w-[280px] md:mx-0 md:mt-6 md:block"
           style={{ animation: 'heroFade 0.9s ease-out 0.6s both' }}
         >
           <p className="text-[11px] md:text-[12px] leading-relaxed font-semibold uppercase tracking-[0.04em] text-neutral-600">
@@ -405,6 +405,25 @@ export const Hero = ({ featured }: { featured?: ReactNode }) => {
         @media (min-width: 640px) {
           .heroHeadline { font-size: clamp(1.5rem, 5.5vw, 3.8rem); }
           .hero-accent { color: inherit; }
+        }
+        /* Portrait tablets (iPad etc.): the side-by-side desktop layout puts the
+           figure (80vh+) on top of the headline. Stack instead — headline, copy and
+           CTA centred up top, figure sized to the space left below.
+           12vh = headline top, 24.7vw = 4 lines (6.5vw * 0.95 * 4, capped at 4.4rem
+           font), 10.5rem = subtext + CTA + gaps. */
+        @media (min-width: 768px) and (max-width: 1279px) and (orientation: portrait) {
+          section .heroHeadBox {
+            left: 0; right: 0; top: 12vh; max-width: none; padding: 0; text-align: center;
+          }
+          section .heroHeadline { font-size: clamp(2.2rem, 6.5vw, 4.4rem); }
+          section .heroSub { margin-left: auto; margin-right: auto; max-width: 380px; }
+          section .heroFigure {
+            height: clamp(36svh, calc(100svh - 12vh - min(24.7vw, 16.7rem) - 10.5rem), 66svh);
+          }
+        }
+        /* Landscape tablets: pull the figure in a touch so it clears the headline. */
+        @media (min-width: 768px) and (max-width: 1279px) and (orientation: landscape) {
+          section .heroFigure { height: 74vh; }
         }
         @keyframes heroSlideUp {
           from { transform: translateY(105%); }
