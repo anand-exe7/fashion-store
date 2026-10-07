@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { adminSupabase } from '@/lib/supabase/admin';
 import { sendOrderConfirmationEmail } from '@/lib/email';
+import { decrementStockForOrder } from '@/lib/server/checkout';
 
 export async function POST(req: Request) {
   try {
@@ -77,8 +78,18 @@ export async function POST(req: Request) {
         .single();
 
       // `updated` is only set when this call is the one that flipped the row,
-      // guaranteeing the coupon is consumed and the email sent exactly once.
+      // guaranteeing stock is decremented, the coupon consumed and the email
+      // sent exactly once (webhooks are retried).
       if (updated) {
+        // Reduce inventory for the paid lines so online sales show up in the
+        // same stock counts as POS sales. Isolated so a stock hiccup can't
+        // block the coupon/email side effects or the 200 response.
+        try {
+          await decrementStockForOrder(updated.id);
+        } catch (err) {
+          console.error(`Webhook: failed to decrement stock for ${updated.id}:`, err);
+        }
+
         if (order.coupon_code) {
           const { data: c } = await adminSupabase
             .from('coupons')

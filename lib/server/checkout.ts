@@ -209,6 +209,72 @@ export async function priceCheckout(input: CheckoutInput): Promise<PricedOrder> 
 }
 
 /**
+ * Decrement variant stock for a paid online order. Mirrors what the POS
+ * path does in `store.addOrder`, but resolves the variant from the stored
+ * product_id + size + color since online order_items don't carry variant_id.
+ *
+ * MUST be called exactly once per order — the webhook invokes this only from
+ * inside the atomic "this call flipped the row to completed" guard, so a
+ * retried webhook never double-decrements. Uses the service-role client.
+ *
+ * Non-atomic read-modify-write, consistent with the POS path: exactly-once
+ * delivery is guaranteed by the caller's status guard, so there is no
+ * concurrent decrement of the same variant to race against.
+ */
+export async function decrementStockForOrder(orderId: string): Promise<void> {
+  const { data: items, error: iErr } = await adminSupabase
+    .from('order_items')
+    .select('product_id, size, color, quantity')
+    .eq('order_id', orderId);
+  if (iErr) throw iErr;
+  if (!items || items.length === 0) return;
+
+  const productIds = Array.from(
+    new Set(items.map((i: any) => i.product_id).filter(Boolean)),
+  );
+  if (productIds.length === 0) return;
+
+  const { data: variants, error: vErr } = await adminSupabase
+    .from('product_variants')
+    .select('id, product_id, size, color_name, stock')
+    .in('product_id', productIds);
+  if (vErr) throw vErr;
+
+  for (const item of items) {
+    const qty = Number(item.quantity) || 0;
+    if (!item.product_id || qty <= 0) continue;
+
+    // Match the exact variant the same way priceCheckout does.
+    const variant = (variants || []).find(
+      (v: any) =>
+        v.product_id === item.product_id &&
+        (v.size ?? 'Default') === (item.size ?? 'Default') &&
+        (v.color_name ?? 'Default') === (item.color ?? 'Default'),
+    );
+    if (!variant) {
+      console.error(
+        `decrementStockForOrder: no variant for order ${orderId}, product ${item.product_id} (size=${item.size}, color=${item.color})`,
+      );
+      continue;
+    }
+
+    const next = Math.max(0, (Number(variant.stock) || 0) - qty);
+    const { error: uErr } = await adminSupabase
+      .from('product_variants')
+      .update({ stock: next })
+      .eq('id', variant.id);
+    if (uErr) {
+      // Log and keep going — a stock-update failure must not throw away the
+      // rest of the order's decrements or the webhook's success response.
+      console.error(
+        `decrementStockForOrder: failed to update variant ${variant.id} for order ${orderId}:`,
+        uErr,
+      );
+    }
+  }
+}
+
+/**
  * Persist a freshly-priced order as `pending`. Uses the service-role
  * client so it works regardless of who the customer is.
  */

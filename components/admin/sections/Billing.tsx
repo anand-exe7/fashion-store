@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Trash2, Plus, Minus, List, ShoppingBag, Printer, User, Banknote, Smartphone, Split, MessageCircle, FileText, Check } from 'lucide-react';
 import {
   useAdminData,
@@ -85,6 +85,12 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
   const [printOpen, setPrintOpen] = useState(false);
   const [printer, setPrinter] = useState<Printer>('thermal');
   const [printSize, setPrintSize] = useState('80');
+  // Guards against a double-click creating two orders (and decrementing stock
+  // twice). The ref is the real lock — it flips synchronously, so a second
+  // click in the same tick is rejected before React re-renders; `submitting`
+  // only drives the disabled UI. See createBill.
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Restore the operator's last-used printer + size so the dialog opens on their
   // usual choice. Per-viewer convenience only — safe to fail (private mode etc.).
@@ -212,6 +218,10 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
     paper?: Printer;
     size?: string;
   }): Promise<boolean> => {
+    // Reject a second click while a save is already in flight. Without this a
+    // double-click mints two invoice IDs and runs addOrder twice, creating a
+    // duplicate order and decrementing stock twice.
+    if (submittingRef.current) return false;
     if (validLines.length === 0) {
       flash('Add at least one item with a name and price.');
       return false;
@@ -222,6 +232,12 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
       flash('Enter the customer’s 10-digit mobile number to complete the sale.');
       return false;
     }
+
+    // Acquire the lock only after validation passes. Everything from here to
+    // the first await is synchronous, so no second click can slip in between.
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
     const id = genInvoiceId();
     const hasPhone = !!phone.trim();
 
@@ -285,6 +301,10 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
     flash(msg);
     clearOrder();
     return true;
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   };
 
   // Persist the chosen printer/size, run the sale with the print flag, and close
@@ -591,7 +611,8 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
 
           <button
             onClick={() => createBill({ print: false, whatsapp: true })}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-3.5 text-center text-xs font-bold uppercase leading-tight tracking-wide text-white transition-colors hover:bg-emerald-700 sm:text-sm"
+            disabled={submitting}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-3.5 text-center text-xs font-bold uppercase leading-tight tracking-wide text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
           >
             <MessageCircle className="h-4 w-4 shrink-0" />
             <span>Complete Sale &amp; WhatsApp</span>
@@ -605,7 +626,8 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
             </button>
             <button
               onClick={() => createBill({ print: false, whatsapp: false })}
-              className="rounded-xl border border-black/[0.1] py-2.5 text-xs font-bold uppercase tracking-widest text-neutral-700 hover:bg-black/[0.03]"
+              disabled={submitting}
+              className="rounded-xl border border-black/[0.1] py-2.5 text-xs font-bold uppercase tracking-widest text-neutral-700 hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Save Only
             </button>
@@ -752,7 +774,8 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
 
           <button
             onClick={confirmPrint}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-3 py-3.5 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-black"
+            disabled={submitting}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-3 py-3.5 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Printer className="h-4 w-4" /> Print Invoice
           </button>
