@@ -63,7 +63,8 @@ export const metadata: Metadata = {
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
   },
-  icons: { icon: "/favicon.ico" },
+  // Icons are auto-linked by Next from app/favicon.ico, app/icon.png and
+  // app/apple-icon.png — no manual icons config needed.
 };
 
 // Organization + WebSite structured data for the whole site. Injected once in
