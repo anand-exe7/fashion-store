@@ -224,8 +224,8 @@ export const Hero = ({ featured }: { featured?: ReactNode }) => {
       {/* ——— Hero figures: one cutout holding both the big kid and the little one ——— */}
       <motion.div
         style={{ y: figScrollY }}
-        className="absolute bottom-0 left-1/2 z-20 -translate-x-1/2 pointer-events-none
-          h-[58vh] w-auto
+        className="heroFigure absolute bottom-0 left-1/2 z-20 -translate-x-1/2 pointer-events-none
+          w-auto
           sm:h-[58vh]
           md:h-[80vh]
           lg:h-[84vh]"
@@ -393,6 +393,15 @@ export const Hero = ({ featured }: { featured?: ReactNode }) => {
            restored so the desktop/tablet hero is byte-for-byte unchanged. */
         .heroHeadline { font-size: clamp(2.2rem, 9vw, 3.4rem); }
         .hero-accent { color: var(--a, inherit); }
+        /* Mobile: size the figure to the space left under the headline + chip so
+           the faces never slide behind the text on short phones / browser chrome.
+           13vh = headline top offset, 34.2vw = 4 headline lines (9vw * 0.95 * 4,
+           capped by the 3.4rem font max), 6rem = chip + gaps. */
+        @media (max-width: 639px) {
+          .heroFigure {
+            height: clamp(30svh, calc(100svh - 13vh - min(34.2vw, 12.4rem) - 6rem), 58vh);
+          }
+        }
         @media (min-width: 640px) {
           .heroHeadline { font-size: clamp(1.5rem, 5.5vw, 3.8rem); }
           .hero-accent { color: inherit; }
