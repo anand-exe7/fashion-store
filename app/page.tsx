@@ -20,6 +20,12 @@ import { fetchProducts } from '@/lib/db';
 import { readCategoryImages } from '@/lib/server/categoryImages';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
+
+// Home inherits the root title/description; it only needs its own canonical.
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+};
 
 function ProductSkeleton() {
   return (
