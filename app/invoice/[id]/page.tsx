@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import { Printer, Copy, Check, ArrowLeft, Phone, Mail, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { Order } from "@/lib/db";
+import { Order, fetchGstInfo, DEFAULT_GST_INFO, type GstInfo } from "@/lib/db";
 
 // Converts a numeric amount to Indian-Rupee words for the invoice footer line.
 function numberToWordsINR(num: number): string {
@@ -34,6 +34,9 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
   const unwrappedParams = use(params);
   const id = unwrappedParams.id;
   const [order, setOrder] = useState<Order | null>(null);
+  // Business GST settings (display-only). Controls whether the GSTIN prints on
+  // this invoice; defaults to off, so nothing appears until the admin enables it.
+  const [gst, setGst] = useState<GstInfo>(DEFAULT_GST_INFO);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -53,6 +56,10 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
       setPaper('a4');
       setPaperSize(sp.get('size') === 'a5' ? 'a5' : 'a4');
     }
+  }, []);
+
+  useEffect(() => {
+    fetchGstInfo().then(setGst).catch(() => {});
   }, []);
 
   const handleCopyLink = () => {
@@ -162,6 +169,11 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
 
   const amountPaid = order.amountReceived || order.total;
 
+  // Print the business GSTIN only when a number is set and the toggle for this
+  // bill type (wholesale vs retail) is on. The buyer's GSTIN is wholesale-only.
+  const showGstin = !!gst.gstin && (order.source === 'wholesale' ? gst.wholesaleEnabled : gst.retailEnabled);
+  const customerGstin = order.customerGstin?.trim() || '';
+
   const isThermal = paper === 'thermal';
   // Roll width for thermal, or the sheet size for A4/A5, drives the print @page.
   const pageSize = isThermal
@@ -227,6 +239,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             <p className="text-base font-black uppercase tracking-tight leading-none">Shalistone</p>
             <p className="mt-0.5 text-[9px] uppercase tracking-[0.15em] text-neutral-500">Kids &amp; Mens Fashion</p>
             <p className="mt-1 text-[10px] text-neutral-500">www.shalistone.com · +91 91104 15639</p>
+            {showGstin && <p className="mt-0.5 text-[10px] font-semibold text-neutral-600">GSTIN: {gst.gstin}</p>}
           </div>
 
           <div className="my-2 border-t border-dashed border-black/30" />
@@ -238,6 +251,9 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             <div className="flex justify-between"><span className="text-neutral-500">Customer</span><span className="font-semibold text-right">{order.customerName || 'Walk-in'}</span></div>
             {order.customerPhone && (
               <div className="flex justify-between"><span className="text-neutral-500">Mobile</span><span>+91 {order.customerPhone}</span></div>
+            )}
+            {customerGstin && (
+              <div className="flex justify-between gap-2"><span className="text-neutral-500">Cust. GSTIN</span><span className="text-right font-semibold">{customerGstin}</span></div>
             )}
           </div>
 
@@ -284,7 +300,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
           </div>
 
           <p className="mt-2 text-[9px] italic leading-tight text-neutral-500">{numberToWordsINR(order.total)}</p>
-          <p className="mt-0.5 text-[9px] text-neutral-400">Prices inclusive of applicable GST.</p>
+          {showGstin && <p className="mt-0.5 text-[9px] text-neutral-400">Prices inclusive of applicable GST.</p>}
 
           <div className="my-2 border-t border-dashed border-black/30" />
 
@@ -349,6 +365,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[#C79A3E]">Invoice</p>
             <p className="mt-0.5 font-mono text-sm font-bold text-neutral-900">#{order.id}</p>
             <p className="mt-1 text-[11px] text-neutral-500">{formattedDate} · {formattedTime}</p>
+            {showGstin && <p className="mt-1 text-[11px] text-neutral-500">GSTIN: <span className="font-mono font-semibold text-neutral-700">{gst.gstin}</span></p>}
           </div>
         </div>
 
@@ -365,6 +382,9 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
             )}
             {order.customerAddress && (
               <p className="text-xs text-neutral-500 leading-relaxed whitespace-pre-line pt-0.5">{order.customerAddress}</p>
+            )}
+            {customerGstin && (
+              <p className="text-xs text-neutral-600 pt-0.5">GSTIN: <span className="font-mono font-semibold text-neutral-800">{customerGstin}</span></p>
             )}
           </div>
           <div className="space-y-1 sm:text-right">
@@ -459,7 +479,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                 <span>Paid via {payLabel}</span>
                 <span className="tabular-nums font-semibold text-neutral-800">{inr(amountPaid)}</span>
               </div>
-              <p className="text-right text-[10px] text-neutral-400">Prices inclusive of applicable GST.</p>
+              {showGstin && <p className="text-right text-[10px] text-neutral-400">Prices inclusive of applicable GST.</p>}
             </div>
           </div>
         </div>

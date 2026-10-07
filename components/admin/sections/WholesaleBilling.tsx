@@ -68,6 +68,7 @@ export default function WholesaleBilling() {
   const [items, setItems] = useState<WholesaleItem[]>([]);
   const [customer, setCustomer] = useState('');
   const [phone, setPhone] = useState('');
+  const [customerGstin, setCustomerGstin] = useState('');
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [discValue, setDiscValue] = useState('');
   const [discMode, setDiscMode] = useState<'₹' | '%'>('₹');
@@ -156,7 +157,7 @@ export default function WholesaleBilling() {
   const change = totalReceived - grandTotal;
 
   const clearAll = () => {
-    setLines([newLine()]); setCustomer(''); setPhone(''); setDiscValue('');
+    setLines([newLine()]); setCustomer(''); setPhone(''); setCustomerGstin(''); setDiscValue('');
     setPayMethod('cash'); setReceived(''); setGpayAmt(''); setSplitCash(''); setSplitGpay('');
   };
 
@@ -204,6 +205,7 @@ export default function WholesaleBilling() {
         id,
         customerName: customer.trim() || 'Wholesale Customer',
         customerPhone: phone.trim(),
+        customerGstin: customerGstin.trim() || null,
         subtotal,
         discount,
         total: grandTotal,
@@ -279,6 +281,7 @@ export default function WholesaleBilling() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Customer / Shop Name"><input className={inputCls} value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Enter name" /></Field>
               <Field label="Mobile Number (WhatsApp)"><input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="10-digit number" inputMode="numeric" /></Field>
+              <Field label="Customer GST Number (optional)"><input className={`${inputCls} font-mono tracking-wide`} value={customerGstin} onChange={(e) => setCustomerGstin(e.target.value.toUpperCase().slice(0, 15))} placeholder="e.g. 33ABCDE1234F1Z5" maxLength={15} /></Field>
             </div>
           </div>
 

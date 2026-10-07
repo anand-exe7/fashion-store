@@ -77,13 +77,17 @@ export interface Order {
   customerPhone?: string;
   customerEmail?: string;
   customerAddress?: string;
-  source: 'online' | 'offline';
+  // 'wholesale' is served by the orders API from the wholesale tables and
+  // reuses this shape on the shared invoice page.
+  source: 'online' | 'offline' | 'wholesale';
   subtotal: number;
   discount: number;
   couponCode?: string;
   delivery: number;
   total: number;
   amountReceived?: number;
+  // Buyer's GSTIN — only ever set on wholesale invoices; null elsewhere.
+  customerGstin?: string | null;
   status: 'pending' | 'processing' | 'completed' | 'cancelled';
   // How an offline (POS) bill was paid; null for online / legacy bills.
   paymentMethod?: 'cash' | 'gpay' | 'split' | null;
@@ -987,6 +991,7 @@ export interface WholesaleOrder {
   id: string;
   customerName?: string;
   customerPhone?: string;
+  customerGstin?: string | null;
   subtotal: number;
   discount: number;
   total: number;
@@ -1028,6 +1033,7 @@ export const insertWholesaleOrder = async (order: WholesaleOrder) => {
     id: order.id,
     customer_name: order.customerName,
     customer_phone: order.customerPhone,
+    customer_gstin: order.customerGstin ?? null,
     subtotal: order.subtotal,
     discount: order.discount,
     total: order.total,
@@ -1063,6 +1069,7 @@ export const fetchWholesaleOrders = async (): Promise<WholesaleOrder[]> => {
     id: o.id,
     customerName: o.customer_name,
     customerPhone: o.customer_phone,
+    customerGstin: o.customer_gstin,
     subtotal: o.subtotal,
     discount: o.discount,
     total: o.total,
@@ -1132,6 +1139,53 @@ export const fetchDeliveryInfo = async (): Promise<DeliveryInfo> => {
 
 export const saveDeliveryInfo = async (info: DeliveryInfo) => {
   const res = await fetch('/api/settings/delivery', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(info),
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error(j.error || `Save failed (${res.status})`);
+  }
+};
+
+// ============================
+// GST SETTINGS — admin-editable, display-only (served by /api/settings/gst)
+// ============================
+// Controls whether the business GSTIN is printed on invoices, and what that
+// number is. Stored as a small JSON file in the 'images' bucket (same approach
+// as delivery info — no extra table). Disabled with a blank number until the
+// admin turns it on, so existing invoices are untouched. This is GSTIN display
+// only; it does not change any amount. A future tax rate could be added here.
+export interface GstInfo {
+  retailEnabled: boolean;      // print GSTIN on retail (POS / online) invoices
+  wholesaleEnabled: boolean;   // print GSTIN on wholesale invoices
+  gstin: string;               // the business GST number
+}
+
+export const DEFAULT_GST_INFO: GstInfo = {
+  retailEnabled: false,
+  wholesaleEnabled: false,
+  gstin: '',
+};
+
+export const fetchGstInfo = async (): Promise<GstInfo> => {
+  try {
+    const res = await fetch('/api/settings/gst', { cache: 'no-store' });
+    const v = (await res.json()) as Partial<GstInfo> | null;
+    if (!res.ok || !v) return DEFAULT_GST_INFO;
+    return {
+      retailEnabled: !!v.retailEnabled,
+      wholesaleEnabled: !!v.wholesaleEnabled,
+      gstin: typeof v.gstin === 'string' ? v.gstin.trim() : '',
+    };
+  } catch {
+    return DEFAULT_GST_INFO;
+  }
+};
+
+export const saveGstInfo = async (info: GstInfo) => {
+  const res = await fetch('/api/settings/gst', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(info),
