@@ -651,9 +651,17 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
                 <Field label="Category">
                   <select className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)}>
                     <option value="" disabled>Select category</option>
-                    {categories.map(c => (
-                      <option key={c.name} value={c.name}>{c.name}</option>
-                    ))}
+                    {/* Switched-off categories aren't offered for new products.
+                        The one a product is already in stays listed even if it
+                        was switched off later, so editing it doesn't silently
+                        drop its category. */}
+                    {categories
+                      .filter(c => c.isActive || c.name === category)
+                      .map(c => (
+                        <option key={c.name} value={c.name}>
+                          {c.name}{c.isActive ? '' : ' (switched off)'}
+                        </option>
+                      ))}
                   </select>
                 </Field>
                 <Field label="Department">
