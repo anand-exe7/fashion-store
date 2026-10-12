@@ -208,7 +208,7 @@ export default function CartPage() {
 
       const rzp = new (window as any).Razorpay(options);
       rzp.on('payment.failed', function (response: any){
-        console.error('Razorpay reported a failed payment:', response?.error);
+        console.warn('Razorpay reported a failed payment:', response?.error);
         setCheckoutNotice('Payment failed. Nothing has been charged — you can try again.');
         setIsProcessing(false);
       });

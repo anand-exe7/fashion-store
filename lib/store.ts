@@ -323,12 +323,12 @@ export async function setFulfillment(id: string, fulfillmentStatus: FulfillmentS
 
 export interface SaveResult {
   ok: boolean;
-  /** Fields the database couldn't store yet, e.g. "MRP price (migration 0005)". */
+  /** Fields the database can't store yet, e.g. "MRP price". */
   skipped: string[];
   error?: string;
 }
 
-const describeSkips = (skips: db.UpsertSkip[]) => skips.map(s => `${s.field} (migration ${s.migration})`);
+const describeSkips = (skips: db.UpsertSkip[]) => skips.map(s => s.field);
 
 export async function addProduct(p: Product): Promise<SaveResult> {
   // Shown immediately; removed again below if the write fails, so a refused

@@ -15,7 +15,7 @@ import {
   type ProductVariant,
 } from '@/lib/store';
 import { Card, Modal, ModalHeader, EmptyState, Field, inputCls, AgeRangeInput } from '../ui';
-import { formatAgeRange, DEFAULT_LOW_STOCK, productFeatureSupport } from '@/lib/db';
+import { formatAgeRange, DEFAULT_LOW_STOCK } from '@/lib/db';
 import { compressImage } from '@/lib/image';
 
 function playAlert() {
@@ -421,10 +421,6 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
   const [discountLabel, setDiscountLabel] = useState('');
   const [suggestionIds, setSuggestionIds] = useState<string[]>([]);
   const [suggestionQuery, setSuggestionQuery] = useState('');
-  // Which optional fields this database can actually store. Checked once per
-  // form open (the probe is cached) so the warning sits on the field itself
-  // rather than arriving as a failed save.
-  const [support, setSupport] = useState({ pricing: true, bestSeller: true });
 
   // load values when the modal opens for a product
   useEffect(() => {
@@ -451,7 +447,6 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
       setVariants(editing?.variants ? [...editing.variants] : [{ size: '', stock: 0 }]);
 
       setSuggestionQuery('');
-      productFeatureSupport().then(setSupport).catch(() => {});
       if (editing?.id) {
         fetchSuggestionIds(editing.id).then(setSuggestionIds).catch(() => setSuggestionIds([]));
       } else {
@@ -672,14 +667,12 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
                 <Field label="Selling Price (₹)"><input className={inputCls} value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" /></Field>
                 <div>
                   <Field label="Original / MRP (₹)"><input className={inputCls} value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value.replace(/\D/g, ''))} placeholder="Optional" inputMode="numeric" /></Field>
-                  <p className={`mt-1 text-[10px] font-bold uppercase tracking-wider ${mrpInvalid ? 'text-red-500' : !support.pricing ? 'text-amber-600' : 'text-neutral-400'}`}>
-                    {!support.pricing
-                      ? 'Needs migration 0005 — won\u2019t be saved yet'
-                      : !originalPrice
-                        ? 'Leave blank to show one price'
-                        : mrpInvalid
-                          ? 'Must be higher than the selling price'
-                          : `Struck through · ${mrpDiscountPct}% off`}
+                  <p className={`mt-1 text-[10px] font-bold uppercase tracking-wider ${mrpInvalid ? 'text-red-500' : 'text-neutral-400'}`}>
+                    {!originalPrice
+                      ? 'Leave blank to show one price'
+                      : mrpInvalid
+                        ? 'Must be higher than the selling price'
+                        : `Struck through · ${mrpDiscountPct}% off`}
                   </p>
                 </div>
               </div>
@@ -698,10 +691,8 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
                   <input type="checkbox" checked={isBestSeller} onChange={(e) => setIsBestSeller(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black" />
                   Show in &quot;Best Sellers&quot;
                 </label>
-                <p className={`text-[10px] font-bold uppercase tracking-wider ${support.bestSeller ? 'text-neutral-400' : 'text-amber-600'}`}>
-                  {support.bestSeller
-                    ? 'Home page shows the first 4 ticked, newest first'
-                    : 'Best Sellers needs migration 0007 — won\u2019t be saved yet'}
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                  Home page shows the first 4 ticked, newest first
                 </p>
               </div>
             </div>
