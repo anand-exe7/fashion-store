@@ -93,7 +93,7 @@ const VideoReel = ({ src, href, index }: { src: string; href: string; index: num
             loop
             muted
             playsInline
-            preload="auto"
+            preload="metadata"
             suppressHydrationWarning
             onClick={toggleMute}
             onPause={keepPlaying}

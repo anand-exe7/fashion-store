@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Save, X, Truck, Check } from 'lucide-react';
-import { fetchDeliveryRegions, fetchDeliveryInfo, saveDeliveryInfo, DEFAULT_DELIVERY_INFO, DeliveryRegion, DeliveryTier } from '@/lib/db';
+import { Plus, Trash2, Edit2, Save, X, Truck, Check, Receipt } from 'lucide-react';
+import { fetchDeliveryRegions, fetchDeliveryInfo, saveDeliveryInfo, DEFAULT_DELIVERY_INFO, fetchGstInfo, saveGstInfo, DEFAULT_GST_INFO, GstInfo, DeliveryRegion, DeliveryTier } from '@/lib/db';
 import { Card } from '../ui';
 import { createClient } from '@/lib/supabase/client';
 
@@ -68,6 +68,108 @@ function DeliveryInfoEditor() {
           className="bg-black text-white px-6 py-2.5 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 flex items-center gap-2 shadow-lg disabled:opacity-60"
         >
           <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save Delivery Info'}
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+// GST number shown on invoices. Toggle retail and wholesale independently, and
+// set the business GSTIN. Display-only — amounts are unchanged. Off + blank by
+// default, so nothing appears on invoices until the owner turns it on.
+function GstInfoEditor() {
+  const [gst, setGst] = useState<GstInfo>(DEFAULT_GST_INFO);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetchGstInfo().then(setGst);
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await saveGstInfo({
+        retailEnabled: gst.retailEnabled,
+        wholesaleEnabled: gst.wholesaleEnabled,
+        gstin: gst.gstin.trim().toUpperCase(),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e: any) {
+      alert('Could not save GST settings: ' + (e?.message || e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fieldCls = 'w-full bg-white border border-black/10 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-black/30';
+  const hasNumber = !!gst.gstin.trim();
+
+  return (
+    <Card className="p-5 sm:p-6">
+      <div className="mb-5 flex items-center gap-3">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-neutral-100 text-neutral-700"><Receipt className="h-5 w-5" /></span>
+        <div>
+          <h3 className="text-base font-bold text-neutral-900">GST &amp; Invoice Number</h3>
+          <p className="text-xs text-neutral-500">Print your GST number on invoices. Turn it on per bill type and set the number. Amounts are unchanged.</p>
+        </div>
+      </div>
+
+      <label className="mb-4 block">
+        <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-neutral-500">Business GST Number (GSTIN)</span>
+        <input
+          value={gst.gstin}
+          onChange={(e) => setGst({ ...gst, gstin: e.target.value.toUpperCase().slice(0, 15) })}
+          className={fieldCls + ' font-mono tracking-wide'}
+          placeholder="e.g. 33ABCDE1234F1Z5"
+          maxLength={15}
+        />
+        <span className="mt-1 block text-[11px] text-neutral-400">15-character GSTIN. Leave blank until you have one.</span>
+      </label>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="flex items-start gap-3 rounded-xl border border-black/10 bg-white p-4 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={gst.retailEnabled}
+            onChange={(e) => setGst({ ...gst, retailEnabled: e.target.checked })}
+            disabled={!hasNumber}
+            className="mt-0.5 h-4 w-4 rounded border-black/20 text-neutral-900 focus:ring-neutral-900 disabled:opacity-40"
+          />
+          <span>
+            <span className="block text-sm font-semibold text-neutral-900">Show on retail invoices</span>
+            <span className="block text-[11px] text-neutral-500">POS &amp; online store bills</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 rounded-xl border border-black/10 bg-white p-4 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={gst.wholesaleEnabled}
+            onChange={(e) => setGst({ ...gst, wholesaleEnabled: e.target.checked })}
+            disabled={!hasNumber}
+            className="mt-0.5 h-4 w-4 rounded border-black/20 text-neutral-900 focus:ring-neutral-900 disabled:opacity-40"
+          />
+          <span>
+            <span className="block text-sm font-semibold text-neutral-900">Show on wholesale invoices</span>
+            <span className="block text-[11px] text-neutral-500">Wholesale billing bills</span>
+          </span>
+        </label>
+      </div>
+
+      {!hasNumber && (
+        <p className="mt-3 text-[11px] text-neutral-400">Enter a GST number above to enable these options.</p>
+      )}
+
+      <div className="mt-5 flex items-center justify-end gap-3">
+        {saved && <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600"><Check className="h-3.5 w-3.5" /> Saved</span>}
+        <button
+          onClick={save}
+          disabled={saving}
+          className="bg-black text-white px-6 py-2.5 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 flex items-center gap-2 shadow-lg disabled:opacity-60"
+        >
+          <Save className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save GST Settings'}
         </button>
       </div>
     </Card>
@@ -310,6 +412,7 @@ export default function Delivery() {
       </div>
 
       {!isAdding && !editingRegion && <DeliveryInfoEditor />}
+      {!isAdding && !editingRegion && <GstInfoEditor />}
 
       {renderEditor()}
 

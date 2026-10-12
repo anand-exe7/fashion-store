@@ -82,11 +82,12 @@ export async function POST(req: Request) {
         .single();
 
       // `updated` is only set when this call is the one that flipped the row,
-      // guaranteeing the coupon is consumed and the email sent exactly once.
+      // guaranteeing stock is decremented, the coupon consumed and the email
+      // sent exactly once (webhooks are retried).
       if (updated) {
-        // Consume inventory for the paid order. Online sales used to skip
-        // this entirely — only the POS path decremented — so the website
-        // could happily oversell a size that had already run out.
+        // Reduce inventory for the paid lines so online sales land in the same
+        // stock counts as POS sales. applyOrderStock never throws, so a stock
+        // hiccup can't block the coupon, the email, or the 200 response.
         await applyOrderStock(updated.id);
 
         if (order.coupon_code) {

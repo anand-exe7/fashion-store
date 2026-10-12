@@ -323,7 +323,7 @@ export async function setFulfillment(id: string, fulfillmentStatus: FulfillmentS
 
 export interface SaveResult {
   ok: boolean;
-  /** Fields the database couldn't store yet, e.g. "MRP price (migration 0004)". */
+  /** Fields the database couldn't store yet, e.g. "MRP price (migration 0005)". */
   skipped: string[];
   error?: string;
 }

@@ -674,7 +674,7 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
                   <Field label="Original / MRP (₹)"><input className={inputCls} value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value.replace(/\D/g, ''))} placeholder="Optional" inputMode="numeric" /></Field>
                   <p className={`mt-1 text-[10px] font-bold uppercase tracking-wider ${mrpInvalid ? 'text-red-500' : !support.pricing ? 'text-amber-600' : 'text-neutral-400'}`}>
                     {!support.pricing
-                      ? 'Needs migration 0004 — won\u2019t be saved yet'
+                      ? 'Needs migration 0005 — won\u2019t be saved yet'
                       : !originalPrice
                         ? 'Leave blank to show one price'
                         : mrpInvalid
@@ -701,7 +701,7 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
                 <p className={`text-[10px] font-bold uppercase tracking-wider ${support.bestSeller ? 'text-neutral-400' : 'text-amber-600'}`}>
                   {support.bestSeller
                     ? 'Home page shows the first 4 ticked, newest first'
-                    : 'Best Sellers needs migration 0006 — won\u2019t be saved yet'}
+                    : 'Best Sellers needs migration 0007 — won\u2019t be saved yet'}
                 </p>
               </div>
             </div>

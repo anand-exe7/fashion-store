@@ -3,7 +3,7 @@
 --
 -- Paste this whole file into the Supabase SQL editor and press Run. Once.
 --
--- It is migrations 0004, 0005 and 0006 joined in the required order, purely
+-- It is migrations 0005, 0006 and 0007 joined in the required order, purely
 -- so it can go in as a single paste. Every statement is guarded, so running
 -- it twice changes nothing.
 --
@@ -19,7 +19,7 @@
 -- ============================================================================
 
 
--- ########## 0004_pricing_and_stock.sql ##########
+-- ########## 0005_pricing_and_stock.sql ##########
 
 -- ============================================================
 -- 0004 — MRP pricing + stock correctness
@@ -97,7 +97,7 @@ GRANT EXECUTE ON FUNCTION public.adjust_variant_stock(UUID, INTEGER)
   TO authenticated, service_role;
 
 
--- ########## 0005_order_stock.sql ##########
+-- ########## 0006_order_stock.sql ##########
 
 -- ============================================================
 -- 0005 — Online orders must consume stock
@@ -164,7 +164,7 @@ ALTER TABLE orders
 UPDATE orders SET stock_applied = TRUE WHERE stock_applied = FALSE AND status <> 'pending';
 
 
--- ########## 0006_best_sellers.sql ##########
+-- ########## 0007_best_sellers.sql ##########
 
 -- ============================================================
 -- 0006 — Admin-chosen Best Sellers

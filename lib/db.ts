@@ -3,7 +3,7 @@ import { createClient } from './supabase/client';
 const supabase = createClient();
 
 // Fallback "alert below N" for a product with no stored threshold — and for a
-// database on which migration 0004 (products.low_stock) hasn't been run yet.
+// database on which migration 0005 (products.low_stock) hasn't been run yet.
 export const DEFAULT_LOW_STOCK = 6;
 
 // ============================
@@ -91,13 +91,17 @@ export interface Order {
   customerPhone?: string;
   customerEmail?: string;
   customerAddress?: string;
-  source: 'online' | 'offline';
+  // 'wholesale' is served by the orders API from the wholesale tables and
+  // reuses this shape on the shared invoice page.
+  source: 'online' | 'offline' | 'wholesale';
   subtotal: number;
   discount: number;
   couponCode?: string;
   delivery: number;
   total: number;
   amountReceived?: number;
+  // Buyer's GSTIN — only ever set on wholesale invoices; null elsewhere.
+  customerGstin?: string | null;
   status: 'pending' | 'processing' | 'completed' | 'cancelled';
   // How an offline (POS) bill was paid; null for online / legacy bills.
   paymentMethod?: 'cash' | 'gpay' | 'split' | null;
@@ -372,13 +376,13 @@ export const upsertProduct = async (
     await supabase.from('categories').upsert({ name: product.category }).select();
   }
 
-  // original_price / low_stock arrive with migration 0004. Probe once so a
+  // original_price / low_stock arrive with migration 0005. Probe once so a
   // database that hasn't been migrated still saves products, rather than
   // failing every save with "column does not exist".
   const hasPricingCols = await columnSupported('products', 'original_price');
   const hasBestSeller = await columnSupported('products', 'is_best_seller');
   if (!hasPricingCols && product.originalPrice != null) {
-    skipped.push({ field: 'MRP price', migration: '0004' });
+    skipped.push({ field: 'MRP price', migration: '0005' });
   }
 
   const productRow: Record<string, unknown> = {
@@ -397,7 +401,7 @@ export const upsertProduct = async (
   if (hasBestSeller && product.isBestSeller !== undefined) {
     productRow.is_best_seller = product.isBestSeller;
   } else if (!hasBestSeller && product.isBestSeller) {
-    skipped.push({ field: 'Best Seller', migration: '0006' });
+    skipped.push({ field: 'Best Seller', migration: '0007' });
   }
   if (hasPricingCols) {
     productRow.original_price = product.originalPrice ?? null;
@@ -626,7 +630,7 @@ export const updateSuggestions = async (productId: string, suggestedIds: string[
 // Atomic stock change on one variant. Negative delta = sale, positive =
 // restock; the result is clamped at 0 server-side. Returns the new stock.
 //
-// This goes through the adjust_variant_stock() RPC (migration 0004) so the
+// This goes through the adjust_variant_stock() RPC (migration 0005) so the
 // whole change is ONE statement: two concurrent orders serialise on the row
 // instead of both reading the same stock and double-consuming it. On a
 // database where the RPC isn't there yet we fall back to the old
@@ -644,10 +648,10 @@ export const adjustVariantStock = async (variantId: string, delta: number): Prom
 
   if (!error) return Number(data) || 0;
 
-  // PGRST202 = function not found in the schema cache: migration 0004 hasn't
+  // PGRST202 = function not found in the schema cache: migration 0005 hasn't
   // been applied. Anything else is a real failure (missing variant, RLS, …).
   if (error.code !== 'PGRST202' && error.code !== '42883') throw error;
-  console.warn('adjust_variant_stock RPC unavailable — falling back to a non-atomic update. Run supabase/migrations/0004_pricing_and_stock.sql.');
+  console.warn('adjust_variant_stock RPC unavailable — falling back to a non-atomic update. Run supabase/migrations/0005_pricing_and_stock.sql.');
   return adjustVariantStockNonAtomic(variantId, Math.trunc(delta));
 };
 
@@ -869,7 +873,7 @@ export const insertOrder = async (order: Order) => {
       price: i.price,
     }));
 
-    // Record WHICH variant each line sold (migration 0005). Without it a bill
+    // Record WHICH variant each line sold (migration 0006). Without it a bill
     // can be read back but never tied to the size/colour it consumed, so a
     // deleted or refunded order can't restock anything. Guarded so billing
     // still works against a database that hasn't had 0005 applied.
@@ -1161,6 +1165,7 @@ export interface WholesaleOrder {
   id: string;
   customerName?: string;
   customerPhone?: string;
+  customerGstin?: string | null;
   subtotal: number;
   discount: number;
   total: number;
@@ -1202,6 +1207,7 @@ export const insertWholesaleOrder = async (order: WholesaleOrder) => {
     id: order.id,
     customer_name: order.customerName,
     customer_phone: order.customerPhone,
+    customer_gstin: order.customerGstin ?? null,
     subtotal: order.subtotal,
     discount: order.discount,
     total: order.total,
@@ -1237,6 +1243,7 @@ export const fetchWholesaleOrders = async (): Promise<WholesaleOrder[]> => {
     id: o.id,
     customerName: o.customer_name,
     customerPhone: o.customer_phone,
+    customerGstin: o.customer_gstin,
     subtotal: o.subtotal,
     discount: o.discount,
     total: o.total,
@@ -1306,6 +1313,53 @@ export const fetchDeliveryInfo = async (): Promise<DeliveryInfo> => {
 
 export const saveDeliveryInfo = async (info: DeliveryInfo) => {
   const res = await fetch('/api/settings/delivery', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(info),
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error(j.error || `Save failed (${res.status})`);
+  }
+};
+
+// ============================
+// GST SETTINGS — admin-editable, display-only (served by /api/settings/gst)
+// ============================
+// Controls whether the business GSTIN is printed on invoices, and what that
+// number is. Stored as a small JSON file in the 'images' bucket (same approach
+// as delivery info — no extra table). Disabled with a blank number until the
+// admin turns it on, so existing invoices are untouched. This is GSTIN display
+// only; it does not change any amount. A future tax rate could be added here.
+export interface GstInfo {
+  retailEnabled: boolean;      // print GSTIN on retail (POS / online) invoices
+  wholesaleEnabled: boolean;   // print GSTIN on wholesale invoices
+  gstin: string;               // the business GST number
+}
+
+export const DEFAULT_GST_INFO: GstInfo = {
+  retailEnabled: false,
+  wholesaleEnabled: false,
+  gstin: '',
+};
+
+export const fetchGstInfo = async (): Promise<GstInfo> => {
+  try {
+    const res = await fetch('/api/settings/gst', { cache: 'no-store' });
+    const v = (await res.json()) as Partial<GstInfo> | null;
+    if (!res.ok || !v) return DEFAULT_GST_INFO;
+    return {
+      retailEnabled: !!v.retailEnabled,
+      wholesaleEnabled: !!v.wholesaleEnabled,
+      gstin: typeof v.gstin === 'string' ? v.gstin.trim() : '',
+    };
+  } catch {
+    return DEFAULT_GST_INFO;
+  }
+};
+
+export const saveGstInfo = async (info: GstInfo) => {
+  const res = await fetch('/api/settings/gst', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(info),

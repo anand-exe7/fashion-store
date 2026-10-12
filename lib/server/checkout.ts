@@ -233,6 +233,7 @@ export async function priceCheckout(input: CheckoutInput): Promise<PricedOrder> 
   };
 }
 
+
 /**
  * Persist a freshly-priced order as `pending`. Uses the service-role
  * client so it works regardless of who the customer is.
@@ -273,11 +274,11 @@ export async function persistPendingOrder(
       .from('order_items')
       .insert(baseRows.map((row, i) => ({ ...row, variant_id: priced.lineItems[i].variantId })));
 
-    // 42703 = order_items.variant_id doesn't exist yet (migration 0005 not
+    // 42703 = order_items.variant_id doesn't exist yet (migration 0006 not
     // applied). Save the order without the link rather than failing a paid
     // checkout; applyOrderStock falls back to matching on size/colour.
     if (iErr?.code === '42703') {
-      console.error('[stock] order_items.variant_id is missing — run supabase/migrations/0005_order_stock.sql');
+      console.error('[stock] order_items.variant_id is missing — run supabase/migrations/0006_order_stock.sql');
       const { error: retryErr } = await adminSupabase.from('order_items').insert(baseRows);
       if (retryErr) throw retryErr;
     } else if (iErr) {
@@ -317,17 +318,17 @@ export async function applyOrderStock(orderId: string): Promise<void> {
       .maybeSingle();
 
     if (claimErr) {
-      if (claimErr.code === '42703') {
-        // Without the guard column a retry would double-consume. Under-
-        // decrementing loudly beats over-decrementing silently.
-        console.error(
-          `[stock] orders.stock_applied is missing — run supabase/migrations/0005_order_stock.sql. Stock NOT adjusted for order ${orderId}.`,
-        );
-        return;
-      }
-      throw claimErr;
+      if (claimErr.code !== '42703') throw claimErr;
+      // orders.stock_applied doesn't exist yet. Carry on anyway: the webhook
+      // only calls this for the delivery that flipped pending -> completed, so
+      // that transition is itself a once-only guard. What's lost is the ability
+      // to finish a decrement that died halfway through, which the column adds.
+      console.warn(
+        `[stock] orders.stock_applied is missing — relying on the order status transition as the guard. Run the order-stock migration for retry-safe decrements.`,
+      );
+    } else if (!claimed) {
+      return; // already applied by an earlier delivery
     }
-    if (!claimed) return; // already applied by an earlier delivery
 
     const { data: items, error: itemsErr } = await adminSupabase
       .from('order_items')
@@ -376,7 +377,7 @@ async function resolveVariantId(
   return match?.id ?? null;
 }
 
-// Prefers the atomic RPC from migration 0004; falls back to read-then-write
+// Prefers the atomic RPC from migration 0005; falls back to read-then-write
 // when that function isn't there yet.
 async function decrementVariant(variantId: string, qty: number): Promise<void> {
   const { error } = await adminSupabase.rpc('adjust_variant_stock', {
@@ -386,7 +387,7 @@ async function decrementVariant(variantId: string, qty: number): Promise<void> {
   if (!error) return;
   if (error.code !== 'PGRST202' && error.code !== '42883') throw error;
 
-  console.warn('[stock] adjust_variant_stock RPC unavailable — using a non-atomic update. Run supabase/migrations/0004_pricing_and_stock.sql.');
+  console.warn('[stock] adjust_variant_stock RPC unavailable — using a non-atomic update. Run supabase/migrations/0005_pricing_and_stock.sql.');
   const { data, error: readErr } = await adminSupabase
     .from('product_variants')
     .select('stock')

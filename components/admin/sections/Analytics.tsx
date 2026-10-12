@@ -558,24 +558,47 @@ function TodayTab({ orders, onDrill }: { orders: Order[]; onDrill: (d: Drill) =>
 
 function ProductsTab({ view, products }: { view: Order[]; products: { id: string; name: string; category: string; stock: number }[] }) {
   const [q, setQ] = useState('');
-  const map: Record<string, { qty: number; rev: number }> = {};
+  // Unsold catalog products are hidden by default so the table shows only what moved.
+  const [showUnsold, setShowUnsold] = useState(false);
+  // Catalog lines are keyed by productId: POS variant lines carry a size/colour
+  // suffix in their name ("Set (1-2Y)"), so names never match the product.
+  // Free-typed POS lines have no productId and are listed by their own name.
+  const byId: Record<string, { qty: number; rev: number }> = {};
+  const custom: Record<string, { id: string; name: string; category: string; stock: number | null; qty: number; rev: number }> = {};
+  const ids = new Set(products.map((p) => p.id));
   view.forEach((o) => o.items.forEach((i) => {
-    map[i.name] = map[i.name] || { qty: 0, rev: 0 };
-    map[i.name].qty += i.qty;
-    map[i.name].rev += i.price * i.qty;
+    if (i.productId && ids.has(i.productId)) {
+      const m = (byId[i.productId] ||= { qty: 0, rev: 0 });
+      m.qty += i.qty;
+      m.rev += i.price * i.qty;
+    } else {
+      const key = i.name.trim().toLowerCase();
+      const m = (custom[key] ||= { id: `custom:${key}`, name: i.name.trim(), category: 'Custom (POS)', stock: null, qty: 0, rev: 0 });
+      m.qty += i.qty;
+      m.rev += i.price * i.qty;
+    }
   }));
-  const rows = products
-    .map((p) => ({ ...p, ...(map[p.name] || { qty: 0, rev: 0 }) }))
+  const rows = [
+    ...products.map((p) => ({ ...p, stock: p.stock as number | null, ...(byId[p.id] || { qty: 0, rev: 0 }) })),
+    ...Object.values(custom),
+  ]
+    .filter((p) => showUnsold || p.qty > 0)
     .filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => b.rev - a.rev);
+    .sort((a, b) => b.rev - a.rev || b.qty - a.qty);
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center justify-between p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4">
         <p className="text-sm font-bold text-neutral-900">Product Performance</p>
+        <div className="flex items-center gap-3">
+        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-neutral-500">
+          <input type="checkbox" checked={showUnsold} onChange={(e) => setShowUnsold(e.target.checked)} className="h-3.5 w-3.5 accent-neutral-900" />
+          Show unsold
+        </label>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search product…" className="w-52 rounded-lg border border-black/[0.09] bg-white py-2 pl-9 pr-3 text-xs outline-none placeholder:text-neutral-400 focus:border-neutral-400" />
+        </div>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -596,11 +619,12 @@ function ProductsTab({ view, products }: { view: Order[]; products: { id: string
                 <td className="px-3 py-3.5 text-sm text-neutral-500">{p.category}</td>
                 <td className="px-3 py-3.5 text-center text-sm font-bold text-neutral-800">{p.qty}</td>
                 <td className="px-3 py-3.5 text-sm font-bold text-neutral-900">{inr(p.rev)}</td>
-                <td className="px-3 py-3.5 text-center text-sm text-neutral-600">{p.stock}</td>
+                <td className="px-3 py-3.5 text-center text-sm text-neutral-600">{p.stock ?? '—'}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        {rows.length === 0 && <p className="py-12 text-center text-sm italic text-neutral-400">No products sold in this period.</p>}
       </div>
     </Card>
   );

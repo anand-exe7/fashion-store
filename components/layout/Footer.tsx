@@ -7,7 +7,6 @@ const STORE_EMAIL = 'theshalistone@gmail.com';
 const INSTAGRAM_URL = 'https://www.instagram.com/shalistone/';
 const FACEBOOK_URL = 'https://www.facebook.com/share/1Bzv5BfGng/?mibextid=wwXIfr';
 const YOUTUBE_URL = 'https://youtube.com/@shalistoneboyswear?si=y3cfqd_fbI6R2aQ6';
-const TAGLINE = 'Made For Play';
 
 const shopLinks = [
   { label: 'All Products', href: '/products' },
@@ -95,15 +94,20 @@ export const Footer = () => {
             SHALISTONE
           </span>
         </motion.div>
-        <div className="grid w-full grid-cols-1 items-center gap-4 pt-8 text-xs text-neutral-500 font-medium md:grid-cols-2">
+        <div className="grid w-full grid-cols-1 items-center gap-4 border-t border-neutral-800/80 pt-8 text-xs text-neutral-500 font-medium md:grid-cols-3">
           <p className="text-center md:text-left">
+            &copy; {new Date().getFullYear()} Shalistone. All Rights Reserved
+          </p>
+          <p className="text-center">
             Powered by{' '}
-            <a href="https://www.cenexasystems.com" target="_blank" rel="noreferrer" className="text-neutral-300 hover:text-white transition-colors">
+            <a href="https://www.cenexasystems.com" target="_blank" rel="noreferrer" className="font-semibold text-neutral-200 hover:text-white transition-colors">
               Cenexa Systems
             </a>{' '}
             &copy; {new Date().getFullYear()}
           </p>
-          <p className="text-center md:text-right tracking-wide">{TAGLINE}</p>
+          <p className="text-center md:text-right uppercase tracking-[0.25em]">
+            Made <span className="mx-1.5 text-neutral-600">&bull;</span> For <span className="mx-1.5 text-neutral-600">&bull;</span> Play
+          </p>
         </div>
       </div>
     </footer>

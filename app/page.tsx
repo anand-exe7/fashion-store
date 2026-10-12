@@ -17,7 +17,23 @@ import { Newsletter } from '@/components/home/Newsletter';
 import { Footer } from '@/components/layout/Footer';
 import { IntroLoader } from '@/components/ui/IntroLoader';
 import { fetchProducts } from '@/lib/db';
+import { readCategoryImages } from '@/lib/server/categoryImages';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
+import { unstable_cache } from 'next/cache';
+import type { Metadata } from 'next';
+
+// Home inherits the root title/description; it only needs its own canonical.
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+};
+
+// Cache the Supabase reads so page views don't each hit the DB + storage list.
+const getHomeData = unstable_cache(
+  async () => Promise.all([fetchProducts(), readCategoryImages()]),
+  ['home-data'],
+  { revalidate: 300 },
+);
 
 function ProductSkeleton() {
   return (
@@ -48,12 +64,14 @@ function GridSkeleton({ count = 3 }: { count?: number }) {
 }
 
 async function AsyncProducts() {
-  const products = await fetchProducts();
+  // Always read the latest admin-uploaded category photos (never a build-time snapshot).
+  await connection();
+  const [products, categoryImages] = await getHomeData();
   return (
     <>
       <NewArrivals products={products} />
       <Marquee />
-      <CategoryGrid />
+      <CategoryGrid images={categoryImages} />
       <ShoppableLook />
       <BestSellers products={products} />
     </>

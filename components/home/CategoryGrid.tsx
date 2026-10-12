@@ -4,42 +4,24 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { RevealText } from '../ui/RevealText';
+import { CATEGORY_SLOTS, type CategoryImageMap } from '@/lib/categoryImages';
 import { fetchDepartments, formatAgeRange, type Department } from '@/lib/db';
 
-// Artwork and palette per age band. Presentation only — the LABEL and the age
-// range come from the departments table, so the tiles can't drift away from
-// what the admin configured (they used to be hardcoded text that silently went
-// stale, and every tile linked to the unfiltered /products).
-const LOOKS: Record<string, { desc: string; bgColor: string; image: string; position: string }> = {
-  Toddlers: {
-    desc: 'Playful sets & combos',
-    bgColor: 'bg-[#FCD3E1]',
-    image: '/looks/toddler_girl_grass.jpg',
-    position: 'object-top',
-  },
-  Kids: {
-    desc: 'Cool & comfy everyday',
-    bgColor: 'bg-[#D3EAFC]',
-    image: '/looks/look_6.jpg',
-    position: 'object-top',
-  },
-  Teens: {
-    desc: 'Trendy fits, their style',
-    bgColor: 'bg-[#FCEFD3]',
-    image: '/looks/look_cargo.jpg',
-    position: 'object-[center_15%]',
-  },
-};
+// Each card draws from two places:
+//   • its PHOTO from Admin → Category Photos, falling back to a built-in default
+//   • its LABEL and age range from the departments table, so the text can't
+//     drift away from what the admin configured
+// and it opens its own filtered list rather than the whole catalogue.
 
-const FALLBACK_LOOK = {
-  desc: 'Shop the collection',
-  bgColor: 'bg-[#E4E4E4]',
-  image: '/looks/look_6.jpg',
-  position: 'object-top',
-};
+// formatAgeRange is written for the admin and tags both bounds ("1Y–5Y"). On a
+// storefront tile the unit only needs saying once, so a years-only range
+// collapses to "1–5". A months range ("6M–11M") is left spelled out, since
+// dropping the unit there would read as years.
+const tileRange = (label: string) => label.replace(/^(\d+)Y–(\d+)Y$/, '$1–$2');
 
 interface Tile {
-  name: string;
+  key: string;
+  department: string;
   title: string;
   desc: string;
   bgColor: string;
@@ -47,32 +29,7 @@ interface Tile {
   position: string;
 }
 
-// formatAgeRange is built for the admin and tags both bounds: "1Y–5Y". On a
-// storefront tile the unit only needs saying once, so a years-only range
-// collapses to "1–5". A months range ("6M–11M") is left spelled out, since
-// dropping the unit there would read as years.
-const tileRange = (label: string) => label.replace(/^(\d+)Y\u2013(\d+)Y$/, '$1\u2013$2');
-
-const toTile = (d: Department): Tile => {
-  const look = LOOKS[d.name] || FALLBACK_LOOK;
-  const range = tileRange(formatAgeRange(d.ageMinMonths, d.ageMaxMonths));
-  return { name: d.name, title: range ? `${d.name} (${range})` : d.name, ...look };
-};
-
-// A department earns a tile when it is switched on AND has an age range —
-// that's what distinguishes the kid bands from catch-alls like Unisex.
-const tileWorthy = (d: Department) => d.isActive && d.ageMinMonths != null;
-
-// Rendered before the fetch resolves, and kept if it fails, so this section is
-// never blank or jumpy. Mirrors the live Toddlers/Kids/Teens rows.
-const FALLBACK_TILES: Tile[] = [
-  { name: 'Toddlers', title: 'Toddlers (1–5)', ...LOOKS.Toddlers },
-  { name: 'Kids', title: 'Kids (6–12)', ...LOOKS.Kids },
-  { name: 'Teens', title: 'Teens (13–16)', ...LOOKS.Teens },
-];
-
-// Tailwind needs literal class names, so the column count is looked up rather
-// than interpolated.
+// Tailwind needs literal class names, so the column count is looked up.
 const COLS: Record<number, string> = {
   1: 'lg:grid-cols-1',
   2: 'lg:grid-cols-2',
@@ -80,21 +37,30 @@ const COLS: Record<number, string> = {
   4: 'lg:grid-cols-4',
 };
 
-export const CategoryGrid = () => {
-  const [tiles, setTiles] = useState<Tile[]>(FALLBACK_TILES);
+export const CategoryGrid = ({ images = {} }: { images?: CategoryImageMap }) => {
+  // Built from the slots alone. Rendered immediately (so the section is never
+  // blank and never shifts) and then relabelled from the departments table.
+  const baseTiles: Tile[] = CATEGORY_SLOTS.map((slot) => {
+    const uploaded = images[slot.key];
+    return {
+      key: slot.key,
+      department: slot.department,
+      title: slot.title,
+      desc: slot.desc,
+      bgColor: slot.bgColor,
+      image: uploaded || slot.defaultImage,
+      // Uploads are already cropped to the card's 3:4 shape, so anchor them to the top.
+      position: uploaded ? 'object-top' : slot.position,
+    };
+  });
+
+  const [departments, setDepartments] = useState<Department[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     fetchDepartments()
-      .then((departments) => {
-        if (cancelled) return;
-        const live = departments
-          .filter(tileWorthy)
-          .sort((a, b) => (a.ageMinMonths ?? 0) - (b.ageMinMonths ?? 0))
-          .map(toTile);
-        // Keep the fallback rather than rendering an empty section if nothing
-        // is configured yet.
-        if (live.length > 0) setTiles(live);
+      .then((data) => {
+        if (!cancelled) setDepartments(data);
       })
       .catch((err) => {
         console.error('Failed to load departments for the category grid:', err);
@@ -103,6 +69,15 @@ export const CategoryGrid = () => {
       cancelled = true;
     };
   }, []);
+
+  // Take the age range from the matching department when there is one; the
+  // slot's own title stands in until (and if) that loads.
+  const tiles: Tile[] = baseTiles.map((tile) => {
+    const dept = departments.find((d) => d.name === tile.department && d.isActive);
+    if (!dept) return tile;
+    const range = tileRange(formatAgeRange(dept.ageMinMonths, dept.ageMaxMonths));
+    return { ...tile, title: range ? `${dept.name} (${range})` : dept.name };
+  });
 
   return (
     <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto">
@@ -114,14 +89,14 @@ export const CategoryGrid = () => {
       <div className={`grid grid-cols-1 sm:grid-cols-2 ${COLS[tiles.length] || 'lg:grid-cols-4'} gap-6`}>
         {tiles.map((cat, idx) => (
           <motion.div
-            key={cat.name}
+            key={cat.key}
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: idx * 0.1, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             // Land on THIS band, not the unfiltered catalogue. /products reads
             // ?department= on mount.
-            onClick={() => (window.location.href = `/products?department=${encodeURIComponent(cat.name)}`)}
+            onClick={() => (window.location.href = `/products?department=${encodeURIComponent(cat.department)}`)}
             className="group relative aspect-[3/4] rounded-3xl overflow-hidden cursor-pointer shadow-sm hover:shadow-xl transition-all duration-500 flex flex-col justify-end"
           >
             {/* Background image — optimised & fetched eagerly so it's ready as the

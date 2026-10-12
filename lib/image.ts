@@ -34,3 +34,45 @@ export async function compressImage(file: File, maxEdge = 1600, quality = 0.85):
     return file;
   }
 }
+
+// Crops a photo to an exact ratio (anchored top-centre, matching the storefront's
+// `object-top`) and re-encodes it as WebP, so what's previewed is what's shown.
+// Output is capped at `maxW` wide and never upscaled. Throws a readable Error when
+// the image is too small or can't be decoded.
+export async function cropToRatio(
+  file: File,
+  ratioW: number,
+  ratioH: number,
+  opts: { maxW: number; minW: number; minH: number; quality?: number },
+): Promise<{ file: File; width: number; height: number }> {
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    throw new Error("That file couldn't be read as an image.");
+  }
+  try {
+    const target = ratioW / ratioH;
+    let sw = bitmap.width;
+    let sh = bitmap.height;
+    if (sw / sh > target) sw = Math.round(sh * target); // too wide → trim the sides
+    else sh = Math.round(sw / target);                  // too tall → trim the bottom
+    const sx = Math.round((bitmap.width - sw) / 2);
+
+    if (sw < opts.minW || sh < opts.minH) {
+      throw new Error(`Image is too small (${bitmap.width}×${bitmap.height}px). Use at least ${opts.minW}×${opts.minH}px.`);
+    }
+
+    const outW = Math.min(sw, opts.maxW);
+    const outH = Math.round(outW / target);
+    const canvas = document.createElement('canvas');
+    canvas.width = outW;
+    canvas.height = outH;
+    canvas.getContext('2d')!.drawImage(bitmap, sx, 0, sw, sh, 0, 0, outW, outH);
+    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/webp', opts.quality ?? 0.85));
+    if (!blob) throw new Error('Could not process that image.');
+    return { file: new File([blob], 'category.webp', { type: 'image/webp' }), width: outW, height: outH };
+  } finally {
+    bitmap.close();
+  }
+}
