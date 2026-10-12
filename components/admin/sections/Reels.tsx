@@ -148,7 +148,7 @@ export default function Reels() {
                 {reel ? (
                   <>
                     <div className="relative aspect-[9/16] bg-neutral-900">
-                      <video src={reel.videoUrl} muted loop playsInline className="h-full w-full object-cover" />
+                      <video src={reel.videoUrl} muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
                       {!reel.isActive && (
                         <div className="absolute inset-0 grid place-items-center bg-black/60">
                           <span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-neutral-800">Hidden</span>

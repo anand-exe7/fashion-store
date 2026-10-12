@@ -39,17 +39,13 @@ export const CategoryGrid = ({ images = {} }: { images?: CategoryImageMap }) => 
             onClick={() => window.location.href = '/products'}
             className="group relative aspect-[3/4] rounded-3xl overflow-hidden cursor-pointer shadow-sm hover:shadow-xl transition-all duration-500 flex flex-col justify-end"
           >
-            {/* Background image — optimised & fetched eagerly so it's ready as the
-                visitor scrolls down from the hero (first section below the fold). */}
+            {/* Background image — optimised through the Next image optimizer (cached 30 days) and lazy-loaded. */}
             <Image
               src={cat.image}
               alt={cat.title}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-              loading="eager"
-              // Admin uploads are already cropped + compressed WebP, so load them straight from
-              // storage instead of through the image optimizer (which can time out on remote files).
-              unoptimized={cat.uploaded}
+              loading="lazy"
               className={`absolute inset-0 w-full h-full object-cover ${cat.position || 'object-center'} transition-transform duration-[1.2s] group-hover:scale-105 ease-out`}
             />
 
