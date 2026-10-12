@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Payment gateway not configured' }, { status: 500 });
     }
 
-    // Checkout is gated behind login (see middleware) — require a session.
+    // Checkout is gated behind login (see proxy.ts) — require a session.
     const supabase = await createClient();
     const {
       data: { user },
@@ -68,9 +68,12 @@ export async function POST(req: Request) {
   } catch (error: any) {
     // Log details server-side; return a generic message to the client.
     console.error('Razorpay Order Creation Failed:', error);
+    // Allow-list of messages that are safe and useful to show the shopper.
+    // Stock refusals from priceCheckout must reach them, or a cart with too
+    // many of a size just fails with an unexplained "Payment initiation failed".
     const clientMessage =
       typeof error?.message === 'string' &&
-      /cart|product|available|order total/i.test(error.message)
+      /cart|product|available|order total|stock|only \d+ left|quantity/i.test(error.message)
         ? error.message
         : 'Payment initiation failed';
     return Response.json({ error: clientMessage }, { status: 400 });

@@ -2,14 +2,16 @@
 import { motion, useMotionValue, useSpring } from 'framer-motion';
 import { useRef, useState } from 'react';
 import { optimizedSrc } from '@/lib/image';
+import { priceParts } from '@/lib/price';
 
 const itemVariants: any = {
   hidden: { opacity: 0, y: 30 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 60, damping: 18 } }
 };
 
-export const ProductCard = ({ id, title, category, price, isNew, discount, image, stock }: any) => {
+export const ProductCard = ({ id, title, category, price, originalPrice, priceFrom, isNew, discount, image, stock }: any) => {
   const isOutOfStock = stock <= 0;
+  const { priceLabel, originalLabel, hasMrp, discountPct } = priceParts(price, originalPrice);
   // If the optimizer ever fails for a photo, fall back to the original so the card is never blank.
   const [optimizerFailed, setOptimizerFailed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -48,15 +50,29 @@ export const ProductCard = ({ id, title, category, price, isNew, discount, image
           style={{ rotateX, rotateY, transformPerspective: 800 }}
           className="relative aspect-[3/4] bg-neutral-100 mb-2.5 sm:mb-4 overflow-hidden rounded-xl sm:rounded-2xl border border-black/[0.04]"
         >
-          <motion.img
-            whileHover={{ scale: 1.05 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            src={(optimizerFailed ? image : optimizedSrc(image, 640)) || undefined}
-            onError={() => setOptimizerFailed(true)}
-            alt={title}
-            className={`w-full h-full object-cover ${isOutOfStock ? 'opacity-40 grayscale-[0.5]' : ''}`}
-            loading="lazy"
-          />
+          {/* A product with no photo gets a plain placeholder. It used to render
+              an <img> with no src — a broken-image icon — and the home page went
+              further and substituted a stock photo of clothing we don't sell. */}
+          {image ? (
+            <motion.img
+              whileHover={{ scale: 1.05 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              src={optimizerFailed ? image : optimizedSrc(image, 640)}
+              onError={() => setOptimizerFailed(true)}
+              alt={title}
+              className={`w-full h-full object-cover ${isOutOfStock ? 'opacity-40 grayscale-[0.5]' : ''}`}
+              loading="lazy"
+            />
+          ) : (
+            <div className={`flex h-full w-full flex-col items-center justify-center gap-1.5 bg-neutral-100 ${isOutOfStock ? 'opacity-40' : ''}`}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-neutral-300" aria-hidden>
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="m21 15-4.5-4.5L3 21" />
+              </svg>
+              <span className="text-[8px] font-bold uppercase tracking-[0.18em] text-neutral-400">No photo</span>
+            </div>
+          )}
           {/* Subtle overlay gradient */}
           <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
           
@@ -72,9 +88,9 @@ export const ProductCard = ({ id, title, category, price, isNew, discount, image
                 New
               </span>
             )}
-            {discount && !isOutOfStock && (
+            {(hasMrp || discount) && !isOutOfStock && (
               <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-red-500/95 text-white text-[8px] sm:text-[9px] font-bold uppercase tracking-wider rounded sm:rounded-md shadow-sm">
-                {discount}
+                {hasMrp ? `${discountPct}% off` : discount}
               </span>
             )}
           </div>
@@ -101,9 +117,19 @@ export const ProductCard = ({ id, title, category, price, isNew, discount, image
             <div className="w-3 h-3 rounded-full bg-neutral-800 border border-white shadow-2xs" />
           </div>
         </div>
-        <p className="text-xs sm:text-sm mt-1 sm:mt-1.5 font-bold px-0.5 sm:px-1 text-neutral-900">
-          ₹{price}
-        </p>
+        {/* Selling price in green with the MRP struck through beside it; a
+            product with no MRP keeps the plain near-black price. */}
+        <div className="mt-1 sm:mt-1.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 px-0.5 sm:px-1">
+          <span className={`text-xs sm:text-sm font-bold ${hasMrp ? 'text-emerald-600' : 'text-neutral-900'}`}>
+            {priceFrom && <span className="font-medium text-neutral-400">from </span>}
+            {priceLabel}
+          </span>
+          {originalLabel && (
+            <span className="text-[10px] sm:text-xs font-medium text-neutral-400 line-through">
+              {originalLabel}
+            </span>
+          )}
+        </div>
       </a>
     </motion.div>
   );

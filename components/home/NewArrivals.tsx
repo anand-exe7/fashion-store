@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { ProductCard } from '../ui/ProductCard';
+import { listingPrice } from '@/lib/price';
 import { RevealText } from '../ui/RevealText';
 import { motion } from 'framer-motion';
 
@@ -23,11 +24,15 @@ export const NewArrivals = ({ products }: { products?: any[] }) => {
     id: p.id,
     title: p.name,
     category: p.category,
-    price: p.price.toLocaleString(),
+    price: listingPrice(p.price, p.variants).price,
+    priceFrom: listingPrice(p.price, p.variants).from,
+    originalPrice: p.originalPrice,
     isNew: p.isNew,
     stock: p.stock,
     discount: p.discountLabel,
-    image: p.images?.[0]?.url || 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=800'
+    // No stock-photo stand-in: a product with no photo shows the card's own
+    // placeholder rather than a picture of something we don't sell.
+    image: p.images?.[0]?.url || ''
   }));
 
   const cols = newProducts.length <= 3 ? 'md:grid-cols-3' : 'md:grid-cols-4';

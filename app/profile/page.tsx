@@ -53,10 +53,15 @@ export default function ProfilePage() {
         if (userProfile?.address) setAddressInput(userProfile.address);
 
         // Fetch orders linked to this email
+        // Only orders that were actually paid for. An order row is created
+        // BEFORE the shopper reaches Razorpay so there is something for the
+        // payment to attach to, so every abandoned attempt leaves a 'pending'
+        // row behind — those used to show up here as real orders.
         const { data: userOrders } = await supabase
           .from('orders')
           .select('*, order_items(*)')
           .eq('customer_email', session.user.email)
+          .neq('status', 'pending')
           .order('created_at', { ascending: false });
 
         if (userOrders) {

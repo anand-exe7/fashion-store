@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, ArrowRight } from 'lucide-react';
 import { inr } from '@/lib/store';
 import { optimizedSrc } from '@/lib/image';
+import { priceParts } from '@/lib/price';
 
 export const CartDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [cart, setCart] = useState<any[]>([]);
@@ -66,7 +67,13 @@ export const CartDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                 cart.map((item, idx) => (
                   <div key={idx} className="flex gap-4">
                     <div className="w-20 h-24 shrink-0 bg-neutral-100 rounded-lg overflow-hidden">
-                      <img src={optimizedSrc(item.image, 256)} alt={item.name} className="w-full h-full object-cover" />
+                      {item.image ? (
+                        <img src={optimizedSrc(item.image, 256)} alt={item.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center bg-black/[0.04] text-[8px] font-bold uppercase tracking-wider text-neutral-400">
+                          No photo
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0 py-1">
                       <div className="flex justify-between items-start">
@@ -76,7 +83,15 @@ export const CartDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                         </button>
                       </div>
                       <p className="text-xs text-neutral-500 mt-0.5">{item.color} · Size {item.size}</p>
-                      <p className="text-sm font-extrabold mt-2">{inr(item.price)}</p>
+                      {(() => {
+                        const { priceLabel, originalLabel, hasMrp } = priceParts(item.price, item.originalPrice);
+                        return (
+                          <p className="mt-2 flex items-baseline gap-1.5">
+                            <span className={`text-sm font-extrabold ${hasMrp ? 'text-emerald-600' : 'text-neutral-900'}`}>{priceLabel}</span>
+                            {originalLabel && <span className="text-xs font-medium text-neutral-400 line-through">{originalLabel}</span>}
+                          </p>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))

@@ -7,6 +7,23 @@ import { useRouter } from 'next/navigation';
 import { Minus, Plus, ArrowRight, ChevronDown } from 'lucide-react';
 import { fetchProductById, fetchProducts, fetchSuggestions, fetchDeliveryInfo, DEFAULT_DELIVERY_INFO, formatAgeRange, Product } from '@/lib/db';
 import { optimizedSrc } from '@/lib/image';
+import { priceParts, variantPrice } from '@/lib/price';
+import { withTimeout, isTimeout } from '@/lib/withTimeout';
+
+// A line as it is stored in localStorage and read back by the cart.
+interface CartLine {
+  id: number;
+  productId: string;
+  name: string;
+  size: string;
+  color: string;
+  price: number;
+  originalPrice: number | null;
+  image: string;
+  quantity: number;
+  maxQty: number;
+  weightGrams: number;
+}
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
@@ -23,6 +40,12 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const [related, setRelated] = useState<Product[]>([]);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(true);
   const [deliveryInfo, setDeliveryInfo] = useState(DEFAULT_DELIVERY_INFO);
+  const [cartNotice, setCartNotice] = useState('');
+  // A load that never answered, as opposed to a product that doesn't exist.
+  // Without this the two were indistinguishable and a stalled connection
+  // showed "Product Not Found".
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,7 +54,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     // afterwards so they never hold up the first paint.
     async function load() {
       try {
-        const prod = await fetchProductById(id);
+        const prod = await withTimeout(fetchProductById(id));
         if (cancelled) return;
         if (prod) {
           setProduct(prod);
@@ -42,6 +65,12 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           if (colors.length > 0) setSelectedColor(colors[0]);
         }
         loadRelated(prod);
+      } catch (err) {
+        if (cancelled) return;
+        console.error('Failed to load product:', err);
+        // Only a timeout is "try again"; a real error still falls through to
+        // the not-found screen below.
+        if (isTimeout(err)) setLoadError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -72,7 +101,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     load();
     fetchDeliveryInfo().then((info) => { if (!cancelled) setDeliveryInfo(info); });
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, reloadKey]);
 
   const images = (product?.images && product.images.length > 0) ? product.images.map(img => typeof img === 'string' ? img : img.url) : (product?.image ? [product.image] : []);
 
@@ -98,6 +127,28 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     );
   }
 
+  if (loadError && !product) {
+    return (
+      <div className="min-h-screen bg-[#F5F2EB] flex flex-col">
+        <Navbar />
+        <main className="flex-grow flex flex-col items-center justify-center gap-4 px-4 text-center">
+          <h2 className="text-xl font-bold uppercase tracking-tight text-neutral-900">
+            Couldn&apos;t load this product
+          </h2>
+          <p className="max-w-sm text-xs leading-relaxed text-neutral-500">
+            Check your internet connection and try again.
+          </p>
+          <button
+            onClick={() => { setLoadError(false); setLoading(true); setReloadKey(k => k + 1); }}
+            className="mt-1 rounded-full bg-black px-7 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-md transition-all hover:bg-neutral-800 active:scale-95"
+          >
+            Retry
+          </button>
+        </main>
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="min-h-screen bg-[#F5F2EB] flex flex-col">
@@ -115,6 +166,11 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const currentVariant = product.variants?.find(v => (v.size || 'Default') === selectedSize && (v.colorName || 'Default') === selectedColor);
   const currentStock = currentVariant ? currentVariant.stock : product.stock;
   const isOutOfStock = currentStock <= 0;
+
+  // Clamped on read rather than stored clamped: switching to a size with less
+  // stock immediately shows the lower number, with no effect and no render
+  // cascade. `quantity` state is only ever a request; this is the truth.
+  const qty = Math.min(Math.max(1, quantity), Math.max(1, currentStock));
 
   // Filter out disabled variants
   const activeVariants = product.variants?.filter(v => v.isAvailable !== false) || [];
@@ -142,8 +198,12 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   };
 
   const productAgeRange = formatAgeRange(product.ageMinMonths, product.ageMaxMonths);
+  // The price of the size+colour actually selected, not the product's base.
+  const selectedPrice = variantPrice(product.price, currentVariant);
+  const pricing = priceParts(selectedPrice, product.originalPrice);
 
   const handleColorSelect = (color: string) => {
+    setCartNotice('');
     setSelectedColor(color);
     if (getStockForVariant(selectedSize, color) <= 0) {
       const availableSizeForColor = activeVariants.find(v => (v.colorName || 'Default') === color && v.stock > 0);
@@ -154,29 +214,49 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   };
 
   const handleAddToCart = () => {
-    // Basic Add To Cart Mock for user local cart usage later
     const selectedVariant = product.variants?.find(v => (v.size || 'Default') === selectedSize && (v.colorName || 'Default') === selectedColor) || product.variants?.[0];
-    const weightGrams = selectedVariant?.weightGrams || 500;
-    
-    // Get existing cart
-    let cart = [];
+    const unitWeight = selectedVariant?.weightGrams || 500;
+
+    let cart: CartLine[] = [];
     try {
       cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    } catch(e){}
-    
-    const item = {
-      id: Date.now(),
-      productId: product.id,
-      name: product.name,
-      size: selectedSize,
-      color: selectedColor,
-      price: product.price,
-      image: images[0],
-      quantity,
-      weightGrams: weightGrams * quantity
-    };
-    
-    cart.push(item);
+    } catch (e) { /* unreadable cart — start a fresh one */ }
+
+    // Adding the same size twice used to push a second line, so three taps of
+    // "Add to Cart" put 3 of a 1-piece size in the basket. Merge instead, and
+    // cap the merged total at what that size actually has.
+    const sameLine = cart.find(
+      (l) => l.productId === product.id && l.size === selectedSize && l.color === selectedColor,
+    );
+    const alreadyInCart = sameLine ? Number(sameLine.quantity) || 0 : 0;
+    const addQty = Math.max(0, Math.min(qty, currentStock - alreadyInCart));
+
+    if (addQty === 0) {
+      setCartNotice(`You already have all ${currentStock} of this size in your bag.`);
+      return;
+    }
+
+    if (sameLine) {
+      sameLine.quantity = alreadyInCart + addQty;
+      sameLine.weightGrams = unitWeight * sameLine.quantity;
+      sameLine.maxQty = currentStock;
+    } else {
+      cart.push({
+        id: Date.now(),
+        productId: product.id,
+        name: product.name,
+        size: selectedSize,
+        color: selectedColor,
+        price: selectedPrice,
+        originalPrice: product.originalPrice ?? null,
+        image: images[0],
+        quantity: addQty,
+        // What the cart's +/- is allowed to reach. The server re-checks anyway.
+        maxQty: currentStock,
+        weightGrams: unitWeight * addQty,
+      });
+    }
+
     localStorage.setItem('cart', JSON.stringify(cart));
     router.push('/cart');
   };
@@ -244,8 +324,18 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
               </motion.div>
               
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}>
-                <div className="flex items-center gap-3 mb-8">
-                  <p className="text-4xl md:text-5xl font-bold text-emerald-600 tracking-tighter">₹{(product.price || 0).toLocaleString()}</p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-8">
+                  <p className="text-4xl md:text-5xl font-bold text-emerald-600 tracking-tighter">{pricing.priceLabel}</p>
+                  {pricing.originalLabel && (
+                    <>
+                      <p className="text-xl md:text-2xl font-semibold text-neutral-400 line-through tracking-tight">
+                        {pricing.originalLabel}
+                      </p>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white bg-red-500 rounded-full px-3 py-1.5">
+                        {pricing.discountPct}% off
+                      </span>
+                    </>
+                  )}
                   {productAgeRange && (
                     <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 border border-black/10 rounded-full px-3 py-1.5">
                       Ages {productAgeRange}
@@ -297,7 +387,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                         return (
                           <button
                             key={size}
-                            onClick={() => !isSizeOutOfStock && setSelectedSize(size)}
+                            onClick={() => { if (!isSizeOutOfStock) { setCartNotice(''); setSelectedSize(size); } }}
                             disabled={isSizeOutOfStock}
                             className={`relative py-3 text-[10px] font-bold tracking-widest transition-all rounded-md border flex flex-col items-center gap-0.5 ${
                               isSizeOutOfStock
@@ -324,9 +414,24 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 <div className="flex flex-col gap-4 mb-8 w-full max-w-sm">
                   <div className="flex gap-4 h-14">
                     <div className="flex items-center justify-between border border-black/10 rounded-full px-4 w-32 bg-white/50 backdrop-blur-sm shadow-sm">
-                      <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="p-2 hover:text-black transition-colors"><Minus className="w-3 h-3" /></button>
-                      <span className="text-sm font-semibold">{quantity}</span>
-                      <button onClick={() => setQuantity(quantity + 1)} className="p-2 hover:text-black transition-colors"><Plus className="w-3 h-3" /></button>
+                      <button
+                        onClick={() => setQuantity(Math.max(1, qty - 1))}
+                        disabled={qty <= 1}
+                        aria-label="Reduce quantity"
+                        className="p-2 transition-colors hover:text-black disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="text-sm font-semibold">{qty}</span>
+                      {/* Never offer more than the chosen size actually has. */}
+                      <button
+                        onClick={() => setQuantity(Math.min(qty + 1, currentStock))}
+                        disabled={qty >= currentStock}
+                        aria-label="Increase quantity"
+                        className="p-2 transition-colors hover:text-black disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
                     </div>
                     <button 
                       onClick={handleAddToCart}
@@ -337,6 +442,15 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                       {!isOutOfStock && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
                     </button>
                   </div>
+                  {cartNotice ? (
+                    <p className="text-[11px] font-semibold text-amber-700">{cartNotice}</p>
+                  ) : !isOutOfStock && qty >= currentStock ? (
+                    <p className="text-[11px] font-semibold text-amber-700">
+                      {currentStock === 1
+                        ? 'Last one left in this size.'
+                        : `Only ${currentStock} left in this size.`}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="w-full max-w-sm bg-black/5 rounded-xl p-5 mb-10 border border-black/5">
@@ -486,7 +600,16 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                   </div>
                 </div>
                 <h3 className="text-sm font-bold tracking-tight">{prod.name}</h3>
-                <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-2">₹{(prod.price || 0).toLocaleString()}</p>
+                <p className="text-[10px] uppercase tracking-widest mt-2 flex items-center gap-1.5">
+                  <span className={priceParts(prod.price, prod.originalPrice).hasMrp ? 'text-emerald-600 font-bold' : 'text-neutral-500'}>
+                    {priceParts(prod.price, prod.originalPrice).priceLabel}
+                  </span>
+                  {priceParts(prod.price, prod.originalPrice).originalLabel && (
+                    <span className="text-neutral-400 line-through">
+                      {priceParts(prod.price, prod.originalPrice).originalLabel}
+                    </span>
+                  )}
+                </p>
               </motion.div>
             ))}
           </div>

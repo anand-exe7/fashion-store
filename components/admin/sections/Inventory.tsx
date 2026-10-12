@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Plus, Minus, Trash2, Bell, AlertTriangle, Pencil, ChevronDown, ImagePlus, Eye, EyeOff, ArrowUp, ArrowDown, X, Sparkles } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Bell, AlertTriangle, Pencil, ChevronDown, ImagePlus, Eye, EyeOff, ArrowUp, ArrowDown, X, Sparkles, Star } from 'lucide-react';
 import {
   useAdminData,
-  adjustStock,
+  adjustVariantStock,
   updateProduct,
   addProduct,
   deleteProduct,
@@ -12,9 +12,10 @@ import {
   showToast,
   inr,
   type Product,
+  type ProductVariant,
 } from '@/lib/store';
 import { Card, Modal, ModalHeader, EmptyState, Field, inputCls, AgeRangeInput } from '../ui';
-import { formatAgeRange } from '@/lib/db';
+import { formatAgeRange, DEFAULT_LOW_STOCK, productFeatureSupport } from '@/lib/db';
 import { compressImage } from '@/lib/image';
 
 function playAlert() {
@@ -63,29 +64,36 @@ export default function Inventory() {
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState('all');
   const [dept, setDept] = useState<string>('all');
-  const [status, setStatus] = useState<'all' | 'new' | 'low' | 'out'>('all');
+  const [status, setStatus] = useState<'all' | 'new' | 'best' | 'low' | 'out'>('all');
   const [sort, setSort] = useState<'name' | 'stock-asc' | 'stock-desc' | 'price'>('name');
   const [alertOpen, setAlertOpen] = useState(false);
   const [form, setForm] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const newArrivalsCount = useMemo(() => products.filter((p) => p.isNew).length, [products]);
+  const bestSellerCount = useMemo(() => products.filter((p) => p.isBestSeller).length, [products]);
 
+  // ONE row per product, never one per variant. The old version compared every
+  // size against a hardcoded 6, so a product with 25 variants of 1 piece raised
+  // 25 simultaneous alerts. A product is flagged when its TOTAL stock is at or
+  // below its own threshold, or when a size/colour it still sells has hit zero
+  // (which the total alone would hide); those sizes are named inside the row.
   const attention = useMemo(() => {
-    const alerts: { product: Product, variant: any }[] = [];
-    products.forEach(p => {
-      if (p.variants && p.variants.some(v => v.size && v.size !== 'Default')) {
-        p.variants.forEach(v => {
-          if (v.size && v.size !== 'Default' && v.stock <= (p.lowStock || 6)) {
-            alerts.push({ product: p, variant: v });
-          }
-        });
-      } else {
-        if (p.stock <= p.lowStock) alerts.push({ product: p, variant: null });
-      }
+    const alerts: { product: Product; status: 'out' | 'low' | 'variant'; outVariants: ProductVariant[] }[] = [];
+    products.forEach((p) => {
+      const outVariants = (p.variants || []).filter((v) => v.isAvailable !== false && (v.stock || 0) <= 0);
+      const st = statusOf(p);
+      if (st === 'ok' && outVariants.length === 0) return;
+      alerts.push({ product: p, status: st === 'ok' ? 'variant' : st, outVariants });
     });
     return alerts;
   }, [products]);
+
+  const attentionCounts = useMemo(() => ({
+    out: attention.filter((a) => a.status === 'out').length,
+    low: attention.filter((a) => a.status === 'low').length,
+    variant: attention.filter((a) => a.status === 'variant').length,
+  }), [attention]);
 
   // Auto-open the alert the first time low/out-of-stock items appear. Products
   // load asynchronously, so this can't be a mount-only check — but we only want
@@ -119,11 +127,13 @@ export default function Inventory() {
       (p) => {
         const catMatch = cat === 'all' ? true : cat === 'new-arrivals' ? !!p.isNew : p.category === cat;
         const deptMatch = dept === 'all' || p.department === dept || (!p.department && dept === 'Unisex');
-        const statusMatch = status === 'all' 
-          ? true 
-          : status === 'new' 
-            ? !!p.isNew 
-            : statusOf(p) === status;
+        const statusMatch = status === 'all'
+          ? true
+          : status === 'new'
+            ? !!p.isNew
+            : status === 'best'
+              ? !!p.isBestSeller
+              : statusOf(p) === status;
         const queryMatch = !q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
         return catMatch && deptMatch && statusMatch && queryMatch;
       }
@@ -160,7 +170,13 @@ export default function Inventory() {
       {attention.length > 0 && (
         <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <AlertTriangle className="h-5 w-5 shrink-0" />
-          <span><b>{attention.filter((a) => (a.variant ? a.variant.stock : a.product.stock) <= 0).length}</b> variants out of stock · <b>{attention.filter((a) => (a.variant ? a.variant.stock : a.product.stock) > 0).length}</b> running low — restock soon.</span>
+          <span>
+            {[
+              attentionCounts.out > 0 && `${attentionCounts.out} out of stock`,
+              attentionCounts.low > 0 && `${attentionCounts.low} running low`,
+              attentionCounts.variant > 0 && `${attentionCounts.variant} with a size sold out`,
+            ].filter(Boolean).join(' · ')} — restock soon.
+          </span>
         </div>
       )}
 
@@ -182,6 +198,17 @@ export default function Inventory() {
           >
             <Sparkles className="h-3.5 w-3.5 text-amber-700" />
             <span>New Arrivals ({newArrivalsCount})</span>
+          </button>
+          <button
+            onClick={() => setStatus('best')}
+            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
+              status === 'best'
+                ? 'bg-rose-500 text-white shadow-xs ring-1 ring-rose-600'
+                : 'bg-rose-50 text-rose-900 border border-rose-200/80 hover:bg-rose-100'
+            }`}
+          >
+            <Star className={`h-3.5 w-3.5 ${status === 'best' ? 'text-white' : 'text-rose-600'}`} />
+            <span>Best Sellers ({bestSellerCount})</span>
           </button>
           <button 
             onClick={() => setStatus('low')} 
@@ -245,6 +272,12 @@ export default function Inventory() {
                         New
                       </span>
                     )}
+                    {p.isBestSeller && (
+                      <span className="rounded-md bg-rose-600/90 text-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1">
+                        <Star className="h-2.5 w-2.5" />
+                        Best
+                      </span>
+                    )}
                   </div>
                   <div className="absolute right-3 top-3 flex gap-1.5">
                     <button onClick={() => setForm({ open: true, product: p })} className="grid h-8 w-8 place-items-center rounded-lg bg-white/90 text-neutral-700 shadow-sm hover:text-black" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
@@ -288,23 +321,52 @@ export default function Inventory() {
             <p className="py-6 text-center text-sm text-neutral-400">All products are well stocked. 🎉</p>
           ) : (
             <div className="max-h-72 space-y-2 overflow-y-auto pr-2">
-              {attention.map((a, i) => {
+              {attention.map((a) => {
                 const p = a.product;
-                const v = a.variant;
-                const stockVal = v ? v.stock : p.stock;
-                const isOut = stockVal <= 0;
+                const isOut = a.status === 'out';
                 return (
-                  <div key={`${p.id}-${i}`} className={`flex items-center justify-between rounded-xl border px-4 py-3 ${isOut ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
-                    <div>
-                      <p className="text-sm font-semibold text-neutral-900">{p.name}</p>
-                      <p className="text-xs text-neutral-500">
-                        {p.category} {v ? `· ${v.colorName || ''} (${v.size})` : ''} · 
-                        <span className={`ml-1 font-bold ${isOut ? 'text-red-600' : 'text-amber-600'}`}>
-                          {stockVal} Unit{stockVal === 1 ? '' : 's'} left
-                        </span>
-                      </p>
+                  <div key={p.id} className={`rounded-xl border px-4 py-3 ${isOut ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-neutral-900">{p.name}</p>
+                        <p className="text-xs text-neutral-500">
+                          {p.category} ·
+                          <span className={`ml-1 font-bold ${isOut ? 'text-red-600' : 'text-amber-600'}`}>
+                            {p.stock} unit{p.stock === 1 ? '' : 's'} in total
+                          </span>
+                          <span className="ml-1">· alert below {p.lowStock}</span>
+                        </p>
+                      </div>
+                      <button onClick={() => { setAlertOpen(false); setForm({ open: true, product: p }); }} className="shrink-0 rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-neutral-800">Edit</button>
                     </div>
-                    <button onClick={() => { setAlertOpen(false); setForm({ open: true, product: p }); }} className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-neutral-800">Edit</button>
+
+                    {/* The sizes/colours that actually ran out, each restockable
+                        on its own — quick restock used to add to variants[0]
+                        regardless of which variant was empty. */}
+                    {a.outVariants.length > 0 && (
+                      <div className="mt-2.5 space-y-1.5 border-t border-black/[0.06] pt-2.5">
+                        {a.outVariants.map((v) => (
+                          <div key={v.id || `${v.size}-${v.colorName}`} className="flex items-center justify-between gap-2">
+                            <span className="truncate text-xs font-medium text-neutral-600">
+                              {[v.size, v.colorName].filter(Boolean).join(' / ') || 'Default'} · sold out
+                            </span>
+                            <div className="flex shrink-0 items-center gap-1">
+                              {[1, 5, 10].map((n) => (
+                                <button
+                                  key={n}
+                                  disabled={!v.id}
+                                  onClick={() => v.id && adjustVariantStock(p.id, v.id, n)}
+                                  className="rounded-md border border-black/[0.12] bg-white px-2 py-1 text-[10px] font-bold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40"
+                                  title={`Add ${n} to this size`}
+                                >
+                                  +{n}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -345,17 +407,24 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
   const [category, setCategory] = useState('');
   const [department, setDepartment] = useState<string>('');
   const [price, setPrice] = useState('');
+  // The MRP shown struck through next to the selling price. Blank = no MRP.
+  const [originalPrice, setOriginalPrice] = useState('');
   const [weight, setWeight] = useState('');
   const [stock, setStock] = useState('');
-  const [lowStock, setLowStock] = useState('6');
+  const [lowStock, setLowStock] = useState(String(DEFAULT_LOW_STOCK));
   const [images, setImages] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [variants, setVariants] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [isNew, setIsNew] = useState(false);
+  const [isBestSeller, setIsBestSeller] = useState(false);
   const [discountLabel, setDiscountLabel] = useState('');
   const [suggestionIds, setSuggestionIds] = useState<string[]>([]);
   const [suggestionQuery, setSuggestionQuery] = useState('');
+  // Which optional fields this database can actually store. Checked once per
+  // form open (the probe is cached) so the warning sits on the field itself
+  // rather than arriving as a failed save.
+  const [support, setSupport] = useState({ pricing: true, bestSeller: true });
 
   // load values when the modal opens for a product
   useEffect(() => {
@@ -365,10 +434,12 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
       setDepartment(editing?.department ?? (departments.find(d => d.name === 'Unisex')?.name ?? departments[0]?.name ?? ''));
       setDescription(editing?.description ?? '');
       setPrice(editing ? String(editing.price) : '');
+      setOriginalPrice(editing?.originalPrice ? String(editing.originalPrice) : '');
       setWeight(editing ? String(editing.weightGrams || '') : '');
       setStock(editing ? String(editing.stock) : '');
-      setLowStock(editing ? String(editing.lowStock) : '6');
+      setLowStock(editing ? String(editing.lowStock ?? DEFAULT_LOW_STOCK) : String(DEFAULT_LOW_STOCK));
       setIsNew(editing?.isNew ?? false);
+      setIsBestSeller(editing?.isBestSeller ?? false);
       setDiscountLabel(editing?.discountLabel ?? '');
       
       const allImages = editing?.images ? [...editing.images] : [];
@@ -380,6 +451,7 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
       setVariants(editing?.variants ? [...editing.variants] : [{ size: '', stock: 0 }]);
 
       setSuggestionQuery('');
+      productFeatureSupport().then(setSupport).catch(() => {});
       if (editing?.id) {
         fetchSuggestionIds(editing.id).then(setSuggestionIds).catch(() => setSuggestionIds([]));
       } else {
@@ -387,6 +459,11 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
       }
     }
   }, [state.open, editing]);
+
+  const mrpNum = Number(originalPrice) || 0;
+  const priceNum = Number(price) || 0;
+  const mrpInvalid = !!originalPrice && mrpNum <= priceNum;
+  const mrpDiscountPct = mrpNum > priceNum ? Math.round(((mrpNum - priceNum) / mrpNum) * 100) : 0;
 
   const addVariant = () => setVariants([...variants, { size: '', stock: 0, weightGrams: '', isAvailable: true }]);
   const removeVariant = (idx: number) => setVariants(variants.filter((_, i) => i !== idx));
@@ -452,6 +529,15 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
 
   const save = async () => {
     if (!name.trim() || !price) return;
+
+    // An MRP at or below the selling price has nothing to strike through, and
+    // the DB rejects it too (products_original_price_check).
+    const mrp = originalPrice ? Number(originalPrice) : null;
+    if (mrp !== null && mrp <= Number(price)) {
+      showToast('Original (MRP) price must be higher than the selling price.');
+      return;
+    }
+
     setUploading(true);
     
     try {
@@ -478,26 +564,41 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
         department: department,
         description: description.trim(),
         price: Number(price) || 0,
+        originalPrice: mrp,
         weightGrams: Number(weight) || 0,
         stock: totalStock,
-        lowStock: Number(lowStock) || 6,
+        lowStock: Number(lowStock) || DEFAULT_LOW_STOCK,
         isNew: isNew,
+        isBestSeller: isBestSeller,
         discountLabel: discountLabel.trim() || null,
         image: images[0] || undefined,
         images: images.length > 0 ? images : undefined,
         variants: validVariants,
       };
       
-      if (editing) {
-        await updateProduct(editing.id, payload);
-        await updateSuggestions(editing.id, suggestionIds);
-        showToast("Product updated successfully!");
-      } else {
-        const newId = 'P' + Math.random().toString(36).slice(2, 7).toUpperCase();
-        await addProduct({ id: newId, ...payload } as Product);
-        if (suggestionIds.length > 0) await updateSuggestions(newId, suggestionIds);
-        showToast("Product added to catalog!");
+      const verb = editing ? 'updated' : 'added';
+      const savedId = editing ? editing.id : 'P' + Math.random().toString(36).slice(2, 7).toUpperCase();
+      const result = editing
+        ? await updateProduct(savedId, payload)
+        : await addProduct({ id: savedId, ...payload } as Product);
+
+      // Nothing reached the database — say so and keep the form open so the
+      // admin doesn't lose what they typed.
+      if (!result.ok) {
+        showToast(result.error || 'Could not save the product.');
+        return;
       }
+
+      if (editing || suggestionIds.length > 0) {
+        await updateSuggestions(savedId, suggestionIds);
+      }
+
+      // The product IS saved; say plainly which optional fields couldn't be.
+      showToast(
+        result.skipped.length > 0
+          ? `Product ${verb}, but not saved: ${result.skipped.join(', ')}.`
+          : `Product ${verb} successfully!`,
+      );
       onClose();
     } catch (e: any) {
       console.error(e);
@@ -568,16 +669,41 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Base Price (₹)"><input className={inputCls} value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" /></Field>
-                <Field label="Base Weight (g)"><input className={inputCls} value={weight} onChange={(e) => setWeight(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 500" inputMode="numeric" /></Field>
+                <Field label="Selling Price (₹)"><input className={inputCls} value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" /></Field>
+                <div>
+                  <Field label="Original / MRP (₹)"><input className={inputCls} value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value.replace(/\D/g, ''))} placeholder="Optional" inputMode="numeric" /></Field>
+                  <p className={`mt-1 text-[10px] font-bold uppercase tracking-wider ${mrpInvalid ? 'text-red-500' : !support.pricing ? 'text-amber-600' : 'text-neutral-400'}`}>
+                    {!support.pricing
+                      ? 'Needs migration 0004 — won\u2019t be saved yet'
+                      : !originalPrice
+                        ? 'Leave blank to show one price'
+                        : mrpInvalid
+                          ? 'Must be higher than the selling price'
+                          : `Struck through · ${mrpDiscountPct}% off`}
+                  </p>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
+                <Field label="Base Weight (g)"><input className={inputCls} value={weight} onChange={(e) => setWeight(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 500" inputMode="numeric" /></Field>
                 <Field label="Discount Label"><input className={inputCls} value={discountLabel} onChange={(e) => setDiscountLabel(e.target.value)} placeholder="e.g. -20% or SALE" /></Field>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer mt-2 text-sm font-bold text-neutral-700">
-                <input type="checkbox" checked={isNew} onChange={(e) => setIsNew(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black" />
-                Mark as "New Arrival"
-              </label>
+              {/* Both home-page placements, grouped so the hint sits with the
+                  tick it explains rather than a space-y-4 gap away. */}
+              <div className="mt-2 flex flex-col gap-2">
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-neutral-700">
+                  <input type="checkbox" checked={isNew} onChange={(e) => setIsNew(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black" />
+                  Mark as &quot;New Arrival&quot;
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-neutral-700">
+                  <input type="checkbox" checked={isBestSeller} onChange={(e) => setIsBestSeller(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black" />
+                  Show in &quot;Best Sellers&quot;
+                </label>
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${support.bestSeller ? 'text-neutral-400' : 'text-amber-600'}`}>
+                  {support.bestSeller
+                    ? 'Home page shows the first 4 ticked, newest first'
+                    : 'Best Sellers needs migration 0006 — won\u2019t be saved yet'}
+                </p>
+              </div>
             </div>
 
             <div className="space-y-4 pt-2">
@@ -586,7 +712,10 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
                 {!variants.some(v => v.size.trim()) && (
                   <Field label="Default Stock"><input className={inputCls} value={stock} onChange={(e) => setStock(e.target.value.replace(/\D/g, ''))} placeholder="0" inputMode="numeric" /></Field>
                 )}
-                <Field label="Low-stock alert at"><input className={inputCls} value={lowStock} onChange={(e) => setLowStock(e.target.value.replace(/\D/g, ''))} placeholder="6" inputMode="numeric" /></Field>
+                <div>
+                  <Field label="Low-stock alert at"><input className={inputCls} value={lowStock} onChange={(e) => setLowStock(e.target.value.replace(/\D/g, ''))} placeholder={String(DEFAULT_LOW_STOCK)} inputMode="numeric" /></Field>
+                  <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400">Compared against the total across all variants</p>
+                </div>
               </div>
             </div>
           </div>
@@ -609,7 +738,7 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
               <div className="grid grid-cols-[1.3fr_1.3fr_0.8fr_0.8fr_0.8fr_1.6fr_100px] gap-3 px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-neutral-400">
                 <span>Size</span>
                 <span>Color</span>
-                <span>Price (+₹)</span>
+                <span>Price (₹)</span>
                 <span>Weight (g)</span>
                 <span>Stock</span>
                 <span>Age Range (opt.)</span>
@@ -621,7 +750,7 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
               <div key={i} className={`grid grid-cols-[1.3fr_1.3fr_0.8fr_0.8fr_0.8fr_1.6fr_100px] gap-3 items-center bg-white p-2 rounded-xl border ${v.isAvailable === false ? 'border-neutral-200 opacity-50 grayscale' : 'border-black/[0.08] shadow-sm'} transition-all`}>
                 <input className={`${inputCls} !shadow-none`} placeholder="e.g. M" value={v.size} onChange={e => updateVariant(i, 'size', e.target.value)} disabled={v.isAvailable === false} />
                 <input className={`${inputCls} !shadow-none`} placeholder="e.g. Blue" value={v.colorName || ''} onChange={e => updateVariant(i, 'colorName', e.target.value)} disabled={v.isAvailable === false} />
-                <input className={`${inputCls} !shadow-none font-mono text-xs`} placeholder="Base" type="number" value={v.price || ''} onChange={e => updateVariant(i, 'price', Number(e.target.value) || undefined)} disabled={v.isAvailable === false} />
+                <input className={`${inputCls} !shadow-none font-mono text-xs`} placeholder="Same as base" title="This size's own price. Replaces the base price — it is not added to it." type="number" value={v.price || ''} onChange={e => updateVariant(i, 'price', Number(e.target.value) || undefined)} disabled={v.isAvailable === false} />
                 <input className={`${inputCls} !shadow-none font-mono text-xs`} placeholder="Base" type="number" value={v.weightGrams || ''} onChange={e => updateVariant(i, 'weightGrams', Number(e.target.value) || undefined)} disabled={v.isAvailable === false} />
                 <input className={`${inputCls} !shadow-none font-mono text-xs`} placeholder="0" type="number" value={v.stock || ''} onChange={e => updateVariant(i, 'stock', Number(e.target.value) || 0)} disabled={v.isAvailable === false} />
                 <AgeRangeInput

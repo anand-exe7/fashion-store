@@ -2,6 +2,10 @@ import { createClient } from './supabase/client';
 
 const supabase = createClient();
 
+// Fallback "alert below N" for a product with no stored threshold — and for a
+// database on which migration 0004 (products.low_stock) hasn't been run yet.
+export const DEFAULT_LOW_STOCK = 6;
+
 // ============================
 // TYPES
 // ============================
@@ -38,14 +42,22 @@ export interface Product {
   details?: string;
   benefits?: string[];
   price: number;
+  // Struck-through MRP shown beside the selling price. null = no MRP set.
+  originalPrice?: number | null;
   weightGrams?: number;
   image?: string; // Legacy
   isNew?: boolean;
+  // Ticked per product in Admin → Inventory. Drives the home page's
+  // Best Sellers row; nothing infers it from sales.
+  isBestSeller?: boolean;
   discountLabel?: string;
   department?: string;
   ageMinMonths?: number | null;
   ageMaxMonths?: number | null;
+  // Derived, never authored: the SUM of every variant's stock.
   stock: number;
+  // "Alert below N", compared against the product total above.
+  lowStock: number;
   isAvailable: boolean;
   images: ProductImage[];
   variants: ProductVariant[];
@@ -64,6 +76,8 @@ export interface Coupon {
 export interface OrderItem {
   id?: string;
   productId?: string;
+  /** The exact variant row this line sold — the handle used to restock it. */
+  variantId?: string | null;
   name: string;
   size?: string;
   color?: string;
@@ -240,14 +254,17 @@ export const fetchProducts = async (ids?: string[]): Promise<Product[]> => {
     category: p.category,
     description: p.description,
     price: p.price,
+    originalPrice: p.original_price ?? null,
     image: p.image,
     isNew: p.is_new,
+    isBestSeller: p.is_best_seller ?? false,
     discountLabel: p.discount_label,
     department: p.department,
     ageMinMonths: p.age_min_months,
     ageMaxMonths: p.age_max_months,
     weightGrams: p.weight_grams,
     stock: (variants || []).filter((v: any) => v.product_id === p.id).reduce((sum: number, v: any) => sum + (v.stock || 0), 0),
+    lowStock: p.low_stock ?? DEFAULT_LOW_STOCK,
     isAvailable: p.is_available,
     images: (images || [])
       .filter((i: any) => i.product_id === p.id)
@@ -298,14 +315,17 @@ export const fetchProductById = async (id: string): Promise<Product | null> => {
     category: p.category,
     description: p.description,
     price: p.price,
+    originalPrice: p.original_price ?? null,
     image: p.image,
     isNew: p.is_new,
+    isBestSeller: p.is_best_seller ?? false,
     discountLabel: p.discount_label,
     department: p.department,
     ageMinMonths: p.age_min_months,
     ageMaxMonths: p.age_max_months,
     weightGrams: p.weight_grams,
     stock: (variants || []).reduce((sum: number, v: any) => sum + (v.stock || 0), 0),
+    lowStock: p.low_stock ?? DEFAULT_LOW_STOCK,
     isAvailable: p.is_available,
     images: (images || []).map((i: any) => ({
       id: i.id,
@@ -333,13 +353,35 @@ export const fetchProductById = async (id: string): Promise<Product | null> => {
   };
 };
 
-export const upsertProduct = async (product: Partial<Product>, images?: string[], variants?: any[]) => {
+// What a save had to leave out because the database hasn't been migrated yet.
+// Returned rather than thrown: refusing the whole product would throw away
+// everything else the admin just typed.
+export interface UpsertSkip {
+  field: string;
+  migration: string;
+}
+
+export const upsertProduct = async (
+  product: Partial<Product>,
+  images?: string[],
+  variants?: any[],
+): Promise<{ skipped: UpsertSkip[] }> => {
+  const skipped: UpsertSkip[] = [];
   // Auto-create category if it doesn't exist to prevent Foreign Key errors
   if (product.category) {
     await supabase.from('categories').upsert({ name: product.category }).select();
   }
 
-  const { error } = await supabase.from('products').upsert({
+  // original_price / low_stock arrive with migration 0004. Probe once so a
+  // database that hasn't been migrated still saves products, rather than
+  // failing every save with "column does not exist".
+  const hasPricingCols = await columnSupported('products', 'original_price');
+  const hasBestSeller = await columnSupported('products', 'is_best_seller');
+  if (!hasPricingCols && product.originalPrice != null) {
+    skipped.push({ field: 'MRP price', migration: '0004' });
+  }
+
+  const productRow: Record<string, unknown> = {
     id: product.id,
     name: product.name,
     category: product.category,
@@ -351,7 +393,20 @@ export const upsertProduct = async (product: Partial<Product>, images?: string[]
     discount_label: product.discountLabel,
     department: product.department,
     is_available: product.isAvailable ?? true,
-  });
+  };
+  if (hasBestSeller && product.isBestSeller !== undefined) {
+    productRow.is_best_seller = product.isBestSeller;
+  } else if (!hasBestSeller && product.isBestSeller) {
+    skipped.push({ field: 'Best Seller', migration: '0006' });
+  }
+  if (hasPricingCols) {
+    productRow.original_price = product.originalPrice ?? null;
+    // Only write a threshold the caller actually supplied, so a partial
+    // update can't silently reset it to the default.
+    if (product.lowStock != null) productRow.low_stock = product.lowStock;
+  }
+
+  const { error } = await supabase.from('products').upsert(productRow);
   if (error) throw error;
 
   if (images && images.length > 0 && product.id) {
@@ -376,7 +431,24 @@ export const upsertProduct = async (product: Partial<Product>, images?: string[]
       throw new Error('Age range set on a variant, but the age_groups migration (0002) has not been applied to this database. Run supabase/migrations/0002_age_groups.sql, then retry.');
     }
 
+    // Variants are reconciled BY ID, never wiped and re-created. The old
+    // delete-everything-then-insert-everything handed every variant a fresh
+    // UUID on each save — which broke any POS/cart line still holding the
+    // previous `variantId` — and a failed insert left the product with no
+    // variants at all.
+    const { data: existingRows, error: existingError } = await supabase
+      .from('product_variants')
+      .select('id')
+      .eq('product_id', product.id);
+    if (existingError) throw existingError;
+    const existingIds = new Set<string>((existingRows || []).map((r: any) => String(r.id)));
+
+    // A product with no sized variants is still stored as a single "Default"
+    // row. Reuse that row's id when there is exactly one, so simple products
+    // keep stable variant ids across saves as well.
+    const soleExistingId = existingIds.size === 1 ? [...existingIds][0] : undefined;
     const effectiveVariants = variants.length > 0 ? variants : [{
+      id: soleExistingId,
       size: 'Default',
       colorName: null,
       colorHex: null,
@@ -388,6 +460,9 @@ export const upsertProduct = async (product: Partial<Product>, images?: string[]
 
     const rows = effectiveVariants.map((v, i) => {
       const row: Record<string, unknown> = {
+        // Carried through so an existing variant keeps its id (and with it any
+        // cart line, POS line or order row pointing at it).
+        id: typeof v.id === 'string' && v.id ? v.id : undefined,
         product_id: product.id,
         size: v.size || 'Default',
         color_name: v.colorName || null,
@@ -411,34 +486,91 @@ export const upsertProduct = async (product: Partial<Product>, images?: string[]
       return row;
     });
 
-    await supabase.from('product_variants').delete().eq('product_id', product.id);
-    const { error: insertError } = await supabase.from('product_variants').insert(rows);
-    if (insertError) throw insertError;
+    const keeps = rows.filter((r) => typeof r.id === 'string' && existingIds.has(r.id as string));
+    const adds = rows
+      .filter((r) => !(typeof r.id === 'string' && existingIds.has(r.id as string)))
+      .map((r) => {
+        const fresh = { ...r };
+        delete fresh.id; // let Postgres generate a new UUID
+        return fresh;
+      });
+    const keptIds = new Set(keeps.map((r) => r.id as string));
+
+    // 1. Drop only what the admin actually removed. Done first so a size/colour
+    //    freed up in this save can be reused by a new row below without
+    //    tripping the UNIQUE(product_id, size, color_name) constraint.
+    const removedIds = [...existingIds].filter((id) => !keptIds.has(id));
+    if (removedIds.length > 0) {
+      const { error: deleteError } = await supabase.from('product_variants').delete().in('id', removedIds);
+      if (deleteError) throw deleteError;
+    }
+
+    // 2. Update the survivors in place (upsert conflicts on the primary key).
+    if (keeps.length > 0) {
+      const { error: updateError } = await supabase.from('product_variants').upsert(keeps);
+      if (updateError) throw describeVariantWriteError(updateError);
+    }
+
+    // 3. Add the genuinely new rows.
+    if (adds.length > 0) {
+      const { error: insertError } = await supabase.from('product_variants').insert(adds);
+      if (insertError) throw describeVariantWriteError(insertError);
+    }
   }
+
+  return { skipped };
 };
 
-// One-shot lazy probe: is age_min_months present on product_variants? Only a
-// DEFINITIVE answer is cached for the life of the module — either the column
-// exists, or Postgres reports it as genuinely undefined (SQLSTATE 42703). A
-// transient failure (network, auth, timeout) must NOT be cached: doing so used
-// to permanently wedge age saving on a single blip during first load. On an
-// ambiguous error we assume the column exists (this feature ships the 0002
-// migration) and retry the probe on the next save — if the schema really is
-// unmigrated, the guarded write below still fails loudly before any delete.
-let ageColumnsSupportedCache: boolean | undefined;
-async function ageColumnsSupported(): Promise<boolean> {
-  if (ageColumnsSupportedCache !== undefined) return ageColumnsSupportedCache;
+// Which optional product features this database can actually store. Lets the
+// admin form warn on the field itself instead of after a failed save.
+export const productFeatureSupport = async (): Promise<{ pricing: boolean; bestSeller: boolean }> => ({
+  pricing: await columnSupported('products', 'original_price'),
+  bestSeller: await columnSupported('products', 'is_best_seller'),
+});
+
+// product_variants has UNIQUE(product_id, size, color_name). Swapping a
+// size/colour between two rows that both survive the save trips it, and the
+// raw Postgres text ("duplicate key value violates unique constraint …") tells
+// an admin nothing actionable.
+function describeVariantWriteError(error: { code?: string; message?: string }): Error {
+  if (error?.code === '23505') {
+    return new Error('Two variants would end up with the same size and colour. Save the change in two steps (or rename one row first).');
+  }
+  return new Error(error?.message || 'Failed to save product variants.');
+}
+
+// One-shot lazy probe: does `table.column` exist? Only a DEFINITIVE answer is
+// cached for the life of the module — either the column exists, or Postgres
+// reports it as genuinely undefined (SQLSTATE 42703). A transient failure
+// (network, auth, timeout) must NOT be cached: doing so used to permanently
+// wedge age saving on a single blip during first load. On an ambiguous error we
+// assume the column exists (the app ships the migration that adds it) and retry
+// the probe on the next save — if the schema really is unmigrated, the guarded
+// writes still fail loudly before anything is deleted.
+const columnSupportedCache = new Map<string, boolean>();
+async function columnSupported(table: string, column: string): Promise<boolean> {
+  const key = `${table}.${column}`;
+  const cached = columnSupportedCache.get(key);
+  if (cached !== undefined) return cached;
   try {
-    const { error } = await supabase.from('product_variants').select('age_min_months').limit(1);
-    if (!error) return (ageColumnsSupportedCache = true);
-    if (error.code === '42703') return (ageColumnsSupportedCache = false); // column truly absent
-    console.warn('age-column probe failed (transient?), will retry next save:', error);
+    const { error } = await supabase.from(table).select(column).limit(1);
+    if (!error) {
+      columnSupportedCache.set(key, true);
+      return true;
+    }
+    if (error.code === '42703') { // column truly absent
+      columnSupportedCache.set(key, false);
+      return false;
+    }
+    console.warn(`${key} probe failed (transient?), will retry next save:`, error);
     return true; // don't cache — retry next time
   } catch (err) {
-    console.warn('age-column probe threw (transient?), will retry next save:', err);
+    console.warn(`${key} probe threw (transient?), will retry next save:`, err);
     return true; // don't cache — retry next time
   }
 }
+
+const ageColumnsSupported = () => columnSupported('product_variants', 'age_min_months');
 
 export const deleteProduct = async (id: string) => {
   const { error } = await supabase.from('products').delete().eq('id', id);
@@ -491,25 +623,55 @@ export const updateSuggestions = async (productId: string, suggestedIds: string[
   if (insError) throw insError;
 };
 
-// Non-atomic decrement — read current stock, subtract qty, clamp at 0. Good
-// enough for a single POS operator; if two clients ever decrement the same
-// variant at the exact same moment they can double-consume. Move to a
-// Postgres RPC (`update ... set stock = greatest(0, stock - $1)`) if that
-// becomes a real concern.
-export const decrementVariantStock = async (variantId: string, qty: number) => {
-  if (qty <= 0) return;
+// Atomic stock change on one variant. Negative delta = sale, positive =
+// restock; the result is clamped at 0 server-side. Returns the new stock.
+//
+// This goes through the adjust_variant_stock() RPC (migration 0004) so the
+// whole change is ONE statement: two concurrent orders serialise on the row
+// instead of both reading the same stock and double-consuming it. On a
+// database where the RPC isn't there yet we fall back to the old
+// read-then-write, which is racy but better than refusing the sale.
+export const adjustVariantStock = async (variantId: string, delta: number): Promise<number> => {
+  if (!Number.isFinite(delta) || delta === 0) {
+    const { data } = await supabase.from('product_variants').select('stock').eq('id', variantId).single();
+    return data?.stock ?? 0;
+  }
+
+  const { data, error } = await supabase.rpc('adjust_variant_stock', {
+    p_variant_id: variantId,
+    p_delta: Math.trunc(delta),
+  });
+
+  if (!error) return Number(data) || 0;
+
+  // PGRST202 = function not found in the schema cache: migration 0004 hasn't
+  // been applied. Anything else is a real failure (missing variant, RLS, …).
+  if (error.code !== 'PGRST202' && error.code !== '42883') throw error;
+  console.warn('adjust_variant_stock RPC unavailable — falling back to a non-atomic update. Run supabase/migrations/0004_pricing_and_stock.sql.');
+  return adjustVariantStockNonAtomic(variantId, Math.trunc(delta));
+};
+
+// Pre-0004 fallback only. Racy by construction — see adjustVariantStock.
+const adjustVariantStockNonAtomic = async (variantId: string, delta: number): Promise<number> => {
   const { data, error: readErr } = await supabase
     .from('product_variants')
     .select('stock')
     .eq('id', variantId)
     .single();
   if (readErr || !data) throw readErr || new Error('Variant not found');
-  const next = Math.max(0, (data.stock || 0) - qty);
+  const next = Math.max(0, (data.stock || 0) + delta);
   const { error: writeErr } = await supabase
     .from('product_variants')
     .update({ stock: next })
     .eq('id', variantId);
   if (writeErr) throw writeErr;
+  return next;
+};
+
+// Sale path. Kept as its own name because that's what the order flow means.
+export const decrementVariantStock = async (variantId: string, qty: number) => {
+  if (qty <= 0) return;
+  await adjustVariantStock(variantId, -qty);
 };
 
 export const updateProductVariant = async (variantId: string, patch: Partial<ProductVariant>) => {
@@ -618,6 +780,7 @@ export const fetchOrders = async (): Promise<Order[]> => {
     items: (o.order_items || []).map((i: any) => ({
       id: i.id,
       productId: i.product_id,
+      variantId: i.variant_id ?? null,
       name: i.name,
       size: i.size,
       color: i.color,
@@ -662,6 +825,7 @@ export const fetchOrderById = async (id: string): Promise<Order | null> => {
     items: (o.order_items || []).map((i: any) => ({
       id: i.id,
       productId: i.product_id,
+      variantId: i.variant_id ?? null,
       name: i.name,
       size: i.size,
       color: i.color,
@@ -704,7 +868,17 @@ export const insertOrder = async (order: Order) => {
       quantity: i.quantity,
       price: i.price,
     }));
-    const { error: iError } = await supabase.from('order_items').insert(items);
+
+    // Record WHICH variant each line sold (migration 0005). Without it a bill
+    // can be read back but never tied to the size/colour it consumed, so a
+    // deleted or refunded order can't restock anything. Guarded so billing
+    // still works against a database that hasn't had 0005 applied.
+    const hasVariantLink = await columnSupported('order_items', 'variant_id');
+    const rows = hasVariantLink
+      ? items.map((row, idx) => ({ ...row, variant_id: order.items[idx].variantId ?? null }))
+      : items;
+
+    const { error: iError } = await supabase.from('order_items').insert(rows);
     if (iError) throw iError;
   }
 };

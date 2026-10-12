@@ -60,8 +60,9 @@ const DETAILS = [
   },
 ];
 
+// Starts at 1 yr: the home page no longer advertises infant wear.
 const FIT_GUIDE = [
-  { age: '0–2 yrs', height: '50–92 cm', note: 'Onesies & rompers' },
+  { age: '1–2 yrs', height: '74–92 cm', note: 'Toddler sets & rompers' },
   { age: '3–5 yrs', height: '98–110 cm', note: 'Play sets & combos' },
   { age: '6–12 yrs', height: '116–152 cm', note: 'Everyday shirts & pants' },
   { age: '13–16 yrs', height: '158–176 cm', note: 'Teen fits & layers' },

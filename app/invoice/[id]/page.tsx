@@ -144,6 +144,26 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
     );
   }
 
+  // An unpaid order has no invoice. The row exists only so Razorpay had
+  // something to attach a payment to; until that payment lands there is
+  // nothing to bill for.
+  if (order.status === 'pending') {
+    return (
+      <div className="min-h-screen bg-[#F4F2EC] flex flex-col items-center justify-center p-4 text-center">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-black/10 max-w-sm w-full flex flex-col items-center">
+          <img src="/logo.jpeg" alt="Shalistone" className="w-12 h-12 rounded-xl object-cover mb-4" />
+          <h2 className="text-lg font-bold text-neutral-900 mb-1">No invoice for this order</h2>
+          <p className="text-xs text-neutral-500 mb-6">
+            This order was never paid for, so no invoice was raised. If you were charged, contact us and we&rsquo;ll sort it out.
+          </p>
+          <Link href="/" className="w-full py-2.5 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors shadow-sm">
+            Return to Store
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const orderDate = new Date(order.createdAt);
   const formattedDate = orderDate.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
   const formattedTime = orderDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });

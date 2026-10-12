@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { adminSupabase } from '@/lib/supabase/admin';
 import { sendOrderConfirmationEmail } from '@/lib/email';
+import { applyOrderStock } from '@/lib/server/checkout';
 
 export async function POST(req: Request) {
   try {
@@ -40,7 +41,11 @@ export async function POST(req: Request) {
       }
 
       // Idempotency — webhooks are retried; do nothing if already settled.
+      // Stock is the exception: it carries its own `stock_applied` guard, so
+      // a retry can still finish a decrement that an earlier delivery started
+      // and failed. applyOrderStock is a no-op once the order is done.
       if (order.status === 'completed') {
+        await applyOrderStock(order.id);
         return Response.json({ ok: true });
       }
 
@@ -79,6 +84,11 @@ export async function POST(req: Request) {
       // `updated` is only set when this call is the one that flipped the row,
       // guaranteeing the coupon is consumed and the email sent exactly once.
       if (updated) {
+        // Consume inventory for the paid order. Online sales used to skip
+        // this entirely — only the POS path decremented — so the website
+        // could happily oversell a size that had already run out.
+        await applyOrderStock(updated.id);
+
         if (order.coupon_code) {
           const { data: c } = await adminSupabase
             .from('coupons')

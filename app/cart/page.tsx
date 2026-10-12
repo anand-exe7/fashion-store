@@ -8,6 +8,7 @@ import { fetchDeliveryRegions, calculateDeliveryFee, validateCoupon, DeliveryReg
 import { createClient } from '@/lib/supabase/client';
 import Script from 'next/script';
 import { optimizedSrc } from '@/lib/image';
+import { priceParts } from '@/lib/price';
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<{
@@ -17,6 +18,12 @@ export default function CartPage() {
     size: string;
     color: string;
     price: number;
+    // Struck-through MRP captured when the item was added. Optional: lines
+    // already sitting in localStorage from before this existed have none.
+    originalPrice?: number | null;
+    // Stock of this size when it was added. Caps the +/- control; lines saved
+    // before this existed have none, and fall back to uncapped.
+    maxQty?: number;
     image: string;
     quantity: number;
     weightGrams: number;
@@ -40,6 +47,8 @@ export default function CartPage() {
   
   const [paidInvoice, setPaidInvoice] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  // Shown in the checkout panel when a payment is cancelled or fails.
+  const [checkoutNotice, setCheckoutNotice] = useState('');
 
   useEffect(() => {
     try {
@@ -72,7 +81,10 @@ export default function CartPage() {
     setCartItems(items => {
       const next = items.map(item => {
         if (item.id === id) {
-          const newQuantity = Math.max(1, item.quantity + delta);
+          // Ceiling as well as floor. This used to clamp at 1 and nothing else,
+          // so a shopper could sit on "+" and order 40 of a 1-piece size.
+          const ceiling = typeof item.maxQty === 'number' && item.maxQty > 0 ? item.maxQty : Infinity;
+          const newQuantity = Math.min(ceiling, Math.max(1, item.quantity + delta));
           return { ...item, quantity: newQuantity };
         }
         return item;
@@ -115,6 +127,8 @@ export default function CartPage() {
 
   const completePayment = async () => {
     if (cartItems.length === 0) return;
+    // Clear any "payment cancelled" message from a previous attempt.
+    setCheckoutNotice('');
     setIsProcessing(true);
 
     try {
@@ -169,6 +183,7 @@ export default function CartPage() {
         description: `Order ${invoiceId}`,
         handler: function (response: any) {
           // Webhook is authoritative: it verifies the payment and completes the order.
+          setCheckoutNotice('');
           setPaidInvoice(invoiceId);
           setIsProcessing(false);
         },
@@ -179,12 +194,22 @@ export default function CartPage() {
         },
         theme: {
           color: '#0a0a0a'
-        }
+        },
+        modal: {
+          // Razorpay fires this when the shopper closes the window without
+          // paying. Without it `isProcessing` stayed true and the button sat
+          // on "Processing..." forever, with no way forward or back.
+          ondismiss: () => {
+            setIsProcessing(false);
+            setCheckoutNotice('Payment cancelled. Nothing has been charged — your bag is still here.');
+          },
+        },
       };
 
       const rzp = new (window as any).Razorpay(options);
       rzp.on('payment.failed', function (response: any){
-        alert('Payment Failed. Please try again.');
+        console.error('Razorpay reported a failed payment:', response?.error);
+        setCheckoutNotice('Payment failed. Nothing has been charged — you can try again.');
         setIsProcessing(false);
       });
       rzp.open();
@@ -230,7 +255,15 @@ export default function CartPage() {
               {cartItems.map((item) => (
                 <div key={item.id} className="flex gap-4 md:gap-6 group relative bg-white/30 p-3 rounded-xl border border-black/5">
                   <div className="w-20 md:w-32 aspect-[3/4] bg-white/50 rounded-lg overflow-hidden flex-shrink-0 border border-black/5 shadow-sm">
-                    <img src={optimizedSrc(item.image, 256)} alt={item.name} className="w-full h-full object-cover" />
+                    {/* An empty src makes the browser re-request the whole page;
+                        render a placeholder when a line has no photo. */}
+                    {item.image ? (
+                      <img src={optimizedSrc(item.image, 256)} alt={item.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center bg-black/[0.04] text-[9px] font-bold uppercase tracking-wider text-neutral-400">
+                        No image
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex-grow flex flex-col justify-between py-1">
@@ -250,11 +283,39 @@ export default function CartPage() {
                     
                     <div className="flex justify-between items-end mt-4">
                       <div className="flex items-center border border-black/10 rounded-full h-8 md:h-10 w-24 md:w-28 px-2 md:px-3 bg-white shadow-sm">
-                        <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:text-black transition-colors text-neutral-500"><Minus className="w-3 h-3" /></button>
+                        <button
+                          onClick={() => updateQuantity(item.id, -1)}
+                          disabled={item.quantity <= 1}
+                          aria-label="Reduce quantity"
+                          className="p-1 text-neutral-500 transition-colors hover:text-black disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
                         <span className="flex-grow text-center text-xs md:text-sm font-semibold">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:text-black transition-colors text-neutral-500"><Plus className="w-3 h-3" /></button>
+                        <button
+                          onClick={() => updateQuantity(item.id, 1)}
+                          disabled={typeof item.maxQty === 'number' && item.quantity >= item.maxQty}
+                          aria-label="Increase quantity"
+                          className="p-1 text-neutral-500 transition-colors hover:text-black disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
                       </div>
-                      <span className="text-base md:text-lg font-bold text-emerald-600">₹{item.price.toLocaleString()}</span>
+                      <div className="flex flex-col items-end gap-0.5">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-base md:text-lg font-bold text-emerald-600">{priceParts(item.price, item.originalPrice).priceLabel}</span>
+                        {priceParts(item.price, item.originalPrice).originalLabel && (
+                          <span className="text-xs md:text-sm font-medium text-neutral-400 line-through">
+                            {priceParts(item.price, item.originalPrice).originalLabel}
+                          </span>
+                        )}
+                      </div>
+                      {typeof item.maxQty === 'number' && item.quantity >= item.maxQty && (
+                        <span className="text-[10px] font-semibold text-amber-700">
+                          {item.maxQty === 1 ? 'Last one' : `Only ${item.maxQty} left`}
+                        </span>
+                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -411,6 +472,12 @@ export default function CartPage() {
                       </div>
                     </div>
                   </div>
+
+                  {checkoutNotice && (
+                    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium leading-relaxed text-amber-800">
+                      {checkoutNotice}
+                    </div>
+                  )}
 
                   <button
                     disabled={!paymentMethod || isProcessing}

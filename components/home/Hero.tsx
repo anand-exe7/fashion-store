@@ -18,7 +18,7 @@ const NEXT_BG = '#F5F2EB';
 
 const settings = {
   headline: ['Little Stars,', 'Big Style —', 'Made for', 'Every Age'],
-  subtext: 'Adorable outfits for kids aged 0–16. Designed to play, built to last.',
+  subtext: 'Adorable outfits for kids aged 1–16. Designed to play, built to last.',
   rightCopy: 'Where comfort meets playful style for your little ones.',
 };
 
@@ -288,7 +288,7 @@ export const Hero = ({ featured }: { featured?: ReactNode }) => {
         <div className="mt-4 flex justify-center sm:hidden" style={{ animation: 'heroFade 0.9s ease-out 0.55s both' }}>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-white px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-800 shadow-md ring-1 ring-black/[0.04]">
             <span className="text-sm leading-none text-[#E5A400]">★</span>
-            Ages 0–16 · Playful &amp; Comfy
+            Ages 1–16 · Playful &amp; Comfy
           </span>
         </div>
 

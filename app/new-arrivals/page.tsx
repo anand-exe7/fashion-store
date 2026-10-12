@@ -3,8 +3,10 @@
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { ProductCard } from '@/components/ui/ProductCard';
+import { listingPrice } from '@/lib/price';
+import { withTimeout, isTimeout } from '@/lib/withTimeout';
 import { motion } from 'framer-motion';
-import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -44,6 +46,8 @@ function NewArrivalsContent() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  // Set when the load gave up rather than failed — see lib/withTimeout.
+  const [loadError, setLoadError] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,27 +64,56 @@ function NewArrivalsContent() {
   }, [searchParams]);
 
   // Load products & departments
-  useEffect(() => {
-    Promise.all([
-      fetchProducts(),
-      fetchDepartments()
-    ]).then(([prodData, deptData]) => {
+  const loadData = useCallback(async () => {
+    try {
+      const [prodData, deptData] = await withTimeout(
+        Promise.all([fetchProducts(), fetchDepartments()]),
+      );
       setAllProducts(prodData);
       setDepartments(deptData.filter(d => d.isActive));
-      setLoading(false);
-    }).catch(async (err) => {
+      setLoadError(false);
+    } catch (err) {
+      // Nothing answered. Offer Retry rather than a second full wait.
+      if (isTimeout(err)) {
+        console.error('New Arrivals load timed out.', err);
+        setLoadError(true);
+        return;
+      }
+
       console.error("Failed to load products for New Arrivals:", err);
-      const prodData = await fetchProducts().catch(() => []);
+      let prodData: Product[] = [];
+      try {
+        prodData = await withTimeout(fetchProducts());
+      } catch (retryErr) {
+        console.error('Products load failed too.', retryErr);
+        setLoadError(true);
+        return;
+      }
       setAllProducts(prodData);
       setDepartments([
-        { name: 'Men', isActive: true }, 
+        { name: 'Men', isActive: true },
         { name: 'Women', isActive: true },
-        { name: 'Kids', isActive: true }, 
+        { name: 'Kids', isActive: true },
         { name: 'Unisex', isActive: true },
       ]);
+    } finally {
       setLoading(false);
-    });
+    }
   }, []);
+
+  useEffect(() => {
+    // loadData's first statement is an await, so nothing is set synchronously
+    // here — not the cascading-render pattern the rule guards against, and the
+    // lint can't see through the call.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData();
+  }, [loadData]);
+
+  const retryLoad = () => {
+    setLoadError(false);
+    setLoading(true);
+    loadData();
+  };
 
   // ALL products marked as New Arrival by the admin (p.isNew === true)
   const newArrivals = useMemo(() => {
@@ -290,6 +323,24 @@ function NewArrivalsContent() {
               Loading New Arrivals
             </span>
           </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center gap-4 py-24 px-4 text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-full bg-black/5 text-neutral-400">
+              <RotateCcw className="h-6 w-6" />
+            </div>
+            <h3 className="text-xl font-bold uppercase tracking-tight text-neutral-900">
+              Couldn&apos;t load new arrivals
+            </h3>
+            <p className="max-w-sm text-xs leading-relaxed text-neutral-500">
+              Check your internet connection and try again.
+            </p>
+            <button
+              onClick={retryLoad}
+              className="mt-1 flex items-center gap-2 rounded-full bg-black px-7 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-md transition-all hover:bg-neutral-800 active:scale-95"
+            >
+              Retry
+            </button>
+          </div>
         ) : (
           <>
             {filteredNewArrivals.length === 0 ? (
@@ -335,7 +386,9 @@ function NewArrivalsContent() {
                       id={prod.id}
                       title={prod.name}
                       category={prod.department ? `${prod.department} • ${prod.category}` : prod.category}
-                      price={prod.price.toLocaleString('en-IN')}
+                      price={listingPrice(prod.price, prod.variants).price}
+                      priceFrom={listingPrice(prod.price, prod.variants).from}
+                      originalPrice={prod.originalPrice}
                       isNew={prod.isNew}
                       discount={prod.discountLabel}
                       image={primaryImg}

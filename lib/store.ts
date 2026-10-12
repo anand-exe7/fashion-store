@@ -73,13 +73,20 @@ export interface Product {
   details?: string;
   benefits?: string[];
   price: number;
+  // Struck-through MRP shown beside the selling price. null = no MRP set.
+  originalPrice?: number | null;
   weightGrams?: number;
+  // Derived, never authored: the SUM of every variant's stock. To change it,
+  // change a variant (updateProduct with `variants`, or adjustVariantStock).
   stock: number;
+  // "Alert below N", compared against the product total above.
   lowStock: number;
   image?: string;
   images?: string[];
   variants?: ProductVariant[];
   isNew?: boolean;
+  // Ticked in the product form; drives the home page's Best Sellers row.
+  isBestSeller?: boolean;
   discountLabel?: string | null;
 }
 
@@ -142,6 +149,7 @@ async function refreshAll() {
         price: i.price,
         qty: i.quantity,
         productId: i.productId,
+        variantId: i.variantId ?? undefined,
         size: i.size,
         color: i.color,
       })),
@@ -159,7 +167,6 @@ async function refreshAll() {
     }));
 
     const mappedProducts: Product[] = dbProducts.map(p => {
-      const defaultVariant = p.variants[0];
       return {
         id: p.id,
         name: p.name,
@@ -169,9 +176,12 @@ async function refreshAll() {
         ageMaxMonths: p.ageMaxMonths,
         description: p.description || '',
         price: p.price,
+        originalPrice: p.originalPrice ?? null,
         weightGrams: p.weightGrams || 500,
-        stock: defaultVariant?.stock || 0,
-        lowStock: 6,
+        // fetchProducts already sums the variants; this used to overwrite that
+        // with variants[0].stock, so 5 colours x 5 sizes x 1 piece read as 1.
+        stock: p.stock,
+        lowStock: p.lowStock ?? db.DEFAULT_LOW_STOCK,
         image: p.images[0]?.url || p.image || '',
         images: p.images?.map(img => img.url) || [],
         variants: p.variants?.map(v => ({
@@ -186,6 +196,7 @@ async function refreshAll() {
           isAvailable: v.isAvailable
         })) || [],
         isNew: p.isNew,
+        isBestSeller: p.isBestSeller ?? false,
         discountLabel: p.discountLabel
       };
     });
@@ -266,6 +277,7 @@ export async function addOrder(order: Order) {
       price: i.price,
       quantity: i.qty,
       productId: i.productId,
+      variantId: i.variantId ?? null,
       size: i.size,
       color: i.color,
     }))
@@ -309,55 +321,121 @@ export async function setFulfillment(id: string, fulfillmentStatus: FulfillmentS
   refreshAll();
 }
 
-export async function addProduct(p: Product) {
+export interface SaveResult {
+  ok: boolean;
+  /** Fields the database couldn't store yet, e.g. "MRP price (migration 0004)". */
+  skipped: string[];
+  error?: string;
+}
+
+const describeSkips = (skips: db.UpsertSkip[]) => skips.map(s => `${s.field} (migration ${s.migration})`);
+
+export async function addProduct(p: Product): Promise<SaveResult> {
+  // Shown immediately; removed again below if the write fails, so a refused
+  // save can't leave a product on screen that was never stored.
   globalState = { ...globalState, products: [p, ...globalState.products] };
   notify();
-  await db.upsertProduct({
+
+  let result: { skipped: db.UpsertSkip[] };
+  try {
+    result = await db.upsertProduct({
     id: p.id,
     name: p.name,
     category: p.category,
     department: p.department,
     description: p.description,
     price: p.price,
+    originalPrice: p.originalPrice ?? null,
     weightGrams: p.weightGrams,
     stock: p.stock,
+    lowStock: p.lowStock,
     image: p.image,
     isNew: p.isNew,
-    discountLabel: p.discountLabel || undefined,
-    isAvailable: true
-  }, p.images, p.variants || []);
+      isBestSeller: p.isBestSeller ?? false,
+      discountLabel: p.discountLabel || undefined,
+      isAvailable: true
+    }, p.images, p.variants || []);
+  } catch (err) {
+    globalState = { ...globalState, products: globalState.products.filter(x => x.id !== p.id) };
+    notify();
+    console.error('Failed to add product:', err);
+    return { ok: false, skipped: [], error: err instanceof Error ? err.message : 'Could not save the product.' };
+  }
+
   refreshAll();
+  return { ok: true, skipped: describeSkips(result.skipped) };
 }
 
-export async function updateProduct(id: string, patch: Partial<Product>) {
+export async function updateProduct(id: string, patch: Partial<Product>): Promise<SaveResult> {
   const existing = globalState.products.find(p => p.id === id);
-  if (!existing) return;
-  
-  const updated = { ...existing, ...patch };
+  if (!existing) return { ok: false, skipped: [], error: 'Product not found.' };
 
-  // If doing a quick stock patch (e.g. from the alert modal or adjustStock),
-  // sync the stock to the first variant so upsertProduct saves it to the database correctly.
-  if (patch.stock !== undefined && updated.variants && updated.variants.length > 0) {
-    updated.variants[0] = { ...updated.variants[0], stock: patch.stock };
+  const updated: Product = { ...existing, ...patch };
+
+  // `stock` is a DERIVED total, so it is never written straight through.
+  //
+  // This used to copy patch.stock into variants[0]. The edit form sends the
+  // sum of all variants, so every save added the whole total onto the first
+  // variant — five variants of 1 piece became 9, then more on the next save —
+  // and it overwrote whatever the admin had typed into variant 0. It also
+  // mutated the variants array already held in state, before the DB write had
+  // even been attempted.
+  if (patch.variants !== undefined && patch.variants.length > 0) {
+    // Variants are authoritative: copy them (never alias the caller's array)
+    // and recompute the total from them.
+    updated.variants = patch.variants.map(v => ({ ...v }));
+    updated.stock = updated.variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+  } else if (patch.variants !== undefined) {
+    // A product with no sized variants is stored as a single synthesised
+    // "Default" row that upsertProduct fills from `stock`, so here the
+    // caller's `stock` (the form's "Default Stock" box) IS the authority.
+    updated.variants = [];
+    updated.stock = patch.stock !== undefined ? patch.stock : existing.stock;
+  } else if (patch.stock !== undefined) {
+    const current = existing.variants || [];
+    if (current.length > 1) {
+      // There is no way to tell WHICH size/colour the caller meant. Guessing
+      // variants[0] is exactly the bug above, so refuse instead.
+      // The caller reports this; don't toast it twice.
+      return { ok: false, skipped: [], error: 'Pick a size/colour to restock — this product has several variants.' };
+    }
+    // Simple product: one "Default" row (or none yet) carries the stock.
+    updated.variants = current.length === 1
+      ? [{ ...current[0], stock: patch.stock }]
+      : current.map(v => ({ ...v }));
   }
-  
+
   globalState = { ...globalState, products: globalState.products.map(p => p.id === id ? updated : p) };
   notify();
-  
-  await db.upsertProduct({
-    id,
+
+  let result: { skipped: db.UpsertSkip[] };
+  try {
+    result = await db.upsertProduct({
+      id,
     name: updated.name,
     category: updated.category,
     department: updated.department,
     price: updated.price,
+    originalPrice: updated.originalPrice ?? null,
     weightGrams: updated.weightGrams,
+    lowStock: updated.lowStock,
+    stock: updated.stock,
     description: updated.description,
     image: updated.image,
     isNew: updated.isNew,
-    discountLabel: updated.discountLabel || undefined
-  }, updated.images, updated.variants);
-  
+      isBestSeller: updated.isBestSeller ?? false,
+      discountLabel: updated.discountLabel || undefined
+    }, updated.images, updated.variants);
+  } catch (err) {
+    // Put the row back as it was — the edit never reached the database.
+    globalState = { ...globalState, products: globalState.products.map(p => p.id === id ? existing : p) };
+    notify();
+    console.error('Failed to update product:', err);
+    return { ok: false, skipped: [], error: err instanceof Error ? err.message : 'Could not save the product.' };
+  }
+
   refreshAll();
+  return { ok: true, skipped: describeSkips(result.skipped) };
 }
 
 export async function fetchSuggestionIds(productId: string) {
@@ -375,11 +453,36 @@ export async function deleteProduct(id: string) {
   refreshAll();
 }
 
-export async function adjustStock(id: string, delta: number) {
-  const p = globalState.products.find(x => x.id === id);
-  if (!p) return;
-  const newStock = Math.max(0, p.stock + delta);
-  await updateProduct(id, { stock: newStock });
+// Restock/consume ONE variant. The old adjustStock(productId, delta) only ever
+// touched variants[0], so the size or colour that actually ran out never got
+// restocked. Stock is changed in a single atomic statement in Postgres.
+export async function adjustVariantStock(productId: string, variantId: string, delta: number) {
+  const product = globalState.products.find(x => x.id === productId);
+  if (!product || !variantId) return;
+
+  const variants = product.variants || [];
+  const idx = variants.findIndex(v => v.id === variantId);
+  if (idx === -1) return;
+
+  // Optimistic update on copies only — nothing already in state is mutated.
+  const optimistic = variants.map(v =>
+    v.id === variantId ? { ...v, stock: Math.max(0, (v.stock || 0) + delta) } : { ...v }
+  );
+  const updated: Product = {
+    ...product,
+    variants: optimistic,
+    stock: optimistic.reduce((sum, v) => sum + (Number(v.stock) || 0), 0),
+  };
+  globalState = { ...globalState, products: globalState.products.map(p => p.id === productId ? updated : p) };
+  notify();
+
+  try {
+    await db.adjustVariantStock(variantId, delta);
+  } catch (err) {
+    console.error(`Failed to adjust stock for variant ${variantId}:`, err);
+    showToast("Couldn't update stock.");
+  }
+  refreshAll();
 }
 
 export async function addCoupon(c: Coupon) {

@@ -20,7 +20,7 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: "Shalistone — Kids & Mens Fashion",
-  description: "Premium kids and mens fashion. Curated collections for ages 0–16 and beyond.",
+  description: "Premium kids and mens fashion. Curated collections for ages 1–16 and beyond.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

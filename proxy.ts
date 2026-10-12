@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Guard against oversized cookie headers (HTTP 431).
   // Sum all cookie values; if they exceed 12 KB, wipe Supabase auth cookies
   // so the session refreshes cleanly on the next request.

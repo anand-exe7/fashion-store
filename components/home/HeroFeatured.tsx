@@ -1,6 +1,7 @@
 import { fetchProducts } from '@/lib/db';
 import type { Product } from '@/lib/db';
 import { optimizedSrc } from '@/lib/image';
+import { priceParts } from '@/lib/price';
 
 const shell =
   'w-56 rounded-2xl border border-white/50 bg-white/80 p-3 shadow-[0_16px_40px_rgba(40,45,60,0.1)] backdrop-blur-sm';
@@ -36,6 +37,7 @@ export const HeroFeatured = async () => {
   if (!product) return null;
 
   const image = product.images.find(i => i.isPrimary) || product.images[0];
+  const featuredPricing = priceParts(product.price, product.originalPrice);
 
   return (
     <div className={shell}>
@@ -50,8 +52,15 @@ export const HeroFeatured = async () => {
         <div className="min-w-0 flex-1">
           <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-neutral-400">Featured</p>
           <p className="truncate text-[12px] font-semibold text-neutral-900 mt-0.5">{product.name}</p>
-          <p className="text-[12px] font-bold text-neutral-900">
-            ₹{product.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <p className="flex items-baseline gap-1.5 text-[12px] font-bold">
+            <span className={featuredPricing.hasMrp ? 'text-emerald-600' : 'text-neutral-900'}>
+              {featuredPricing.priceLabel}
+            </span>
+            {featuredPricing.originalLabel && (
+              <span className="text-[10px] font-medium text-neutral-400 line-through">
+                {featuredPricing.originalLabel}
+              </span>
+            )}
           </p>
         </div>
       </div>

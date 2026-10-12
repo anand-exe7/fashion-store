@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { adminSupabase } from '@/lib/supabase/admin';
+import { variantPrice } from '@/lib/price';
 
 // ============================================================
 // SERVER-SIDE CHECKOUT PRICING
@@ -35,6 +36,8 @@ export interface PricedLineItem {
   color: string | null;
   price: number;
   quantity: number;
+  /** The exact variant row this line sells, so payment can decrement it. */
+  variantId: string | null;
 }
 
 export interface PricedOrder {
@@ -109,7 +112,7 @@ export async function priceCheckout(input: CheckoutInput): Promise<PricedOrder> 
         .in('id', productIds),
       adminSupabase
         .from('product_variants')
-        .select('product_id, size, color_name, weight_grams')
+        .select('id, product_id, size, color_name, price, weight_grams, stock, is_available')
         .in('product_id', productIds),
     ]);
   if (pErr) throw pErr;
@@ -127,18 +130,39 @@ export async function priceCheckout(input: CheckoutInput): Promise<PricedOrder> 
       throw new Error(`"${product.name}" is no longer available`);
     }
 
-    // Authoritative unit price is the product price shown on the storefront.
-    const unitPrice = Number(product.price) || 0;
-
-    // Weight is used only for delivery: match the exact variant, then fall
-    // back to product weight, then a sane default (mirrors the storefront).
+    // Match the exact variant. Its id is what payment decrements, its price is
+    // what we charge, and its weight feeds delivery — each falling back to the
+    // product's own value (mirrors the storefront).
     const variant = (variants || []).find(
       (v: any) =>
         v.product_id === n.productId &&
         (v.size ?? 'Default') === (n.size ?? 'Default') &&
         (v.color_name ?? 'Default') === (n.color ?? 'Default'),
     );
+
+    // Authoritative unit price. A size priced differently from the product's
+    // base wins — this used to always take the base, so a pant priced ₹999 per
+    // size was charged at its ₹799 base.
+    const unitPrice = variantPrice(product.price, variant ? { price: variant.price } : null);
     const unitWeight = Number(variant?.weight_grams ?? product.weight_grams ?? 500) || 0;
+
+    // Stock gate. The browser caps the quantity picker, but the cart lives in
+    // localStorage where anyone can edit it, so the real check belongs here —
+    // without it an order for 20 of a 1-piece size was priced and taken.
+    if (variant) {
+      if (variant.is_available === false) {
+        throw new Error(`"${product.name}" (${n.size ?? 'Default'}) is no longer available`);
+      }
+      const available = Number(variant.stock) || 0;
+      if (available <= 0) {
+        throw new Error(`"${product.name}" (${n.size ?? 'Default'}) is out of stock`);
+      }
+      if (n.quantity > available) {
+        throw new Error(
+          `Only ${available} left of "${product.name}" (${n.size ?? 'Default'}). Please reduce the quantity.`,
+        );
+      }
+    }
 
     subtotal += unitPrice * n.quantity;
     totalWeightGrams += unitWeight * n.quantity;
@@ -150,6 +174,7 @@ export async function priceCheckout(input: CheckoutInput): Promise<PricedOrder> 
       color: n.color,
       price: unitPrice,
       quantity: n.quantity,
+      variantId: variant?.id ?? null,
     };
   });
 
@@ -234,17 +259,143 @@ export async function persistPendingOrder(
   if (oErr) throw oErr;
 
   if (priced.lineItems.length > 0) {
-    const { error: iErr } = await adminSupabase.from('order_items').insert(
-      priced.lineItems.map((li) => ({
-        order_id: priced.invoiceId,
-        product_id: li.productId,
-        name: li.name,
-        size: li.size,
-        color: li.color,
-        quantity: li.quantity,
-        price: li.price,
-      })),
-    );
-    if (iErr) throw iErr;
+    const baseRows = priced.lineItems.map((li) => ({
+      order_id: priced.invoiceId,
+      product_id: li.productId,
+      name: li.name,
+      size: li.size,
+      color: li.color,
+      quantity: li.quantity,
+      price: li.price,
+    }));
+
+    const { error: iErr } = await adminSupabase
+      .from('order_items')
+      .insert(baseRows.map((row, i) => ({ ...row, variant_id: priced.lineItems[i].variantId })));
+
+    // 42703 = order_items.variant_id doesn't exist yet (migration 0005 not
+    // applied). Save the order without the link rather than failing a paid
+    // checkout; applyOrderStock falls back to matching on size/colour.
+    if (iErr?.code === '42703') {
+      console.error('[stock] order_items.variant_id is missing — run supabase/migrations/0005_order_stock.sql');
+      const { error: retryErr } = await adminSupabase.from('order_items').insert(baseRows);
+      if (retryErr) throw retryErr;
+    } else if (iErr) {
+      throw iErr;
+    }
   }
+}
+
+// ============================================================
+// STOCK ON PAYMENT
+// ============================================================
+
+/**
+ * Decrement stock for every line of a paid order, exactly once.
+ *
+ * Online orders used to never touch inventory at all — only the POS path
+ * decremented, so a website sale left stock untouched and oversold.
+ *
+ * Idempotency is a dedicated `orders.stock_applied` flag rather than the
+ * order status: Razorpay retries deliveries, and the status alone cannot
+ * distinguish a retry from a first delivery that died mid-decrement.
+ *
+ * Never throws — the caller is a webhook, and a non-2xx there buys nothing
+ * (the retry would hit the same failure). Problems are logged with the order
+ * id so they can be reconciled by hand.
+ */
+export async function applyOrderStock(orderId: string): Promise<void> {
+  try {
+    // Claim the work. Only the caller that flips false -> true gets a row
+    // back, so concurrent deliveries can't both decrement.
+    const { data: claimed, error: claimErr } = await adminSupabase
+      .from('orders')
+      .update({ stock_applied: true })
+      .eq('id', orderId)
+      .eq('stock_applied', false)
+      .select('id')
+      .maybeSingle();
+
+    if (claimErr) {
+      if (claimErr.code === '42703') {
+        // Without the guard column a retry would double-consume. Under-
+        // decrementing loudly beats over-decrementing silently.
+        console.error(
+          `[stock] orders.stock_applied is missing — run supabase/migrations/0005_order_stock.sql. Stock NOT adjusted for order ${orderId}.`,
+        );
+        return;
+      }
+      throw claimErr;
+    }
+    if (!claimed) return; // already applied by an earlier delivery
+
+    const { data: items, error: itemsErr } = await adminSupabase
+      .from('order_items')
+      .select('variant_id, product_id, name, size, color, quantity')
+      .eq('order_id', orderId);
+    if (itemsErr) throw itemsErr;
+
+    for (const item of items || []) {
+      const qty = Math.floor(Number(item.quantity) || 0);
+      if (qty <= 0) continue;
+
+      // Orders placed before 0005 (and any line whose variant was since
+      // retired) carry no id — fall back to the same size/colour match
+      // priceCheckout uses.
+      const variantId = item.variant_id || (await resolveVariantId(item.product_id, item.size, item.color));
+      if (!variantId) {
+        console.error(`[stock] order ${orderId}: no variant matches "${item.name}" (${item.size ?? '-'}/${item.color ?? '-'}) — stock not adjusted`);
+        continue;
+      }
+
+      try {
+        await decrementVariant(variantId, qty);
+      } catch (err) {
+        console.error(`[stock] order ${orderId}: failed to decrement ${qty} x "${item.name}" (variant ${variantId}):`, err);
+      }
+    }
+  } catch (err) {
+    console.error(`[stock] could not apply stock for order ${orderId}:`, err);
+  }
+}
+
+async function resolveVariantId(
+  productId: string | null,
+  size: string | null,
+  color: string | null,
+): Promise<string | null> {
+  if (!productId) return null;
+  const { data } = await adminSupabase
+    .from('product_variants')
+    .select('id, size, color_name')
+    .eq('product_id', productId);
+  const rows = (data || []) as { id: string; size: string | null; color_name: string | null }[];
+  const match = rows.find(
+    (v) => (v.size ?? 'Default') === (size ?? 'Default') && (v.color_name ?? 'Default') === (color ?? 'Default'),
+  );
+  return match?.id ?? null;
+}
+
+// Prefers the atomic RPC from migration 0004; falls back to read-then-write
+// when that function isn't there yet.
+async function decrementVariant(variantId: string, qty: number): Promise<void> {
+  const { error } = await adminSupabase.rpc('adjust_variant_stock', {
+    p_variant_id: variantId,
+    p_delta: -qty,
+  });
+  if (!error) return;
+  if (error.code !== 'PGRST202' && error.code !== '42883') throw error;
+
+  console.warn('[stock] adjust_variant_stock RPC unavailable — using a non-atomic update. Run supabase/migrations/0004_pricing_and_stock.sql.');
+  const { data, error: readErr } = await adminSupabase
+    .from('product_variants')
+    .select('stock')
+    .eq('id', variantId)
+    .single();
+  if (readErr || !data) throw readErr || new Error('Variant not found');
+  const { error: writeErr } = await adminSupabase
+    .from('product_variants')
+    .update({ stock: Math.max(0, (data.stock || 0) - qty) })
+    .eq('id', variantId);
+  if (writeErr) throw writeErr;
 }

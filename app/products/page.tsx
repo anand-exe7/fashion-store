@@ -3,9 +3,10 @@
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { ProductCard } from '@/components/ui/ProductCard';
-import Image from 'next/image';
+import { listingPrice } from '@/lib/price';
+import { withTimeout, isTimeout } from '@/lib/withTimeout';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { 
   Search, 
@@ -25,40 +26,6 @@ import {
   Product, 
   Department 
 } from '@/lib/db';
-import { optimizedSrc } from '@/lib/image';
-
-const CATEGORY_DEFAULT_IMAGES: Record<string, string> = {
-  All: '/categories/cat_all.jpg',
-  'Over Sized T-Shirts': '/categories/cat_1.jpg',
-  Hoodies: '/categories/cat_2.jpg',
-  'Baggy Pants': '/categories/cat_3.jpg',
-  'Sweat Pants': '/categories/cat_4.jpg',
-  'Party Wear Shirts': '/categories/cat_5.jpg',
-  'Casual Shirts': '/categories/cat_6.jpg',
-  'Formal Pants': '/categories/cat_7.jpg',
-  'Casual T-Shirts': '/categories/cat_8.jpg',
-  'Cargo Pants': '/categories/cat_9.jpg',
-  Shorts: '/categories/cat_10.jpg',
-  'Sweat T-Shirts': '/categories/cat_11.jpg',
-  Jackets: '/categories/cat_12.jpg',
-  Accessories: '/categories/cat_13.jpg',
-};
-
-const HARDCODED_MENS_CATEGORIES = [
-  "Over Sized T-Shirts",
-  "Hoodies",
-  "Baggy Pants",
-  "Sweat Pants",
-  "Party Wear Shirts",
-  "Casual Shirts",
-  "Formal Pants",
-  "Casual T-Shirts",
-  "Cargo Pants",
-  "Shorts",
-  "Sweat T-Shirts",
-  "Jackets",
-  "Accessories"
-];
 
 // The client wants the department filter in age order — Toddlers → Kids → Teens —
 // not the DB's alphabetical order (Kids, Teens, Toddlers). Rank the known kid
@@ -98,6 +65,9 @@ function ProductsContent() {
   const [categories, setCategories] = useState<string[]>(['All']);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  // Set when the load gave up rather than failed — the page offers Retry
+  // instead of spinning forever.
+  const [loadError, setLoadError] = useState(false);
 
   const categoryRailRef = useRef<HTMLDivElement>(null);
   const activeBubbleRef = useRef<HTMLButtonElement>(null);
@@ -120,33 +90,62 @@ function ProductsContent() {
   }, [searchParams]);
 
   // Load products, categories, and departments
-  useEffect(() => {
-    Promise.all([
-      fetchProducts(),
-      fetchCategories(),
-      fetchDepartments()
-    ]).then(([prodData, catData, deptData]) => {
+  const loadData = useCallback(async () => {
+    try {
+      const [prodData, catData, deptData] = await withTimeout(
+        Promise.all([fetchProducts(), fetchCategories(), fetchDepartments()]),
+      );
       setProducts(prodData);
-
-      setCategories(['All', ...HARDCODED_MENS_CATEGORIES]);
-
+      setCategories(['All', ...catData.filter(c => c.isActive).map(c => c.name)]);
       setDepartments(deptData.filter(d => d.isActive));
-      setLoading(false);
-    }).catch(async (err) => {
+      setLoadError(false);
+    } catch (err) {
+      // Nothing came back at all. Retrying here would mean another full wait,
+      // so hand it to the shopper as a Retry button instead.
+      if (isTimeout(err)) {
+        console.error('Collection load timed out.', err);
+        setLoadError(true);
+        return;
+      }
+
       console.error("Failed to load taxonomy, falling back to products only.", err);
-      const prodData = await fetchProducts().catch(() => []);
+      let prodData: Product[] = [];
+      try {
+        prodData = await withTimeout(fetchProducts());
+      } catch (retryErr) {
+        console.error('Products load failed too.', retryErr);
+        setLoadError(true);
+        return;
+      }
       setProducts(prodData);
 
-      setCategories(['All', ...HARDCODED_MENS_CATEGORIES]);
+      // Taxonomy is what failed, so fall back to the categories the loaded
+      // products actually carry rather than to a fixed list.
+      setCategories(['All', ...Array.from(new Set(prodData.map(p => p.category).filter(Boolean)))]);
       setDepartments([
         { name: 'Men', isActive: true }, 
         { name: 'Women', isActive: true },
         { name: 'Kids', isActive: true }, 
         { name: 'Unisex', isActive: true },
       ]);
+    } finally {
       setLoading(false);
-    });
+    }
   }, []);
+
+  useEffect(() => {
+    // loadData's first statement is an await, so nothing is set synchronously
+    // here — not the cascading-render pattern the rule guards against, and the
+    // lint can't see through the call.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData();
+  }, [loadData]);
+
+  const retryLoad = () => {
+    setLoadError(false);
+    setLoading(true);
+    loadData();
+  };
 
   // Smoothly center the active category bubble on mobile/desktop
   useEffect(() => {
@@ -264,32 +263,6 @@ function productMatchesCategory(p: Product, catName: string): boolean {
   return pCat.includes(c) || c.includes(pCat);
 }
 
-  // These three never had a good white-background catalogue thumbnail (the old
-  // local files were beige studio mockups). Instead of a hardcoded image, pull
-  // the REAL product photo from the live catalogue — those are clean white-bg
-  // studio shots — and only fall back to the local tile if the catalogue has no
-  // matching item.
-  const PREFER_PRODUCT_PHOTO = new Set(['All', 'Over Sized T-Shirts', 'Hoodies']);
-
-  // Dynamic image lookup for category bubbles
-  const getCategoryPhoto = (catName: string): string => {
-    if (PREFER_PRODUCT_PHOTO.has(catName)) {
-      const match = catName === 'All'
-        ? products[0]
-        : products.find(p => productMatchesCategory(p, catName));
-      const img = match?.images?.find(i => i.isPrimary)?.url || match?.images?.[0]?.url || match?.image;
-      if (img) return img;
-      return CATEGORY_DEFAULT_IMAGES[catName] || CATEGORY_DEFAULT_IMAGES.All;
-    }
-    // Force use of the explicitly defined catalogue image if one exists
-    if (CATEGORY_DEFAULT_IMAGES[catName] && CATEGORY_DEFAULT_IMAGES[catName].startsWith('/categories/')) {
-      return CATEGORY_DEFAULT_IMAGES[catName];
-    }
-    const match = products.find(p => productMatchesCategory(p, catName));
-    const matchImg = match?.images?.find(i => i.isPrimary)?.url || match?.images?.[0]?.url || match?.image;
-    return matchImg || CATEGORY_DEFAULT_IMAGES[catName] || CATEGORY_DEFAULT_IMAGES.All;
-  };
-
   // Departments in the client's requested age order for the filter tabs/drawer.
   const orderedDepartments = useMemo(
     () => [...departments].sort((a, b) => departmentRank(a) - departmentRank(b) || a.name.localeCompare(b.name)),
@@ -395,66 +368,38 @@ function productMatchesCategory(p: Product, catName: string): boolean {
           </motion.h1>
         </div>
 
-        {/* 1. Visual Category Rail (Mobile Story Avatars) */}
+        {/* 1. Category rail — word chips, not photos. The old version showed a
+            circular image per category pulled from a hardcoded menswear list, so
+            a kidswear store rendered ten irrelevant tiles all reading "0". These
+            are the live categories from the Taxonomy screen (active ones only). */}
         <div className="mb-6 sm:mb-8">
           <div
             ref={categoryRailRef}
-            className="-mx-4 px-4 sm:-mx-2 sm:px-2 flex items-start gap-3 sm:gap-6 overflow-x-auto no-scrollbar scroll-smooth scroll-pl-4 sm:scroll-pl-2 py-3 touch-pan-x"
+            className="-mx-4 px-4 sm:-mx-2 sm:px-2 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth scroll-pl-4 sm:scroll-pl-2 py-2 touch-pan-x"
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {categories.map(cat => {
               const isSelected = categoryFilter.toLowerCase() === cat.toLowerCase();
-              const photo = getCategoryPhoto(cat);
               const count = categoryCounts[cat] ?? 0;
-              const hasNoItems = count === 0 && cat !== 'All';
+              const isEmpty = count === 0 && cat !== 'All';
 
               return (
                 <button
                   key={cat}
                   ref={isSelected ? activeBubbleRef : null}
                   onClick={() => handleCategoryChange(cat)}
-                  className="flex flex-col items-center shrink-0 group cursor-pointer focus:outline-none"
+                  className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-[#F5F2EB] ${
+                    isSelected
+                      ? 'border-neutral-900 bg-neutral-900 text-white shadow-sm'
+                      : isEmpty
+                        ? 'border-black/[0.08] bg-transparent text-neutral-400 hover:border-black/20 hover:text-neutral-600'
+                        : 'border-black/[0.1] bg-white text-neutral-700 hover:border-neutral-900 hover:text-black'
+                  }`}
                 >
-                  {/* Circular visual avatar */}
-                  <div className={`relative w-14 h-14 sm:w-20 sm:h-20 rounded-full p-0.5 transition-all duration-300 ${
-                    isSelected 
-                      ? 'ring-2 ring-black ring-offset-2 ring-offset-[#F5F2EB] scale-105 shadow-md' 
-                      : hasNoItems 
-                        ? 'opacity-40 hover:opacity-80' 
-                        : 'hover:scale-105'
+                  <span className="whitespace-nowrap">{cat}</span>
+                  <span className={`font-mono text-[9px] tabular-nums ${
+                    isSelected ? 'text-white/60' : 'text-neutral-400'
                   }`}>
-                    <div className="relative w-full h-full rounded-full overflow-hidden bg-white border border-black/10 shadow-2xs">
-                      {/* Local catalogue photos are multi-MB source files rendered into an
-                          ~80px circle — optimise those via next/image. Remote/data URLs
-                          (product uploads) fall back to a plain <img> to avoid any
-                          remote-domain configuration. */}
-                      {photo.startsWith('/') ? (
-                        <Image
-                          src={photo}
-                          alt={cat}
-                          fill
-                          sizes="80px"
-                          className="object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
-                        />
-                      ) : (
-                        <img
-                          src={optimizedSrc(photo, 256)}
-                          alt={cat}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Label & live item count */}
-                  <span className={`text-[10px] sm:text-xs uppercase tracking-wider mt-1.5 sm:mt-2 transition-colors max-w-[70px] sm:max-w-none text-center truncate sm:whitespace-nowrap ${
-                    isSelected 
-                      ? 'font-bold text-black' 
-                      : 'font-medium text-neutral-500 group-hover:text-black'
-                  }`}>
-                    {cat}
-                  </span>
-                  <span className="text-[9px] font-mono text-neutral-400 -mt-0.5">
                     {count}
                   </span>
                 </button>
@@ -611,6 +556,24 @@ function productMatchesCategory(p: Product, catName: string): boolean {
               Loading Collection
             </span>
           </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center gap-4 py-24 px-4 text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-full bg-black/5 text-neutral-400">
+              <RotateCcw className="h-6 w-6" />
+            </div>
+            <h3 className="text-xl font-bold uppercase tracking-tight text-neutral-900">
+              Couldn&apos;t load the collection
+            </h3>
+            <p className="max-w-sm text-xs leading-relaxed text-neutral-500">
+              Check your internet connection and try again.
+            </p>
+            <button
+              onClick={retryLoad}
+              className="mt-1 flex items-center gap-2 rounded-full bg-black px-7 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-md transition-all hover:bg-neutral-800 active:scale-95"
+            >
+              Retry
+            </button>
+          </div>
         ) : (
           <>
             {filteredProducts.length === 0 ? (
@@ -652,7 +615,9 @@ function productMatchesCategory(p: Product, catName: string): boolean {
                       id={p.id}
                       title={p.name}
                       category={p.department ? `${p.department} • ${p.category}` : p.category}
-                      price={p.price.toLocaleString('en-IN')}
+                      price={listingPrice(p.price, p.variants).price}
+                      priceFrom={listingPrice(p.price, p.variants).from}
+                      originalPrice={p.originalPrice}
                       isNew={p.isNew}
                       discount={p.discountLabel}
                       image={primaryImg}

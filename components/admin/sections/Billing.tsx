@@ -32,8 +32,8 @@ const variantLabel = (v: ProductVariant) => {
 
 // Only variants the admin hasn't disabled count toward what a cashier can sell.
 const sellableVariants = (p: Product) => (p.variants || []).filter((v) => v.isAvailable !== false);
-// Total stock across all sellable variants — NOT just the first variant, which
-// is what product.stock happens to carry.
+// Total stock across all SELLABLE variants. Narrower than product.stock, which
+// sums every variant including ones the admin has disabled.
 const totalStock = (p: Product) => sellableVariants(p).reduce((sum, v) => sum + (v.stock || 0), 0);
 // A product with no variants is a legacy/simple product billed at its base
 // price with untracked stock — always sellable. Otherwise it's sellable only
@@ -111,6 +111,17 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
   };
 
   const validLines = lines.filter((l) => l.name.trim() && l.price > 0);
+  // How many of a billed line are actually in stock, straight from Inventory.
+  // Only variant-backed lines have a real number: a free-form line (no
+  // productId) is a miscellaneous charge, and a legacy product with no
+  // variants has untracked stock. Both return null and stay uncapped.
+  const stockForLine = (l: Line): number | null => {
+    if (!l.variantId) return null;
+    const product = products.find((p) => p.id === l.productId);
+    const variant = product?.variants?.find((v) => v.id === l.variantId);
+    return variant ? (variant.stock ?? 0) : null;
+  };
+
   const subtotal = validLines.reduce((a, l) => a + l.price * l.qty, 0);
   const itemCount = validLines.reduce((a, l) => a + l.qty, 0);
 
@@ -150,9 +161,18 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
     const color = (variant.colorName || '').trim();
     const label = size || color ? `${product.name} (${variantLabel(variant)})` : product.name;
     setLines((prev) => {
-      // Merge onto an existing line for the exact same variant.
+      // Merge onto an existing line for the exact same variant, but never past
+      // what Inventory holds — scanning the same item twice used to walk the
+      // quantity straight past the stock.
       const existing = prev.find((l) => l.variantId && l.variantId === variant.id);
-      if (existing) return prev.map((l) => (l.key === existing.key ? { ...l, qty: l.qty + 1 } : l));
+      if (existing) {
+        const available = variant.stock ?? 0;
+        if (existing.qty >= available) {
+          flash(`Only ${available} of ${label} in stock.`);
+          return prev;
+        }
+        return prev.map((l) => (l.key === existing.key ? { ...l, qty: l.qty + 1 } : l));
+      }
       const filled: Line = {
         key: keySeq++,
         name: label,
@@ -402,15 +422,38 @@ export default function Billing({ go }: { go?: (k: string) => void }) {
                       placeholder="Price ₹"
                       inputMode="numeric"
                     />
-                    <div className="flex shrink-0 items-center rounded-xl border border-black/[0.09]">
-                      <button onClick={() => setLine(l.key, { qty: Math.max(1, l.qty - 1) })} className="grid h-8 w-8 place-items-center text-neutral-500 hover:text-black sm:h-9 sm:w-9">
-                        <Minus className="h-3.5 w-3.5" />
-                      </button>
-                      <span className="w-7 text-center text-sm font-bold sm:w-8">{l.qty}</span>
-                      <button onClick={() => setLine(l.key, { qty: l.qty + 1 })} className="grid h-8 w-8 place-items-center text-neutral-500 hover:text-black sm:h-9 sm:w-9">
-                        <Plus className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    {(() => {
+                      const available = stockForLine(l);
+                      const atCeiling = available !== null && l.qty >= available;
+                      return (
+                        <div className="flex shrink-0 flex-col items-center gap-0.5">
+                          <div className={`flex items-center rounded-xl border ${available !== null && l.qty > available ? 'border-red-300 bg-red-50' : 'border-black/[0.09]'}`}>
+                            <button
+                              onClick={() => setLine(l.key, { qty: Math.max(1, l.qty - 1) })}
+                              disabled={l.qty <= 1}
+                              className="grid h-8 w-8 place-items-center text-neutral-500 hover:text-black disabled:cursor-not-allowed disabled:opacity-30 sm:h-9 sm:w-9"
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </button>
+                            <span className="w-7 text-center text-sm font-bold sm:w-8">{l.qty}</span>
+                            {/* Never bill more of a size than Inventory holds. */}
+                            <button
+                              onClick={() => setLine(l.key, { qty: available === null ? l.qty + 1 : Math.min(l.qty + 1, available) })}
+                              disabled={atCeiling}
+                              title={atCeiling ? `Only ${available} in stock` : undefined}
+                              className="grid h-8 w-8 place-items-center text-neutral-500 hover:text-black disabled:cursor-not-allowed disabled:opacity-30 sm:h-9 sm:w-9"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          {available !== null && (
+                            <span className={`text-[9px] font-bold uppercase tracking-wider ${atCeiling ? 'text-amber-600' : 'text-neutral-400'}`}>
+                              {available} left
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <button
                       onClick={() => setLines((p) => (p.length > 1 ? p.filter((x) => x.key !== l.key) : [newLine()]))}
                       className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-red-500 hover:bg-red-50 sm:h-9 sm:w-9"
