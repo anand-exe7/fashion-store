@@ -4,6 +4,7 @@ import { Star, Check, EyeOff, Trash2, ImagePlus, X, Search } from 'lucide-react'
 import { useAdminData } from '@/lib/store';
 import { fetchAllReviews, updateReview, deleteReview, type Review } from '@/lib/db';
 import { Card, EmptyState, Modal, ModalHeader, Toast } from '../ui';
+import { optimizedSrc } from '@/lib/image';
 
 // A flat, de-duplicated list of every product image, for the "attach image" picker.
 function useProductImages() {
@@ -119,7 +120,7 @@ export default function Reviews() {
             <Card key={r.id} className="flex flex-col overflow-hidden">
               <div className="flex gap-3 p-4">
                 {r.imageUrl ? (
-                  <img src={r.imageUrl} alt="" className="h-20 w-16 shrink-0 rounded-lg object-cover ring-1 ring-black/10" />
+                  <img src={optimizedSrc(r.imageUrl, 256)} alt="" loading="lazy" className="h-20 w-16 shrink-0 rounded-lg object-cover ring-1 ring-black/10" />
                 ) : (
                   <div className="grid h-20 w-16 shrink-0 place-items-center rounded-lg bg-neutral-100 text-neutral-300 ring-1 ring-black/10">
                     <ImagePlus className="h-5 w-5" />
@@ -243,7 +244,7 @@ export default function Reviews() {
                       className="group relative aspect-[4/5] overflow-hidden rounded-lg ring-1 ring-black/10 hover:ring-2 hover:ring-neutral-900"
                       title={img.product}
                     >
-                      <img src={img.url} alt={img.product} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                      <img src={optimizedSrc(img.url, 256)} alt={img.product} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
                     </button>
                   ))}
                 </div>

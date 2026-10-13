@@ -26,6 +26,7 @@ export const BestSellers = ({ products }: { products?: any[] }) => {
   // the old selection, so the row never silently empties.
   const chosen = picked.length > 0 ? picked : all.filter(p => !p.isNew);
 
+  // The row is laid out for 4 cards, so cap it however the list was chosen.
   const displayProducts = chosen
     .slice(0, 4)
     .map(p => ({

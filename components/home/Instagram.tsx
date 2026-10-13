@@ -38,22 +38,46 @@ const VideoReel = ({ src, href, index }: { src: string; href: string; index: num
   const videoRef = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(true);
   const [failed, setFailed] = useState(false);
+  // The video file is only requested once the reel nears the viewport, so
+  // visitors who never scroll to it don't download up to 3 videos (egress).
+  const [near, setNear] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const inView = useRef(false);
 
-  // React can drop the `muted` attribute, which browsers require for autoplay.
-  // Force it on the element and kick off playback once mounted.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    v.muted = true;
-    const p = v.play();
-    if (p && typeof p.catch === 'function') p.catch(() => {});
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        inView.current = entry.isIntersecting;
+        setVisible(entry.isIntersecting);
+        if (entry.isIntersecting) setNear(true);
+      },
+      { rootMargin: '200px' },
+    );
+    io.observe(v);
+    return () => io.disconnect();
   }, []);
 
-  // Always-playing: if anything pauses the video (tab throttle, OS power saving),
-  // resume it immediately.
+  // Runs after `src` has been attached (near flips true first), so play() has a source.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !near) return;
+    if (visible) {
+      // React can drop the `muted` attribute, which browsers require for autoplay.
+      v.muted = muted;
+      v.play().catch(() => {});
+    } else {
+      v.pause(); // stop streaming while off-screen
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, near]);
+
+  // Keep playing while visible: if anything pauses the video (tab throttle, OS
+  // power saving), resume it. Off-screen pauses are intentional.
   const keepPlaying = () => {
     const v = videoRef.current;
-    if (v) v.play().catch(() => {});
+    if (v && inView.current) v.play().catch(() => {});
   };
 
   // Tap the video to toggle sound (it never pauses).
@@ -88,12 +112,12 @@ const VideoReel = ({ src, href, index }: { src: string; href: string; index: num
         <>
           <video
             ref={videoRef}
-            src={src}
+            src={near ? src : undefined}
             autoPlay
             loop
             muted
             playsInline
-            preload="metadata"
+            preload="none"
             suppressHydrationWarning
             onClick={toggleMute}
             onPause={keepPlaying}

@@ -105,13 +105,23 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 
   const images = (product?.images && product.images.length > 0) ? product.images.map(img => typeof img === 'string' ? img : img.url) : (product?.image ? [product.image] : []);
 
+  const [cycle, setCycle] = useState(0);
   useEffect(() => {
     if (images.length <= 1) return;
-    const timer = setInterval(() => {
-      setActiveImage((prev) => (prev + 1) % images.length);
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [images.length]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // A hidden tab shouldn't keep loading new 1080px slides in the background:
+    // no timer runs while hidden, and coming back restarts the 4s cycle and the
+    // thumbnail progress bar together so the two stay in sync.
+    const start = () => {
+      clearTimeout(timer);
+      if (document.hidden) return;
+      setCycle((c) => c + 1);
+      timer = setTimeout(() => setActiveImage((prev) => (prev + 1) % images.length), 4000);
+    };
+    start();
+    document.addEventListener('visibilitychange', start);
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', start); };
+  }, [images.length, activeImage]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   // Removed useScroll here to fix "Target ref is defined but not hydrated" error during loading states
@@ -275,10 +285,10 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                   onClick={() => setActiveImage(idx)}
                   className={`relative w-20 h-24 md:w-full md:h-32 flex-shrink-0 rounded-lg overflow-hidden transition-all duration-300 ${activeImage === idx ? 'ring-1 ring-neutral-900 opacity-100 scale-105 shadow-md' : 'opacity-50 hover:opacity-100'}`}
                 >
-                  <img src={optimizedSrc(img, 256)} className="w-full h-full object-cover" alt={`Thumbnail ${idx}`} />
+                  <img src={optimizedSrc(img, 256)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt={`Thumbnail ${idx}`} />
                   {activeImage === idx && (
                     <motion.div 
-                      key={`progress-${idx}`}
+                      key={`progress-${idx}-${cycle}`}
                       initial={{ width: 0 }}
                       animate={{ width: "100%" }}
                       transition={{ duration: 4, ease: "linear" }}
@@ -594,7 +604,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 onClick={() => window.location.href = `/product/${prod.id}`}
               >
                 <div className="aspect-[3/4] bg-white/50 rounded-xl mb-5 overflow-hidden relative border border-black/5 shadow-sm group-hover:shadow-lg transition-shadow duration-500">
-                  <img src={optimizedSrc((typeof prod.images?.[0] === 'string' ? prod.images[0] : prod.images?.[0]?.url) || prod.image || '', 640)} alt={prod.name} className="w-full h-full object-cover group-hover:scale-105 opacity-90 group-hover:opacity-100 transition-all duration-1000 ease-out" />
+                  <img src={optimizedSrc((typeof prod.images?.[0] === 'string' ? prod.images[0] : prod.images?.[0]?.url) || prod.image || '', 640)} alt={prod.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 opacity-90 group-hover:opacity-100 transition-all duration-1000 ease-out" />
                   <div className="absolute bottom-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <span className="bg-black text-white text-[9px] uppercase tracking-widest font-bold px-3 py-1.5 rounded-full shadow-lg">View</span>
                   </div>

@@ -1085,19 +1085,20 @@ export const fetchAllReels = async (): Promise<Reel[]> => {
   return (data || []).map(mapReel);
 };
 
-export const MAX_REEL_BYTES = 20 * 1024 * 1024; // 20 MB
+// Reels autoplay for every visitor, so size is direct Storage egress.
+export const MAX_REEL_BYTES = 7 * 1024 * 1024; // 7 MB
 
 // Uploads a video file to the 'reels' storage bucket and records it. When
 // `sortOrder` is given (e.g. replacing a reel), the new row takes that exact
 // slot position instead of being appended at the end.
 export const addReel = async (file: File, href?: string, sortOrder?: number) => {
   if (file.size > MAX_REEL_BYTES) {
-    throw new Error('Video is larger than 20 MB. Please upload a smaller file.');
+    throw new Error(`Video is larger than ${MAX_REEL_BYTES / (1024 * 1024)} MB. Please compress it (720p) and upload a smaller file.`);
   }
   const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
   const path = `reel_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error: upErr } = await supabase.storage.from('reels').upload(path, file, {
-    cacheControl: '3600',
+    cacheControl: '31536000', // unique filename per upload, so safe to cache for a year
     contentType: file.type || 'video/mp4',
     upsert: false,
   });

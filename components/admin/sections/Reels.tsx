@@ -68,7 +68,7 @@ export default function Reels() {
       return;
     }
     if (file.size > MAX_REEL_BYTES) {
-      flash(`That video is ${(file.size / MB).toFixed(1)} MB — the limit is 20 MB.`);
+      flash(`That video is ${(file.size / MB).toFixed(1)} MB — the limit is ${MAX_REEL_BYTES / MB} MB.`);
       return;
     }
 
@@ -120,7 +120,7 @@ export default function Reels() {
       <div>
         <h2 className="text-xl font-bold tracking-tight text-neutral-900 sm:text-2xl">Instagram Reels</h2>
         <p className="text-xs text-neutral-500 sm:text-sm">
-          Three slots feed the reels on the home page. Replacing a reel deletes the old video from storage. Max 20 MB each.
+          Three slots feed the reels on the home page. Replacing a reel deletes the old video from storage. Max {MAX_REEL_BYTES / MB} MB each (compress to 720p first).
         </p>
       </div>
 

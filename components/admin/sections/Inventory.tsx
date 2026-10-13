@@ -16,7 +16,7 @@ import {
 } from '@/lib/store';
 import { Card, Modal, ModalHeader, EmptyState, Field, inputCls, AgeRangeInput } from '../ui';
 import { formatAgeRange, DEFAULT_LOW_STOCK } from '@/lib/db';
-import { compressImage } from '@/lib/image';
+import { compressImage, optimizedSrc, MAX_PRODUCT_IMAGE_BYTES } from '@/lib/image';
 
 function playAlert() {
   try {
@@ -50,7 +50,7 @@ const statusOf = (p: Product) => (p.stock <= 0 ? 'out' : p.stock <= p.lowStock ?
 function ProductImg({ product, className }: { product: Product; className?: string }) {
   const [err, setErr] = useState(false);
   if (product.image && !err) {
-    return <img src={product.image} alt={product.name} onError={() => setErr(true)} className={`object-cover ${className}`} />;
+    return <img src={optimizedSrc(product.image, 256)} alt={product.name} loading="lazy" onError={() => setErr(true)} className={`object-cover ${className}`} />;
   }
   return (
     <div className={`grid place-items-center bg-black/[0.05] text-sm font-bold text-neutral-500 ${className}`}>
@@ -498,14 +498,19 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
       const supabase = createClient();
       
       const newUrls: string[] = [];
+      const tooBig: string[] = [];
       for (const original of files) {
         // Shrink big photos first so the storefront never serves multi-MB images.
         const f = await compressImage(original);
+        if (f.size > MAX_PRODUCT_IMAGE_BYTES) {
+          tooBig.push(f === original ? `${original.name} (${(f.size / 1024).toFixed(0)} KB, couldn't be compressed — unsupported format)` : `${original.name} (${(f.size / 1024).toFixed(0)} KB after compression)`);
+          continue;
+        }
         const ext = f.name.split('.').pop() || 'jpg';
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${ext}`;
         const filePath = `products/${fileName}`;
         
-        const { error } = await supabase.storage.from('images').upload(filePath, f);
+        const { error } = await supabase.storage.from('images').upload(filePath, f, { cacheControl: '31536000', upsert: false });
         if (error) {
           alert(`Upload failed for ${original.name}. Make sure you have created an 'images' bucket in Supabase and made it public.`);
           console.error(error);
@@ -516,6 +521,9 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
         newUrls.push(publicUrl);
       }
       
+      if (tooBig.length > 0) {
+        alert(`Skipped — over the ${MAX_PRODUCT_IMAGE_BYTES / 1024} KB limit: ${tooBig.join('; ')}. Please use smaller images (JPG/PNG/WebP).`);
+      }
       setImages(prev => [...prev, ...newUrls]);
     } finally {
       setUploading(false);
@@ -631,7 +639,7 @@ function ProductForm({ state, onClose }: { state: { open: boolean; product: Prod
                 {images.map((url, i) => (
                   <div key={i} className={`group relative h-20 w-20 overflow-hidden rounded-xl border ${i === 0 ? 'border-neutral-900 shadow-sm' : 'border-black/[0.08]'} bg-black/[0.04]`}>
                     {i === 0 && <div className="absolute top-0 left-0 right-0 bg-neutral-900/80 px-1 py-0.5 text-center text-[8px] font-bold uppercase text-white backdrop-blur-sm z-10">Primary</div>}
-                    <img src={url} alt={`Preview ${i}`} className="h-full w-full object-cover" />
+                    <img src={optimizedSrc(url, 256)} alt={`Preview ${i}`} loading="lazy" className="h-full w-full object-cover" />
                     <button onClick={() => setImages(images.filter((_, idx) => idx !== i))} className="absolute inset-0 z-20 grid place-items-center bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/70"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 ))}

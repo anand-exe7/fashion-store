@@ -13,11 +13,15 @@ export function optimizedSrc(url: string | null | undefined, width: number): str
   return `/_next/image?url=${encodeURIComponent(url)}&w=${width}&q=75`;
 }
 
-// Shrinks a photo in the browser before upload: caps the long edge at 1600px and
-// re-encodes as WebP, so new product uploads are ~100–300 KB instead of multi-MB.
-// Falls back to the original file if anything goes wrong (or it isn't a raster
-// image), so an upload is never blocked by compression.
-export async function compressImage(file: File, maxEdge = 1600, quality = 0.85): Promise<File> {
+// Largest product photo we accept after compression. Every byte is Storage egress.
+export const MAX_PRODUCT_IMAGE_BYTES = 1024 * 1024; // 1 MB
+
+// Shrinks a photo in the browser before upload: caps the long edge at 1200px (the
+// storefront never shows wider than 1080px) and re-encodes as WebP, so new
+// product uploads are ~50–200 KB instead of multi-MB. Falls back to the original
+// file if anything goes wrong (or it isn't a raster image); callers should check
+// the result against MAX_PRODUCT_IMAGE_BYTES.
+export async function compressImage(file: File, maxEdge = 1200, quality = 0.8): Promise<File> {
   if (typeof document === 'undefined' || !file.type.startsWith('image/') || file.type === 'image/gif') return file;
   try {
     const bitmap = await createImageBitmap(file);
