@@ -1,9 +1,11 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, ChevronDown } from 'lucide-react';
 import { Card, EmptyState } from '../ui';
 import { createClient } from '@/lib/supabase/client';
 import { showToast } from '@/lib/store';
+
+const USERS_PAGE = 25;
 
 type Profile = {
   id: string;
@@ -29,17 +31,53 @@ const ROLE_OPTIONS: { value: string; label: string }[] = [
 export default function Users() {
   const [query, setQuery] = useState('');
   const [users, setUsers] = useState<Profile[]>([]);
-  const supabase = createClient();
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const supabase = useMemo(() => createClient(), []);
 
-  useEffect(() => {
-    async function fetchUsers() {
-      const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-      if (!error && data) {
-        setUsers(data);
-      }
+  // Server-side paging + search: only one page of profiles leaves the database
+  // at a time, instead of every account on every visit.
+  // Only the latest request may write results; older ones are dropped.
+  const reqId = useRef(0);
+  // The search term the visible list was loaded with ("Load more" must reuse it,
+  // not the live input, which may be ahead of the debounce).
+  const loadedTerm = useRef('');
+  const loadPage = async (offset: number, term: string) => {
+    const id = ++reqId.current;
+    setLoading(true);
+    let q = supabase
+      .from('profiles')
+      .select('id, name, email, role, created_at')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + USERS_PAGE - 1);
+    // Strip characters that would break PostgREST's or() filter syntax.
+    const safe = term.replace(/[,()%*\\]/g, ' ').trim();
+    if (safe) q = q.or(`name.ilike.%${safe}%,email.ilike.%${safe}%,role.ilike.%${safe}%`);
+    const { data, error } = await q;
+    if (id !== reqId.current) return;
+    setLoading(false);
+    if (error || !data) {
+      console.error('Failed to load users:', error);
+      showToast("Couldn't load users.");
+      if (offset === 0) { setUsers([]); setHasMore(false); }
+      return;
     }
-    fetchUsers();
-  }, []);
+    loadedTerm.current = term;
+    // De-dupe by id: with offset paging, rows inserted meanwhile shift the window.
+    setUsers((prev) => {
+      if (offset === 0) return data;
+      const seen = new Set(prev.map((p) => p.id));
+      return [...prev, ...data.filter((d) => !seen.has(d.id))];
+    });
+    setHasMore(data.length === USERS_PAGE);
+  };
+
+  // Debounced so typing a name doesn't fire a query per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => { loadPage(0, query); }, query ? 300 : 0);
+    return () => { clearTimeout(t); reqId.current++; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
   // Pick a role straight from the dropdown — no multi-click cycling or confirm.
   const setRole = async (user: Profile, newRole: string) => {
@@ -57,11 +95,6 @@ export default function Users() {
       showToast('Could not update role — admin access required.');
     }
   };
-
-  const list = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return users.filter((u) => !q || (u.name || '').toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.role.toLowerCase().includes(q));
-  }, [query, users]);
 
   return (
     <div className="space-y-5">
@@ -88,7 +121,7 @@ export default function Users() {
               </tr>
             </thead>
             <tbody>
-              {list.map((u) => (
+              {users.map((u) => (
                 <tr key={u.id} className="border-t border-black/[0.05]">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
@@ -122,7 +155,18 @@ export default function Users() {
             </tbody>
           </table>
         </div>
-        {list.length === 0 && <EmptyState message="No users found." />}
+        {users.length === 0 && !loading && <EmptyState message="No users found." />}
+        {hasMore && (
+          <div className="border-t border-black/[0.05] p-3">
+            <button
+              onClick={() => loadPage(users.length, loadedTerm.current)}
+              disabled={loading}
+              className="w-full rounded-xl border border-black/[0.09] bg-white py-2.5 text-sm font-bold text-neutral-700 hover:bg-black/[0.03] disabled:opacity-50"
+            >
+              {loading ? 'Loading…' : 'Load more'}
+            </button>
+          </div>
+        )}
       </Card>
     </div>
   );

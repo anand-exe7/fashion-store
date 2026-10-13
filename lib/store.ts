@@ -127,19 +127,37 @@ function notify() {
   for (const l of listeners) l();
 }
 
-async function refreshAll() {
-  if (isFetching) return;
+// Which slices of the store a refresh re-downloads. Every write used to reload
+// ALL of them (every order with its items, the whole catalogue, coupons,
+// taxonomy) — so a single stock tweak re-pulled the entire orders table. Callers
+// now name just what they changed; the initial load still fetches everything.
+type Scope = 'orders' | 'products' | 'coupons' | 'taxonomy';
+const ALL_SCOPES: Scope[] = ['orders', 'products', 'coupons', 'taxonomy'];
+
+// Scopes requested while a fetch was already running. They're re-fetched when it
+// ends rather than dropped, since that fetch may have read data from before the
+// write that asked for the refresh.
+const pendingScopes = new Set<Scope>();
+// Callers that asked for a refresh mid-fetch; resolved once the follow-up fetch lands.
+let pendingWaiters: Array<() => void> = [];
+
+async function refreshAll(scopes: Scope[] = ALL_SCOPES): Promise<void> {
+  if (isFetching) {
+    scopes.forEach(s => pendingScopes.add(s));
+    return new Promise<void>(resolve => { pendingWaiters.push(resolve); });
+  }
   isFetching = true;
+  const want = new Set(scopes);
   try {
     const [dbOrders, dbProducts, dbCoupons, dbCategories, dbDepartments] = await Promise.all([
-      db.fetchOrders(),
-      db.fetchProducts(),
-      db.fetchCoupons(),
-      db.fetchCategories(),
-      db.fetchDepartments(),
+      want.has('orders') ? db.fetchOrders() : null,
+      want.has('products') ? db.fetchProducts() : null,
+      want.has('coupons') ? db.fetchCoupons() : null,
+      want.has('taxonomy') ? db.fetchCategories() : null,
+      want.has('taxonomy') ? db.fetchDepartments() : null,
     ]);
-    
-    const mappedOrders: Order[] = dbOrders.map(o => ({
+
+    const mappedOrders: Order[] | null = dbOrders && dbOrders.map(o => ({
       id: o.id,
       customer: o.customerName || 'Walk-in Customer',
       phone: o.customerPhone || '',
@@ -166,7 +184,7 @@ async function refreshAll() {
       status: o.status as OrderStatus
     }));
 
-    const mappedProducts: Product[] = dbProducts.map(p => {
+    const mappedProducts: Product[] | null = dbProducts && dbProducts.map(p => {
       return {
         id: p.id,
         name: p.name,
@@ -201,7 +219,7 @@ async function refreshAll() {
       };
     });
 
-    const mappedCoupons: Coupon[] = dbCoupons.map(c => ({
+    const mappedCoupons: Coupon[] | null = dbCoupons && dbCoupons.map(c => ({
       code: c.code,
       discountPct: c.discountPct,
       minOrder: c.minOrder,
@@ -210,18 +228,26 @@ async function refreshAll() {
       used: c.used
     }));
 
-    globalState = { 
-      orders: mappedOrders, 
-      products: mappedProducts, 
-      coupons: mappedCoupons,
-      categories: dbCategories,
-      departments: dbDepartments
+    // Only the slices that were fetched are replaced; the rest keep their state.
+    globalState = {
+      orders: mappedOrders ?? globalState.orders,
+      products: mappedProducts ?? globalState.products,
+      coupons: mappedCoupons ?? globalState.coupons,
+      categories: dbCategories ?? globalState.categories,
+      departments: dbDepartments ?? globalState.departments
     };
     notify();
   } catch (err) {
     console.error("Failed to load store data:", err);
   } finally {
     isFetching = false;
+    if (pendingScopes.size > 0) {
+      const next = [...pendingScopes];
+      pendingScopes.clear();
+      const waiters = pendingWaiters;
+      pendingWaiters = [];
+      refreshAll(next).finally(() => waiters.forEach(w => w()));
+    }
   }
 }
 
@@ -295,14 +321,15 @@ export async function addOrder(order: Order) {
     }
   }
 
-  refreshAll();
+  // A sale changes the order list, variant stock, and (if a coupon was used) its used-count.
+  refreshAll(['orders', 'products', 'coupons']);
 }
 
 export async function deleteOrder(id: string) {
   globalState = { ...globalState, orders: globalState.orders.filter(o => o.id !== id) };
   notify();
   await db.deleteOrder(id);
-  refreshAll();
+  refreshAll(['orders']); // deleting a bill only removes the order row; stock is not restored
 }
 
 // Advance an online order through its packing workflow (pending → packed → shipped).
@@ -318,7 +345,7 @@ export async function setFulfillment(id: string, fulfillmentStatus: FulfillmentS
     console.error('Failed to update fulfillment status:', err);
     showToast("Couldn't update packing status.");
   }
-  refreshAll();
+  refreshAll(['orders']);
 }
 
 export interface SaveResult {
@@ -362,7 +389,7 @@ export async function addProduct(p: Product): Promise<SaveResult> {
     return { ok: false, skipped: [], error: err instanceof Error ? err.message : 'Could not save the product.' };
   }
 
-  refreshAll();
+  refreshAll(['products', 'taxonomy']); // saving auto-creates a missing category
   return { ok: true, skipped: describeSkips(result.skipped) };
 }
 
@@ -434,7 +461,7 @@ export async function updateProduct(id: string, patch: Partial<Product>): Promis
     return { ok: false, skipped: [], error: err instanceof Error ? err.message : 'Could not save the product.' };
   }
 
-  refreshAll();
+  refreshAll(['products', 'taxonomy']); // saving auto-creates a missing category
   return { ok: true, skipped: describeSkips(result.skipped) };
 }
 
@@ -450,7 +477,7 @@ export async function deleteProduct(id: string) {
   globalState = { ...globalState, products: globalState.products.filter(p => p.id !== id) };
   notify();
   await db.deleteProduct(id);
-  refreshAll();
+  refreshAll(['products']);
 }
 
 // Restock/consume ONE variant. The old adjustStock(productId, delta) only ever
@@ -482,7 +509,7 @@ export async function adjustVariantStock(productId: string, variantId: string, d
     console.error(`Failed to adjust stock for variant ${variantId}:`, err);
     showToast("Couldn't update stock.");
   }
-  refreshAll();
+  refreshAll(['products']);
 }
 
 export async function addCoupon(c: Coupon) {
@@ -497,7 +524,7 @@ export async function addCoupon(c: Coupon) {
     used: c.used,
     isActive: true
   });
-  refreshAll();
+  refreshAll(['coupons']);
 }
 
 export async function updateCoupon(code: string, patch: Partial<Coupon>) {
@@ -510,28 +537,28 @@ export async function updateCoupon(code: string, patch: Partial<Coupon>) {
       isActive: true
     });
   }
-  refreshAll();
+  refreshAll(['coupons']);
 }
 
 export async function deleteCoupon(code: string) {
   globalState = { ...globalState, coupons: globalState.coupons.filter(c => c.code !== code) };
   notify();
   await db.deleteCoupon(code);
-  refreshAll();
+  refreshAll(['coupons']);
 }
 
 export async function updateCategory(name: string, isActive: boolean) {
   globalState = { ...globalState, categories: globalState.categories.map(c => c.name === name ? { ...c, isActive } : c) };
   notify();
   await db.updateCategory(name, isActive);
-  refreshAll();
+  refreshAll(['taxonomy']);
 }
 
 export async function updateDepartment(name: string, isActive: boolean) {
   globalState = { ...globalState, departments: globalState.departments.map(d => d.name === name ? { ...d, isActive } : d) };
   notify();
   await db.updateDepartment(name, isActive);
-  refreshAll();
+  refreshAll(['taxonomy']);
 }
 
 // Per-department debounce timers. The From/To age inputs are controlled and
@@ -553,7 +580,7 @@ export function updateDepartmentAgeRange(name: string, ageMinMonths: number | nu
     delete ageRangeSaveTimers[name];
     try {
       await db.updateDepartmentAgeRange(name, ageMinMonths, ageMaxMonths);
-      refreshAll();
+      refreshAll(['taxonomy']);
     } catch (err) {
       console.error(`Failed to save age range for ${name}:`, err);
       showToast(`Couldn't save age range for ${name}.`);
@@ -569,7 +596,7 @@ export async function deleteCategory(name: string) {
   } catch (e) {
     showToast("Cannot delete category currently in use.");
   }
-  refreshAll();
+  refreshAll(['taxonomy']);
 }
 
 export function resetDemo() {

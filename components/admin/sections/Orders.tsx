@@ -4,6 +4,8 @@ import { Search, Download, Trash2, ShoppingCart, ChevronDown, MessageCircle, Fil
 import { useAdminData, deleteOrder, setFulfillment, inr, type Order, type Source, type FulfillmentStatus } from '@/lib/store';
 import { Card, Modal, ModalHeader, EmptyState } from '../ui';
 
+const PAGE_SIZE = 20;
+
 type TypeFilter = 'all' | Source;
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -74,6 +76,11 @@ export default function Orders({ go }: { go?: (k: string) => void }) {
   const [sort, setSort] = useState<'newest' | 'oldest' | 'high' | 'low'>('newest');
   const [detail, setDetail] = useState<Order | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  // Render orders a page at a time; the count resets whenever the filters change.
+  const [shown, setShown] = useState(PAGE_SIZE);
+  const filterKey = [type, date, from, to, query, sort].join('|');
+  const [shownFor, setShownFor] = useState(filterKey);
+  if (shownFor !== filterKey) { setShownFor(filterKey); setShown(PAGE_SIZE); }
 
   // Online orders awaiting packing/shipping — surfaced in a queue at the top so
   // the shop never has to hunt for what needs processing.
@@ -237,9 +244,17 @@ export default function Orders({ go }: { go?: (k: string) => void }) {
         <Card><EmptyState message="No orders match your filters." /></Card>
       ) : (
         <div className="space-y-3">
-          {list.map((o) => (
+          {list.slice(0, shown).map((o) => (
             <OrderCard key={o.id} order={o} onDetail={() => setDetail(o)} onDelete={() => setConfirmId(o.id)} />
           ))}
+          {list.length > shown && (
+            <button
+              onClick={() => setShown((n) => n + PAGE_SIZE)}
+              className="w-full rounded-xl border border-black/[0.09] bg-white py-3 text-sm font-bold text-neutral-700 hover:bg-black/[0.03]"
+            >
+              Show more ({list.length - shown} remaining)
+            </button>
+          )}
         </div>
       )}
 
