@@ -1,16 +1,33 @@
 import type { Metadata } from 'next';
 import { cache } from 'react';
-import { fetchProductById } from '@/lib/db';
+import { getProductCached } from '@/lib/server/catalogue';
+import type { fetchProductById } from '@/lib/db';
 import { SITE_URL, SITE_NAME } from '@/lib/seo';
+import { optimizedSrc } from '@/lib/image';
 
 // The product page is a Client Component, so per-product SEO (dynamic title,
 // description, canonical, OG image and Product JSON-LD) lives here in the
 // Server Component layout. `cache` dedupes the Supabase read so generateMetadata
 // and the component below share one fetch per request.
-const getProduct = cache((id: string) => fetchProductById(id));
+// A transient failure must not be reported as "not found" (noindex) - treat it as unknown.
+const getProduct = cache(async (id: string) => {
+  try {
+    return { product: await getProductCached(id), failed: false };
+  } catch (err) {
+    console.error('product metadata load failed:', err);
+    return { product: null, failed: true };
+  }
+});
 
-const primaryImage = (p: NonNullable<Awaited<ReturnType<typeof fetchProductById>>>) =>
-  p.images?.find((i) => i.isPrimary)?.url || p.images?.[0]?.url || p.image || undefined;
+// Link previews and crawlers fetch this image, so point them at the resized,
+// cached copy (1200px is the standard OG width) instead of the multi-MB original
+// in Storage. Crawlers need an absolute URL.
+const primaryImage = (p: NonNullable<Awaited<ReturnType<typeof fetchProductById>>>) => {
+  const raw = p.images?.find((i) => i.isPrimary)?.url || p.images?.[0]?.url || p.image || undefined;
+  if (!raw) return undefined;
+  const src = optimizedSrc(raw, 1200);
+  return src.startsWith('/') ? `${SITE_URL}${src}` : src;
+};
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -19,8 +36,9 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const product = await getProduct(id);
+  const { product, failed } = await getProduct(id);
 
+  if (failed) return {};
   if (!product) {
     return { title: 'Product not found', robots: { index: false, follow: true } };
   }
@@ -54,7 +72,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductLayout({ params, children }: Props) {
   const { id } = await params;
-  const product = await getProduct(id);
+  const { product } = await getProduct(id);
 
   // Product + breadcrumb structured data for rich results. Skipped if the
   // product can't be loaded (the client page renders its own not-found state).

@@ -250,7 +250,11 @@ export const fetchProducts = async (ids?: string[]): Promise<Product[]> => {
     (ids ? supabase.from('product_variants').select('*').in('product_id', ids) : supabase.from('product_variants').select('*')).order('sort_order'),
   ]);
 
+  // A partial result (products without their variants/photos) would show every
+  // item as sold out or photo-less, and the shared cache would keep it for everyone.
   if (pError) throw pError;
+  if (iError) throw iError;
+  if (vError) throw vError;
 
   return (products || []).map((p: any) => ({
     id: p.id,
@@ -303,15 +307,20 @@ export const fetchProducts = async (ids?: string[]): Promise<Product[]> => {
 export const fetchProductById = async (id: string): Promise<Product | null> => {
   const [
     { data: p, error: pError },
-    { data: images },
-    { data: variants },
+    { data: images, error: iError },
+    { data: variants, error: vError },
   ] = await Promise.all([
     supabase.from('products').select('*').eq('id', id).single(),
     supabase.from('product_images').select('*').eq('product_id', id).order('sort_order'),
     supabase.from('product_variants').select('*').eq('product_id', id).order('sort_order'),
   ]);
 
-  if (pError || !p) return null;
+  // PGRST116 = no such row. Any other failure is transient: throw it rather than
+  // report "not found" (which the shared cache would then hand to every visitor).
+  if (pError && pError.code !== 'PGRST116') throw pError;
+  if (iError) throw iError;
+  if (vError) throw vError;
+  if (!p) return null;
 
   return {
     id: p.id,
@@ -576,9 +585,70 @@ async function columnSupported(table: string, column: string): Promise<boolean> 
 
 const ageColumnsSupported = () => columnSupported('product_variants', 'age_min_months');
 
+// Storage path inside the public 'images' bucket for one of our own URLs, else null.
+const imagePathOf = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  // Only our own project's public 'images' bucket; never an external URL that
+  // merely contains "/images/".
+  const prefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/images/`;
+  if (!url.startsWith(prefix)) return null;
+  return decodeURIComponent(url.slice(prefix.length).split('?')[0]);
+};
+
+// Tell the server to drop its cached catalogue after an admin change, so the
+// storefront reflects it right away. Fire-and-forget: the cache expires on its own anyway.
+export const revalidateCatalogue = () => {
+  fetch('/api/catalogue/revalidate', { method: 'POST' }).catch(() => {});
+};
+
+// Storefront catalogue via the cached /api/catalogue route, so shoppers share one
+// Supabase read instead of each pulling every product row. Falls back to a direct
+// query if the route is unavailable.
+export const fetchCatalogue = async (): Promise<Product[]> => {
+  try {
+    const res = await fetch('/api/catalogue');
+    if (res.ok) return (await res.json()) as Product[];
+  } catch {
+    // fall through to the direct query
+  }
+  return fetchProducts();
+};
+
 export const deleteProduct = async (id: string) => {
+  // Collect this product's photos before the rows go away.
+  const [{ data: imgRows }, { data: prodRow }] = await Promise.all([
+    supabase.from('product_images').select('url').eq('product_id', id),
+    supabase.from('products').select('image').eq('id', id).maybeSingle(),
+  ]);
+  const urls = new Set<string>([...(imgRows || []).map((r: any) => r.url), prodRow?.image].filter(Boolean));
+
   const { error } = await supabase.from('products').delete().eq('id', id);
   if (error) throw error;
+
+  // Best-effort, like deleteReel: the row is the source of truth. Skip any photo
+  // still used elsewhere (another product, or a review the admin attached it to).
+  try {
+    const ours = [...urls].filter((u) => imagePathOf(u));
+    if (ours.length > 0) {
+      const [a, b, c] = await Promise.all([
+        supabase.from('product_images').select('url').in('url', ours),
+        supabase.from('products').select('image').in('image', ours),
+        supabase.from('reviews').select('image_url').in('image_url', ours),
+      ]);
+      // If a check errored we can't tell what's unused, so keep every file.
+      if (!a.error && !b.error && !c.error) {
+        const stillUsed = new Set<string>([
+          ...(a.data || []).map((r: any) => r.url),
+          ...(b.data || []).map((r: any) => r.image),
+          ...(c.data || []).map((r: any) => r.image_url),
+        ]);
+        const paths = ours.filter((u) => !stillUsed.has(u)).map((u) => imagePathOf(u)!);
+        if (paths.length > 0) await supabase.storage.from('images').remove(paths);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not remove product photos from storage:', err);
+  }
 };
 
 // ============================
@@ -1086,7 +1156,7 @@ export const fetchAllReels = async (): Promise<Reel[]> => {
 };
 
 // Reels autoplay for every visitor, so size is direct Storage egress.
-export const MAX_REEL_BYTES = 7 * 1024 * 1024; // 7 MB
+export const MAX_REEL_BYTES = 3 * 1024 * 1024; // 3 MB
 
 // Uploads a video file to the 'reels' storage bucket and records it. When
 // `sortOrder` is given (e.g. replacing a reel), the new row takes that exact
@@ -1298,9 +1368,11 @@ export const DEFAULT_DELIVERY_INFO: DeliveryInfo = {
   ],
 };
 
-export const fetchDeliveryInfo = async (): Promise<DeliveryInfo> => {
+// `fresh` is for the admin editor: it must never see a cached copy, or a second
+// save could write old values back over the first.
+export const fetchDeliveryInfo = async (opts?: { fresh?: boolean }): Promise<DeliveryInfo> => {
   try {
-    const res = await fetch('/api/settings/delivery', { cache: 'no-store' });
+    const res = await fetch(opts?.fresh ? '/api/settings/delivery?fresh=1' : '/api/settings/delivery', opts?.fresh ? { cache: 'no-store' } : undefined);
     const v = (await res.json()) as Partial<DeliveryInfo> | null;
     if (!res.ok || !v) return DEFAULT_DELIVERY_INFO;
     return {
@@ -1344,9 +1416,9 @@ export const DEFAULT_GST_INFO: GstInfo = {
   gstin: '',
 };
 
-export const fetchGstInfo = async (): Promise<GstInfo> => {
+export const fetchGstInfo = async (opts?: { fresh?: boolean }): Promise<GstInfo> => {
   try {
-    const res = await fetch('/api/settings/gst', { cache: 'no-store' });
+    const res = await fetch(opts?.fresh ? '/api/settings/gst?fresh=1' : '/api/settings/gst', opts?.fresh ? { cache: 'no-store' } : undefined);
     const v = (await res.json()) as Partial<GstInfo> | null;
     if (!res.ok || !v) return DEFAULT_GST_INFO;
     return {

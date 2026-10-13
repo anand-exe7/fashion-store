@@ -17,7 +17,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { 
-  fetchProducts, 
+  fetchCatalogue, 
   fetchDepartments, 
   formatAgeRange, 
   productMatchesDepartment, 
@@ -67,7 +67,7 @@ function NewArrivalsContent() {
   const loadData = useCallback(async () => {
     try {
       const [prodData, deptData] = await withTimeout(
-        Promise.all([fetchProducts(), fetchDepartments()]),
+        Promise.all([fetchCatalogue(), fetchDepartments()]),
       );
       setAllProducts(prodData);
       setDepartments(deptData.filter(d => d.isActive));
@@ -83,7 +83,7 @@ function NewArrivalsContent() {
       console.error("Failed to load products for New Arrivals:", err);
       let prodData: Product[] = [];
       try {
-        prodData = await withTimeout(fetchProducts());
+        prodData = await withTimeout(fetchCatalogue());
       } catch (retryErr) {
         console.error('Products load failed too.', retryErr);
         setLoadError(true);

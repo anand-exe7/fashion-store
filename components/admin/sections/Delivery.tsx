@@ -14,7 +14,7 @@ function DeliveryInfoEditor() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    fetchDeliveryInfo().then((info) => {
+    fetchDeliveryInfo({ fresh: true }).then((info) => {
       setLandingText(info.landingText);
       setLines(info.productLines.join('\n'));
     });
@@ -83,7 +83,7 @@ function GstInfoEditor() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    fetchGstInfo().then(setGst);
+    fetchGstInfo({ fresh: true }).then(setGst);
   }, []);
 
   const save = async () => {

@@ -5,7 +5,7 @@ import { motion, useScroll } from 'framer-motion';
 import { useState, useRef, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Minus, Plus, ArrowRight, ChevronDown } from 'lucide-react';
-import { fetchProductById, fetchProducts, fetchSuggestions, fetchDeliveryInfo, DEFAULT_DELIVERY_INFO, formatAgeRange, Product } from '@/lib/db';
+import { fetchProductById, fetchCatalogue, fetchSuggestions, fetchDeliveryInfo, DEFAULT_DELIVERY_INFO, formatAgeRange, Product } from '@/lib/db';
 import { optimizedSrc } from '@/lib/image';
 import { priceParts, variantPrice } from '@/lib/price';
 import { withTimeout, isTimeout } from '@/lib/withTimeout';
@@ -84,7 +84,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           setRelated(curated.slice(0, 4));
         } else {
           // No admin-curated suggestions yet — fall back to same-category picks.
-          const all = await fetchProducts();
+          const all = await fetchCatalogue();
           if (cancelled) return;
           const pool = all.filter(p => p.id !== id);
           const sameCategory = prod ? pool.filter(p => p.category === prod.category) : [];

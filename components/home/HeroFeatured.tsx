@@ -1,4 +1,4 @@
-import { fetchProducts } from '@/lib/db';
+import { getCatalogue } from '@/lib/server/catalogue';
 import type { Product } from '@/lib/db';
 import { optimizedSrc } from '@/lib/image';
 import { priceParts } from '@/lib/price';
@@ -30,7 +30,7 @@ export const HeroFeaturedSkeleton = () => (
 export const HeroFeatured = async () => {
   let product: Product | undefined;
   try {
-    product = pickFeatured(await fetchProducts());
+    product = pickFeatured(await getCatalogue());
   } catch {
     return null;
   }

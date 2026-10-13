@@ -322,6 +322,7 @@ export async function addOrder(order: Order) {
   }
 
   // A sale changes the order list, variant stock, and (if a coupon was used) its used-count.
+  db.revalidateCatalogue(); // the sale changed variant stock
   refreshAll(['orders', 'products', 'coupons']);
 }
 
@@ -389,6 +390,7 @@ export async function addProduct(p: Product): Promise<SaveResult> {
     return { ok: false, skipped: [], error: err instanceof Error ? err.message : 'Could not save the product.' };
   }
 
+  db.revalidateCatalogue();
   refreshAll(['products', 'taxonomy']); // saving auto-creates a missing category
   return { ok: true, skipped: describeSkips(result.skipped) };
 }
@@ -461,6 +463,7 @@ export async function updateProduct(id: string, patch: Partial<Product>): Promis
     return { ok: false, skipped: [], error: err instanceof Error ? err.message : 'Could not save the product.' };
   }
 
+  db.revalidateCatalogue();
   refreshAll(['products', 'taxonomy']); // saving auto-creates a missing category
   return { ok: true, skipped: describeSkips(result.skipped) };
 }
@@ -477,6 +480,7 @@ export async function deleteProduct(id: string) {
   globalState = { ...globalState, products: globalState.products.filter(p => p.id !== id) };
   notify();
   await db.deleteProduct(id);
+  db.revalidateCatalogue();
   refreshAll(['products']);
 }
 
@@ -509,6 +513,7 @@ export async function adjustVariantStock(productId: string, variantId: string, d
     console.error(`Failed to adjust stock for variant ${variantId}:`, err);
     showToast("Couldn't update stock.");
   }
+  db.revalidateCatalogue();
   refreshAll(['products']);
 }
 

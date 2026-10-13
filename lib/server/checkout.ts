@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { adminSupabase } from '@/lib/supabase/admin';
 import { variantPrice } from '@/lib/price';
+import { revalidateTag } from 'next/cache';
 
 // ============================================================
 // SERVER-SIDE CHECKOUT PRICING
@@ -355,6 +356,10 @@ export async function applyOrderStock(orderId: string): Promise<void> {
         console.error(`[stock] order ${orderId}: failed to decrement ${qty} x "${item.name}" (variant ${variantId}):`, err);
       }
     }
+
+    // Stock changed: drop the shared catalogue cache so listing cards update now,
+    // not at the next expiry.
+    revalidateTag('catalogue', { expire: 0 });
   } catch (err) {
     console.error(`[stock] could not apply stock for order ${orderId}:`, err);
   }

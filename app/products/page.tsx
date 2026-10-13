@@ -18,7 +18,7 @@ import {
   Check
 } from 'lucide-react';
 import { 
-  fetchProducts, 
+  fetchCatalogue, 
   fetchCategories, 
   fetchDepartments, 
   formatAgeRange, 
@@ -93,7 +93,7 @@ function ProductsContent() {
   const loadData = useCallback(async () => {
     try {
       const [prodData, catData, deptData] = await withTimeout(
-        Promise.all([fetchProducts(), fetchCategories(), fetchDepartments()]),
+        Promise.all([fetchCatalogue(), fetchCategories(), fetchDepartments()]),
       );
       setProducts(prodData);
       setCategories(['All', ...catData.filter(c => c.isActive).map(c => c.name)]);
@@ -111,7 +111,7 @@ function ProductsContent() {
       console.error("Failed to load taxonomy, falling back to products only.", err);
       let prodData: Product[] = [];
       try {
-        prodData = await withTimeout(fetchProducts());
+        prodData = await withTimeout(fetchCatalogue());
       } catch (retryErr) {
         console.error('Products load failed too.', retryErr);
         setLoadError(true);

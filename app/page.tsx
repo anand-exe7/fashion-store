@@ -16,7 +16,7 @@ import { Instagram } from '@/components/home/Instagram';
 import { Newsletter } from '@/components/home/Newsletter';
 import { Footer } from '@/components/layout/Footer';
 import { IntroLoader } from '@/components/ui/IntroLoader';
-import { fetchProducts } from '@/lib/db';
+import { getCatalogue } from '@/lib/server/catalogue';
 import { readCategoryImages } from '@/lib/server/categoryImages';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
@@ -29,11 +29,9 @@ export const metadata: Metadata = {
 };
 
 // Cache the Supabase reads so page views don't each hit the DB + storage list.
-const getHomeData = unstable_cache(
-  async () => Promise.all([fetchProducts(), readCategoryImages()]),
-  ['home-data'],
-  { revalidate: 300 },
-);
+// The catalogue already has its own shared, tagged cache; wrapping it again would
+// stack two 5-minute windows and escape its invalidation.
+const getCategoryImages = unstable_cache(() => readCategoryImages(), ['home-category-images'], { revalidate: 300 });
 
 function ProductSkeleton() {
   return (
@@ -66,7 +64,7 @@ function GridSkeleton({ count = 3 }: { count?: number }) {
 async function AsyncProducts() {
   // Always read the latest admin-uploaded category photos (never a build-time snapshot).
   await connection();
-  const [products, categoryImages] = await getHomeData();
+  const [products, categoryImages] = await Promise.all([getCatalogue(), getCategoryImages()]);
   return (
     <>
       <NewArrivals products={products} />

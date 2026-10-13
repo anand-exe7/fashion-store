@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { SITE_URL } from '@/lib/seo';
-import { fetchProducts } from '@/lib/db';
+import { getCatalogue } from '@/lib/server/catalogue';
 
 // Dynamic sitemap: static marketing/catalogue pages plus one entry per live
 // product. Product data is fetched at request/build time (same Supabase helper
@@ -19,7 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   let productRoutes: MetadataRoute.Sitemap = [];
   try {
-    const products = await fetchProducts();
+    const products = await getCatalogue();
     productRoutes = products
       // Don't advertise products that are hidden/unavailable in the store.
       .filter((p) => p.isAvailable !== false)
