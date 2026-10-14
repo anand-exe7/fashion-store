@@ -12,7 +12,8 @@ const itemVariants: any = {
 export const ProductCard = ({ id, title, category, price, originalPrice, priceFrom, isNew, discount, image, stock }: any) => {
   const isOutOfStock = stock <= 0;
   const { priceLabel, originalLabel, hasMrp, discountPct } = priceParts(price, originalPrice);
-  // If the optimizer ever fails for a photo, fall back to the original so the card is never blank.
+  // If the optimizer fails for a photo, show the plain placeholder. Falling back to the
+  // original would download a full-size upload (often several MB) for every card.
   const [optimizerFailed, setOptimizerFailed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const rotateXRaw = useMotionValue(0);
@@ -53,11 +54,11 @@ export const ProductCard = ({ id, title, category, price, originalPrice, priceFr
           {/* A product with no photo gets a plain placeholder. It used to render
               an <img> with no src — a broken-image icon — and the home page went
               further and substituted a stock photo of clothing we don't sell. */}
-          {image ? (
+          {image && !optimizerFailed ? (
             <motion.img
               whileHover={{ scale: 1.05 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
-              src={optimizerFailed ? image : optimizedSrc(image, 640)}
+              src={optimizedSrc(image, 640)}
               onError={() => setOptimizerFailed(true)}
               alt={title}
               className={`w-full h-full object-cover ${isOutOfStock ? 'opacity-40 grayscale-[0.5]' : ''}`}

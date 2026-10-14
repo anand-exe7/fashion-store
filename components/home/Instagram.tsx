@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Volume2, VolumeX, ExternalLink } from 'lucide-react';
+import { Volume2, VolumeX, ExternalLink, Play } from 'lucide-react';
 import { Magnetic } from '../ui/Magnetic';
 import { fetchActiveReels } from '@/lib/db';
 
@@ -38,8 +38,9 @@ const VideoReel = ({ src, href, index }: { src: string; href: string; index: num
   const videoRef = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(true);
   const [failed, setFailed] = useState(false);
-  // The video file is only requested once the reel nears the viewport, so
-  // visitors who never scroll to it don't download up to 3 videos (egress).
+  // The video file is only requested after the visitor taps Play, so scrolling past
+  // the reels costs no Storage egress (autoplaying 3 videos for every visitor did).
+  // `near` therefore means "the visitor asked to watch this reel".
   const [near, setNear] = useState(false);
   const [visible, setVisible] = useState(false);
   const inView = useRef(false);
@@ -51,7 +52,6 @@ const VideoReel = ({ src, href, index }: { src: string; href: string; index: num
       ([entry]) => {
         inView.current = entry.isIntersecting;
         setVisible(entry.isIntersecting);
-        if (entry.isIntersecting) setNear(true);
       },
       { rootMargin: '200px' },
     );
@@ -125,15 +125,30 @@ const VideoReel = ({ src, href, index }: { src: string; href: string; index: num
             className="h-full w-full cursor-pointer object-cover"
           />
 
-          {/* Mute / unmute — the only control, tucked in the corner */}
-          <button
-            type="button"
-            onClick={toggleMute}
-            aria-label={muted ? 'Unmute' : 'Mute'}
-            className="absolute bottom-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition-colors hover:bg-black/70"
-          >
-            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </button>
+          {near ? (
+            /* Mute / unmute — the only control once playing, tucked in the corner */
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-label={muted ? 'Unmute' : 'Mute'}
+              className="absolute bottom-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition-colors hover:bg-black/70"
+            >
+              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </button>
+          ) : (
+            /* Nothing is downloaded until this is tapped */
+            <button
+              type="button"
+              onClick={() => setNear(true)}
+              aria-label="Play reel"
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-neutral-800 to-neutral-950 text-white"
+            >
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/30 backdrop-blur-md transition-transform group-hover:scale-110">
+                <Play className="ml-1 h-7 w-7 fill-white" />
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/70">Tap to play</span>
+            </button>
+          )}
         </>
       )}
     </motion.div>
